@@ -32,6 +32,13 @@ try {
   await Promise.all(pages.map((page) => page.locator('#ready').click()));
   await Promise.all(pages.map((page) => page.locator('#screen canvas').waitFor()));
   await mario.waitForTimeout(750);
+  assert.equal(snapshots.get(luigi).phase, 'map');
+  await mario.keyboard.press('Enter');
+  const deadline = Date.now() + 5000;
+  while (snapshots.get(luigi)?.phase !== 'playing') {
+    assert.ok(Date.now() < deadline, 'Luigi did not enter the selected course');
+    await mario.waitForTimeout(20);
+  }
   const before = snapshots.get(mario).players.mario.x;
   await mario.keyboard.down('ArrowRight');
   await mario.keyboard.down('KeyX');

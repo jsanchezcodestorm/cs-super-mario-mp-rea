@@ -16,6 +16,7 @@
     "build": "npm run check:server && npm run build -w @smw/web",
     "check:server": "tsc --noEmit -p apps/server/tsconfig.json",
     "test": "tsx --test tests/*.test.ts && npm run test -w @smw/core",
+    "test:campaign:online": "tsx tests/network-playthrough.ts",
     "test:browser": "node tests/browser.mjs && tsx tests/browser-campaign.mjs",
     "extract": "node tools/extract.mjs"
   },
