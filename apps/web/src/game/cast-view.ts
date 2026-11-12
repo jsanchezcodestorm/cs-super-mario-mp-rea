@@ -54,6 +54,10 @@ export class CastView {
         .setFlipX(flip)
         .setAlpha(alpha);
     };
+    if (state.bonus?.roomId === stage.id) {
+      for (const [index, slot] of state.bonus.slots.entries())
+        draw('bonus-' + index, 'bonus/' + slot.frame, slot.x + 8, slot.y + 16, false, 1, 'creatures');
+    }
     for (const e of state.entities) {
       if (!e.active || e.roomId !== stage.id) continue;
       const old = prevEntities.get(e.id),
@@ -81,7 +85,7 @@ export class CastView {
       draw(
         p.id,
         frameForPlayer(p, state.tick, !!stage.water),
-        x + p.width / 2 - (p.mounted?p.facing*4:0),
+        x + p.width / 2 - (p.mounted ? p.facing * 4 : 0),
         y + p.height - (p.mounted ? 12 : 0),
         p.facing === 1,
         p.invincible > 0 && state.tick % 8 < 4 ? 0.45 : 1,

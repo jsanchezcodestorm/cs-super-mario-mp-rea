@@ -1,3 +1,4 @@
+import { releaseReserve } from './rewards.ts'
 import { clearMouth, releaseMouth } from './yoshi-tongue.ts'
 import type { World, PlayerState } from './types.ts'
 import { playerIds } from './types.ts'
@@ -7,6 +8,7 @@ export function die(world: World, p: PlayerState) {
   p.lives = Math.max(0, p.lives - 1)
   p.status = p.lives === 0 ? 'spectator' : 'dead'
   p.timer = 76
+  p.reserve = null
   p.form = 'small'
   p.height = 16
   p.mounted = false
@@ -31,6 +33,7 @@ export function hurt(world: World, p: PlayerState) {
       yoshi.yoshiColor = p.yoshiColor
     }
   } else if (p.form !== 'small') {
+    releaseReserve(world, p)
     p.y += p.height - 16
     p.height = 16
     p.form = 'small'

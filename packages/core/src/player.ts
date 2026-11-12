@@ -1,3 +1,4 @@
+import { releaseReserve } from './rewards.ts'
 import { constrainToScroll } from './autoscroll.ts'
 import { yoshiPowers } from './yoshi-colors.ts'
 import { releaseMouth, stepTongue } from './yoshi-tongue.ts'
@@ -85,6 +86,7 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
   const tileIds = bodyCells(p).map(({ col, row }) => tileAt(world, room, col, row))
   const water = !!room.water || tileIds.some((t) => t >= 0 && t < 5)
   const climb = tileIds.some((t) => t >= 6 && t <= 0x1c)
+  if (pressed & Buttons.reserve) releaseReserve(world, p)
   const grounded = p.grounded
   if (advanceMotion(p, input, pressed, water, climb) && (grounded || water || climb)) emit(world, 'jump', p)
   stepTongue(world, p, input, pressed)

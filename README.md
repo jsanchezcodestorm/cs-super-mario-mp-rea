@@ -20,9 +20,10 @@ Apri [il gioco in locale](http://127.0.0.1:8787). Mario crea una stanza, Luigi s
 | Salto | Z o Spazio |
 | Corsa, presa, lancio, fuoco, lingua di Yoshi | X o Maiusc sinistro |
 | Salto avvitato o discesa da Yoshi | A |
+| Lascia cadere il potenziamento in riserva | C o Select sul gamepad |
 | Entra nel corso selezionato o salta il filmato | Invio |
 
-Il client accetta anche un gamepad con mappatura standard del browser. In mappa le frecce selezionano i corsi sbloccati. Il checkpoint e l’uscita raggiunta da uno valgono per entrambi. Ogni personaggio ha le proprie vite e i propri potenziamenti. Chi esaurisce le vite segue il compagno e rientra al corso successivo con una vita.
+Il client accetta anche un gamepad con mappatura standard del browser. In mappa le frecce selezionano i corsi sbloccati. Il checkpoint e l’uscita raggiunta da uno valgono per entrambi. Ogni personaggio ha le proprie vite, i propri potenziamenti e un oggetto in riserva. La barra SNES mostra le risorse del giocatore locale. Colpire il nastro al traguardo assegna stelle secondo l’altezza e a 100 stelle si entra nel minigioco bonus. Chi esaurisce le vite segue il compagno e rientra al corso successivo con una vita.
 
 Il server congela la simulazione quando uno dei due si disconnette. La stessa scheda può rientrare entro 60 secondi. Ogni browser conserva la campagna in IndexedDB ai checkpoint e ai cambi di fase. Per continuare dopo la chiusura della stanza, crea una stanza scegliendo **Riprendi campagna salvata**. Le stanze attive vivono nella memoria del processo.
 
@@ -58,7 +59,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Il test browser apre due sessioni Chromium separate, crea una stanza, verifica il movimento dell’altro personaggio e ricarica una pagina per controllare la riconnessione. Salva le schermate in `test-results/`. I test del simulatore esercitano anche checkpoint, vite, porte, tubi, chiavi, interruttori e salvataggi. I replay in `tests/course-inputs.json` percorrono i rispettivi livelli dal punto d’ingresso con comandi di gioco.
+Il test browser apre due sessioni Chromium separate, crea una stanza, verifica il movimento dell’altro personaggio e ricarica una pagina per controllare la riconnessione. Una seconda prova ripristina un salvataggio sulla mappa e verifica che entrambi i browser registrino l’uscita del Palazzo Giallo quando Luigi preme l’interruttore in un’altra stanza. Le schermate sono in `test-results/`. I test del simulatore esercitano anche checkpoint, vite, porte, tubi, chiavi, interruttori e salvataggi. I replay in `tests/course-inputs.json` percorrono 13 corsi ciascuno dal proprio ingresso, inclusi tutti i livelli di Yoshi’s Island, Iggy e la Back Door fino alla sconfitta di Bowser. Il replay del finale verifica anche la durata dei titoli di coda.
 
 La cartuccia fornisce 235 stanze dagli slot principali, cinque varianti condizionali di Chocolate Island 2 e sei scene di ingresso. Il motore web reimplementa i comportamenti. Alcuni nemici condividono routine di movimento, le arene e i boss hanno differenze rispetto allo SNES e le tracce musicali sono registrazioni con ripetizione. La verifica integrale di tutte le 96 uscite con due giocatori rimane aperta.
 

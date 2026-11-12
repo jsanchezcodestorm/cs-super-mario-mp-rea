@@ -29,3 +29,4 @@ run('python3', ['tools/reference/capture.py', resolve(core), rom, join(root, 'ge
 
 run('python3', ['tools/rom/scroll_capture.py', resolve(core), rom, join(root, 'generated')]);
 run('python3', ['tools/rom/boss_capture.py', resolve(core), rom, join(root, 'generated')]);
+run('python3', ['tools/rom/hud_capture.py', resolve(core), rom, join(root, 'generated')]);

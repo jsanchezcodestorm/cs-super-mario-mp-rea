@@ -11,10 +11,12 @@ const keys: Record<string, number> = {
   ShiftLeft: Buttons.run,
   KeyA: Buttons.spin,
   Enter: Buttons.action,
+  KeyC: Buttons.reserve,
 };
 
 export class Controls {
   private pressed = new Set<string>();
+  private taps = 0;
   private readonly toggle = (event: KeyboardEvent) => {
     if (!Object.hasOwn(keys, event.code) || event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.type === 'keyup') {
@@ -23,9 +25,13 @@ export class Controls {
     }
     if (event.target instanceof HTMLElement && event.target.closest('button,input,select,textarea')) return;
     event.preventDefault();
+    if (!event.repeat) this.taps |= keys[event.code];
     this.pressed.add(event.code);
   };
-  private readonly clear = () => this.pressed.clear();
+  private readonly clear = () => {
+    this.pressed.clear();
+    this.taps = 0;
+  };
 
   constructor() {
     window.addEventListener('keydown', this.toggle);
@@ -34,7 +40,8 @@ export class Controls {
   }
 
   sample() {
-    let buttons = 0;
+    let buttons = this.taps;
+    this.taps = 0;
     for (const key of this.pressed) buttons |= keys[key];
     const pad = navigator.getGamepads?.().find((p) => p?.connected && p.mapping === 'standard');
     if (!pad) return buttons;
@@ -43,6 +50,7 @@ export class Controls {
       [1, Buttons.run],
       [2, Buttons.spin],
       [3, Buttons.action],
+      [8, Buttons.reserve],
       [12, Buttons.up],
       [13, Buttons.down],
       [14, Buttons.left],

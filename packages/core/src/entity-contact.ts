@@ -1,3 +1,5 @@
+import { collectedBonusLife } from './bonus-game.ts'
+import { goalReward, addScore, storePowerup } from './rewards.ts'
 import { taste } from './yoshi-tongue.ts'
 import { shellColor, koopaShell } from './yoshi-colors.ts'
 import { isTiltingArena } from './arena.ts'
@@ -12,6 +14,7 @@ const edible = new Set(['walker', 'koopa', 'rex', 'spiny', 'jumper', 'fish', 'fl
 const pickups = new Set(['mushroom', 'flower', 'star', 'feather', 'oneUp', 'coin'])
 function pickup(world: World, e: EntityState, p: PlayerState) {
   e.active = false
+  if (e.bonusPrize) collectedBonusLife(world)
   if (e.kind === 'coin') {
     collectCoin(world, p)
     return
@@ -19,12 +22,14 @@ function pickup(world: World, e: EntityState, p: PlayerState) {
   if (e.kind === 'oneUp') p.lives = Math.min(99, p.lives + 1)
   else if (e.kind === 'star') p.star = 600
   else {
+    if (e.kind === 'mushroom' || e.kind === 'feather' || e.kind === 'flower') storePowerup(p, e.kind)
     if (e.kind === 'mushroom' && p.form === 'small') p.form = 'super'
     if (e.kind === 'flower') p.form = 'fire'
     if (e.kind === 'feather') p.form = 'cape'
     p.y -= 28 - p.height
     p.height = 28
   }
+  if (e.kind !== 'oneUp' && !e.reserveDrop) addScore(p, 1000)
   emit(world, 'item', p)
 }
 export function strike(world: World, e: EntityState, p: PlayerState) {
@@ -37,6 +42,7 @@ export function strike(world: World, e: EntityState, p: PlayerState) {
     if (e.stunnedUntil && e.age < e.stunnedUntil) return
     e.stunnedUntil = e.age + 18
   }
+  addScore(p, 100)
   e.hp--
   if (e.hp > 0) {
     if (e.kind === 'rex') {
@@ -101,8 +107,10 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     return
   }
   if (e.kind === 'goal') {
-    if (p.x + p.width >= e.x - 8 && p.x < e.x + 8 && p.y <= e.origin.y + 16)
+    if (p.x + p.width >= e.x - 8 && p.x < e.x + 8 && p.y <= e.origin.y + 16) {
+      goalReward(world, p, e)
       finishCourse(world, p, e.secret ? 'secret' : 'normal')
+    }
     return
   }
   if (taste(world, p, e)) return

@@ -51,7 +51,7 @@ export function parseMessage(raw: string): ClientMessage {
         typeof m.buttons === 'number' &&
         Number.isInteger(m.buttons) &&
         m.buttons >= 0 &&
-        m.buttons <= 255
+        m.buttons <= 511
       )
         return m as ClientMessage;
       break;

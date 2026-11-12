@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { scrollingCamera, type PlayerId } from '@smw/core';
 import { preloadMapEvents } from './map-events';
+import { StatusBar, preloadStatusBar } from './status-bar';
 import { CastView } from './cast-view';
 import { OverworldView, type WorldNodes } from './overworld-view';
 import { preloadBosses, drawBossArena } from './boss-view';
@@ -13,6 +14,7 @@ export class WorldScene extends Phaser.Scene {
   private terrain!: Phaser.Textures.CanvasTexture;
   private controls?: Controls;
   private cast!: CastView;
+  private statusBar!: StatusBar;
   private map!: OverworldView;
   private inputClock = 0;
 
@@ -27,6 +29,7 @@ export class WorldScene extends Phaser.Scene {
     this.load.atlas('actors', '/assets/actors.png', '/assets/actors.json');
     this.load.atlas('creatures', '/assets/creatures.png', '/assets/creatures.json');
     preloadMapEvents(this);
+    preloadStatusBar(this);
     preloadBosses(this);
     for (const key of new Set(Object.values(this.content.levels).map((s) => s.atlas)))
       this.load.image(key, '/assets/' + key);
@@ -38,6 +41,7 @@ export class WorldScene extends Phaser.Scene {
     this.terrain = texture;
     this.terrain.context.imageSmoothingEnabled = false;
     this.add.image(0, 0, 'world-layer').setOrigin(0);
+    this.statusBar = new StatusBar(this);
     this.cast = new CastView(this, this.terrain);
     this.map = new OverworldView(this, this.terrain, this.nodes, this.content.names);
     this.controls = new Controls();
@@ -56,6 +60,7 @@ export class WorldScene extends Phaser.Scene {
     if (!state || !next || !this.terrain) return;
     if (state.phase !== 'playing') {
       this.cast.clear();
+      this.statusBar.hide();
       this.map.draw(state);
       return;
     }
@@ -80,5 +85,8 @@ export class WorldScene extends Phaser.Scene {
       );
     this.terrain.refresh();
     this.cast.draw(stage, camera, state, this.live, local, peer);
+    const bowser = stage.specialMode7 && stage.sprites.some((s) => s.spriteId === 0xa0);
+    if (bowser || state.cutscene) this.statusBar.hide();
+    else this.statusBar.draw(state.players[localId], state);
   }
 }

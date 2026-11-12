@@ -1,3 +1,4 @@
+import { beginBonus, resumeBonus, validBonus } from './bonus-game.ts'
 import { Buttons, playerIds } from './types.ts'
 import type {
   World,
@@ -15,6 +16,7 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   const { state } = world
   if (!state.progress.unlocked.includes(course)) throw new Error('Course is locked')
   state.phase = 'playing'
+  delete state.bonus
   state.progress.course = course
   state.progress.selection = state.progress.unlocked.indexOf(course)
   if (!resumeCheckpoint) state.progress.checkpoint = null
@@ -72,7 +74,16 @@ export function createGame(campaign: CampaignDefinition, save?: CampaignSave | n
     mario: initialPlayer('mario', progress.course),
     luigi: initialPlayer('luigi', progress.course),
   }
-  if (save) for (const id of playerIds) Object.assign(players[id], save.resources[id])
+  if (save)
+    for (const id of playerIds) {
+      const { lives, coins, form, mounted, yoshiColor, reserve, score, bonusStars } = save.resources[id]
+      const player = players[id]
+      Object.assign(player, { lives, coins, form, mounted })
+      if (yoshiColor !== undefined) player.yoshiColor = yoshiColor
+      if (reserve !== undefined) player.reserve = reserve
+      if (score !== undefined) player.score = score
+      if (bonusStars !== undefined) player.bonusStars = bonusStars
+    }
   const state: GameState = {
     tick: 0,
     phase: 'playing',
@@ -92,7 +103,8 @@ export function createGame(campaign: CampaignDefinition, save?: CampaignSave | n
     entrance: null,
     timeLeft: 400,
   }
-  if (save && save.phase !== 'playing') state.phase = save.phase
+  if (save?.bonus) resumeBonus({ campaign, state }, save.bonus)
+  else if (save && save.phase !== 'playing') state.phase = save.phase
   else startCourse({ campaign, state }, progress.course, true)
   return state
 }
@@ -119,6 +131,7 @@ export function finishCourse(
   p.checkpoint = null
   state.phase = ending ? 'ending' : 'map'
   emit(world, ending ? 'ending' : 'exit', player, kind)
+  if (!ending && countsAsExit && player.bonusStars >= 100) beginBonus(world, player)
 }
 export function navigate(world: World, inputs: InputFrame) {
   const { state } = world,
@@ -136,11 +149,12 @@ export function navigate(world: World, inputs: InputFrame) {
 }
 export function makeSave(state: GameState): CampaignSave {
   const resources = (id: PlayerId) => {
-    const { form, lives, coins, mounted, yoshiColor } = state.players[id]
-    return { form, lives, coins, mounted, yoshiColor }
+    const { form, lives, coins, mounted, yoshiColor, reserve, score, bonusStars } = state.players[id]
+    return { form, lives, coins, mounted, yoshiColor, reserve, score, bonusStars }
   }
   return {
     version: 1,
+    ...(state.bonus ? { bonus: structuredClone(state.bonus) } : {}),
     phase: state.phase,
     progress: structuredClone(state.progress),
     resources: { mario: resources('mario'), luigi: resources('luigi') },
@@ -153,8 +167,11 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
   if (
     !record(value) ||
     value.version !== 1 ||
-    !['playing', 'map', 'ending', 'gameOver'].includes(String(value.phase))
+    typeof value.phase !== 'string' ||
+    !['playing', 'map', 'ending', 'gameOver'].includes(value.phase)
   )
+    return false
+  if (value.bonus !== undefined && (value.phase !== 'playing' || !validBonus(value.bonus, campaign.levels)))
     return false
   const p = value.progress,
     members = value.resources
@@ -174,7 +191,8 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
   if (
     p.unlocked.length !== allowed.length ||
     p.unlocked.some((id, i) => id !== allowed[i]) ||
-    !allowed.includes(String(p.course)) ||
+    typeof p.course !== 'string' ||
+    !allowed.includes(p.course) ||
     !integer(p.selection, 0, allowed.length - 1)
   )
     return false
@@ -200,10 +218,16 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
     return (
       record(r) &&
       integer(r.lives, 0, 99) &&
+      (r.reserve == null ||
+        (typeof r.reserve === 'string' && ['mushroom', 'flower', 'feather'].includes(r.reserve))) &&
+      (r.score === undefined || integer(r.score, 0, 9999990)) &&
+      (r.bonusStars === undefined || integer(r.bonusStars, 0, 149)) &&
       integer(r.coins, 0, 99) &&
-      ['small', 'super', 'fire', 'cape'].includes(String(r.form)) &&
+      typeof r.form === 'string' &&
+      ['small', 'super', 'fire', 'cape'].includes(r.form) &&
       typeof r.mounted === 'boolean' &&
-      (r.yoshiColor === undefined || ['green', 'red', 'blue', 'yellow'].includes(String(r.yoshiColor)))
+      (r.yoshiColor === undefined ||
+        (typeof r.yoshiColor === 'string' && ['green', 'red', 'blue', 'yellow'].includes(r.yoshiColor)))
     )
   })
 }

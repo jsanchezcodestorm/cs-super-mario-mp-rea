@@ -1,3 +1,4 @@
+import { moveTape } from './rewards.ts'
 import { moveEmission } from './emitters.ts'
 import { hatch, feedBaby } from './yoshi-growth.ts'
 import { moveChuck, moveChuckShot } from './chuck.ts'
@@ -64,6 +65,15 @@ function bossMotion(world: World, e: EntityState, target: PlayerState, room: Lev
 export function moveEntity(world: World, e: EntityState, target: PlayerState) {
   const room = world.campaign.levels[e.roomId]
   e.age++
+  if (e.reserveDrop) {
+    e.y += 1
+    if (e.y > room.height * 16 + 16) e.active = false
+    return
+  }
+  if (e.kind === 'goal') {
+    moveTape(e)
+    return
+  }
   if (moveEmission(world, room, e)) return
   if (e.spriteId >= 0x62 && e.spriteId <= 0x68) {
     moveLineGuide(world, room, e)

@@ -1,3 +1,4 @@
+import type { BonusGame } from './bonus-game.ts'
 import type { EmitterCatalog } from './emitters.ts'
 /** Simulation positions and speeds are expressed in pixels and pixels per 60 Hz tick. */
 export interface Point {
@@ -71,9 +72,11 @@ export const Buttons = {
   run: 32,
   spin: 64,
   action: 128,
+  reserve: 256,
 } as const
 export type ButtonMask = number
 export type InputFrame = Record<PlayerId, ButtonMask>
+export type ReserveItem = 'mushroom' | 'flower' | 'feather'
 export type PowerForm = 'small' | 'super' | 'cape' | 'fire'
 export type YoshiColor = 'green' | 'red' | 'yellow' | 'blue'
 export interface YoshiMouth {
@@ -84,6 +87,9 @@ export interface YoshiMouth {
   ticks: number
 }
 export interface PlayerState extends Body {
+  reserve: ReserveItem | null
+  score: number
+  bonusStars: number
   scrollClock?: number
   id: PlayerId
   roomId: string
@@ -154,6 +160,7 @@ export type EntityKind =
   | 'switchPalace'
   | 'exitSide'
 export interface EntityState extends Body {
+  reserveDrop?: boolean
   emission?: { c2: number; facing: number }
   yoshiColor?: YoshiColor
   shellColor?: YoshiColor
@@ -161,6 +168,7 @@ export interface EntityState extends Body {
   meals?: number
   hatchAt?: number
   adultEgg?: boolean
+  bonusPrize?: boolean
   swing?: { angle: number; speed: number }
   id: string
   roomId: string
@@ -186,11 +194,21 @@ export interface CampaignProgress {
   selection: number
 }
 export interface CampaignSave {
+  bonus?: BonusGame
   version: 1
   progress: CampaignProgress
   resources: Record<
     PlayerId,
-    { lives: number; form: PowerForm; coins: number; mounted: boolean; yoshiColor?: YoshiColor }
+    {
+      lives: number
+      form: PowerForm
+      coins: number
+      mounted: boolean
+      yoshiColor?: YoshiColor
+      reserve?: ReserveItem | null
+      score?: number
+      bonusStars?: number
+    }
   >
   phase: 'playing' | 'map' | 'ending' | 'gameOver'
 }
@@ -222,6 +240,7 @@ export interface GameEvent {
   exit?: ExitKind
 }
 export interface GameState {
+  bonus?: BonusGame
   cutscene?: { key: string; start: number; duration: number }
   tick: number
   phase: CampaignSave['phase']

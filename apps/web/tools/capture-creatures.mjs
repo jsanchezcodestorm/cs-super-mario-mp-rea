@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { decode, atlas } from './object-atlas.mjs';
+import { captureBonusSlots } from './bonus-slots.mjs';
 import { parts, capturePlayerFrames } from './actor-parts.mjs';
 
 export function captureCreatures(root, rom) {
@@ -36,10 +37,12 @@ export function captureCreatures(root, rom) {
         ...room.sprites.filter((s) => s.spriteId <= 0xc8),
         ...rewardIds.map((spriteId) => ({ spriteId })),
       ];
-      if (!sprites.some((s) => !seen.has(room.spriteTileset + '-' + s.spriteId))) continue;
+      const captureBonus = room.sprites.some((s) => s.spriteId === 0x82) && !frames.has('bonus/0');
+      if (!captureBonus && !sprites.some((s) => !seen.has(room.spriteTileset + '-' + s.spriteId))) continue;
       const state = execFileSync(loader, [romFile, String(def.layer1), String(def.layer2)]);
       writeFileSync(memFile, state);
       parts(room, state, frames);
+      if (captureBonus) captureBonusSlots(rom, room, state, frames);
       if (!seen.size) capturePlayerFrames(output, runner, romFile, memFile, room.spritePalette);
       for (const sprite of sprites) {
         const key = room.spriteTileset + '-' + sprite.spriteId;
@@ -52,7 +55,7 @@ export function captureCreatures(root, rom) {
           );
         }
         let poses = 0;
-        for (let f = 0; f < (sprite.spriteId===0x35?4:2); f++) {
+        for (let f = 0; f < (sprite.spriteId === 0x35 ? 4 : 2); f++) {
           const pos = (0x2a0 + 0x10000) * f;
           const image = decode(
             run.stdout.subarray(pos, pos + 0x2a0),

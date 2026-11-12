@@ -14,6 +14,7 @@ function canTaste(world: World, e: EntityState) {
   // Extended sprites and scripted objects have no SNES standard-sprite tweaker row.
   if (e.kind === 'fireball' || e.kind === 'yoshiFire' || e.kind === 'chuckShot' || e.kind === 'blockSnake')
     return false
+  if(e.bonusPrize) return false
   const traits = world.campaign.yoshiTraits
   return !!traits && e.spriteId < traits.length && !(traits[e.spriteId] & 1)
 }

@@ -48,7 +48,7 @@ def boot(library, image, bank):
         for _ in range(1200):
             core.run()
             camera_x = core.ram[0x1a] + 256*core.ram[0x1b]
-            if core.ram[0x187a] and camera_x >= 114 and core.ram[0x96] == 80:
+            if core.ram[0x187a] and camera_x >= 882 and core.ram[0x96] == 80:
                 break
         else:
             raise RuntimeError('title demo did not reach the mounted sequence')

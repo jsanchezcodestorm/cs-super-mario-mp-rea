@@ -44,3 +44,7 @@ python3 tools/rom/compare_native.py "/percorso/snes9x_libretro.dylib" "/percorso
 ### Generatori di sprite
 
 `campaign.emitters` conserva le emissioni osservate chiamando il dispatcher originale `02:AFFE` per i generatori `CB`–`D8`. Il campionamento usa una camera a (512, 512), un generatore attivo, un seed iniziale azzerato e tutti gli slot sprite disponibili. Ogni evento riporta tick, ID sprite, coordinate relative alla camera, velocità in pixel per tick, stato C2 e direzione. Le raffiche dei Bullet Bill durano 322 tick. Le sequenze memorizzate rappresentano 6 cicli di raffica oppure 2.048 tick per gli altri generatori.
+
+## Barra di stato PAL
+
+`hud_capture.py` avvia il primo livello e ricava dalla VRAM il piano BG3 in formato 2bpp. Genera due basi trasparenti da 256×32 pixel con i nomi originali, cifre bianche e gialle, cifre alte delle stelle bonus, monete drago e sprite OBJ della riserva. La stella in riserva dispone di quattro fotogrammi di palette. Durante ogni estrazione ricompone la barra e confronta 22 combinazioni di contatori, giocatore e riserva con 180.224 pixel del raster Snes9x.

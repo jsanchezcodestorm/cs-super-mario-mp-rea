@@ -74,8 +74,7 @@ function showHud(s: GameState) {
   const p = s.players[me],
     stage = content.levels[p.roomId];
   el('stage-name').textContent = content.names?.[s.progress.course] ?? s.progress.course;
-  el('hud').textContent =
-    (me === 'mario' ? 'MARIO' : 'LUIGI') + ' × ' + p.lives + '   ● ' + p.coins + '   ◷ ' + s.timeLeft;
+  el('hud').textContent=audioNotice;
   const phase = s.phase;
   const bgm =
     phase === 'map'
@@ -92,10 +91,7 @@ function showHud(s: GameState) {
   if (paused) lobby.overlay('Partita in pausa\nIn attesa della riconnessione…');
   else if (p.status === 'spectator' && phase === 'playing')
     lobby.overlay('Spettatore · Rientro al prossimo livello', true);
-  else if (audioNotice) {
-    el('hud').title = audioNotice;
-    lobby.overlay('');
-  } else lobby.overlay('');
+  else lobby.overlay('');
 }
 async function startPlay() {
   if (!me || loading || stopped) return;

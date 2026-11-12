@@ -1,3 +1,4 @@
+import {stepBonus} from './bonus-game.ts'
 import { stepEmitters } from './emitters.ts'
 import { feedBaby } from './yoshi-growth.ts'
 import { isBlockBridge } from './bridges.ts'
@@ -155,6 +156,8 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       stepLayer(world, campaign.levels[id], present)
       stepEmitters(world, campaign.levels[id], present)
     }
+    const previousBonus=state.bonus
+    const tops={mario:state.players.mario.y,luigi:state.players.luigi.y}
     const bottoms = {
       mario: state.players.mario.y + state.players.mario.height,
       luigi: state.players.luigi.y + state.players.luigi.height,
@@ -171,6 +174,7 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       if (state.phase !== 'playing') break
     }
     if (state.phase === 'playing') updateEntities(world, inputs, bottoms)
+    if(previousBonus && previousBonus===state.bonus)stepBonus(world,tops)
     if (state.phase === 'playing' && state.timeLeft > 0 && state.tick % 41 === 0 && --state.timeLeft === 0) {
       for (const id of playerIds) die(world, state.players[id])
       state.timeLeft = campaign.levels[state.progress.course].timeLimit ?? 400
