@@ -1,13 +1,15 @@
 import Phaser from 'phaser';
 import { WorldScene } from './world-scene';
+import { Controls } from './input';
 import type { Content } from './content';
-import type { Playback } from './playback';
+import type { GameSession } from './playback';
 
 export function startRenderer(
   content: Content,
-  playback: Playback,
+  playback: GameSession,
   regions: Record<string, { region: number; x: number; y: number }>,
 ) {
+  const controls = new Controls();
   const game = new Phaser.Game({
     type: Phaser.CANVAS,
     width: 256,
@@ -19,7 +21,10 @@ export function startRenderer(
     backgroundColor: '#132c32',
     banner: false,
     fps: { target: 60 },
-    scene: new WorldScene(content, playback, regions),
+    scene: new WorldScene(content, playback, regions, controls),
   });
-  return () => game.destroy(true);
+  return () => {
+    controls.destroy();
+    game.destroy(true);
+  };
 }

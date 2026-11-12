@@ -1,4 +1,4 @@
-import { effectiveTile, type GameState } from '@smw/core';
+import { effectiveTile, tideSurface, type GameState } from '@smw/core';
 import type { Stage } from './content';
 export const WIDTH = 256,
   HEIGHT = 224;
@@ -63,4 +63,16 @@ export function drawRoom(
     layer(bg.tiles, bg.width, bg.height, x, y, bg.repeat);
   }
   layer(stage.tiles, stage.width, stage.height, camera.x, camera.y, false, true);
+  const tide = tideSurface(stage, state);
+  if (tide !== null && tide - camera.y < HEIGHT) {
+    const y = tide - camera.y, frame = (state.tick >> 3) & 3;
+    ctx.save();
+    ctx.globalAlpha = 0.52;
+    for (let row = y; row < HEIGHT; row += 16) {
+      const tile = row === y ? (stage.animatedTiles?.[0]?.[frame] ?? 0) : 1;
+      for (let x = -((camera.x + frame) % 16); x < WIDTH; x += 16)
+        ctx.drawImage(atlas, (tile % 32) * 16, (tile >> 5) * 16, 16, 16, x, row, 16, 16);
+    }
+    ctx.restore();
+  }
 }

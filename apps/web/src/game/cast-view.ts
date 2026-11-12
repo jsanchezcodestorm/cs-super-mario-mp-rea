@@ -5,15 +5,20 @@ import { bossFrame } from './boss-view';
 import { drawPlatform } from './platform-view';
 import { frameForEntity, frameForPlayer } from './actors-view';
 import type { Stage } from './content';
-import type { Playback } from './playback';
 import { WIDTH, HEIGHT, type Camera } from './terrain-view';
+
+type Registration = Record<string, { x: number; y: number }>;
 
 export class CastView {
   private actors = new Map<string, Phaser.GameObjects.Image>();
+  private registration: Record<string, Registration>;
   constructor(
     private scene: Phaser.Scene,
     private terrain: Phaser.Textures.CanvasTexture,
-  ) {}
+    registration: Record<string, Registration>,
+  ) {
+    this.registration = registration;
+  }
   clear() {
     for (const actor of this.actors.values()) actor.destroy();
     this.actors.clear();
@@ -22,15 +27,10 @@ export class CastView {
     stage: Stage,
     camera: Camera,
     state: GameState,
-    live: Playback,
     local: PlayerState,
     peer: PlayerState,
   ) {
-    const peerId = peer.id;
-    const keep = new Set<string>(),
-      blend = Math.min(1, (performance.now() - live.sampledAt) / (1000 / 30));
-    const prev = live.previous,
-      prevEntities = new Map(prev?.entities.map((e) => [e.id, e]));
+    const keep = new Set<string>();
     const draw = (
       key: string,
       frame: string,
@@ -42,6 +42,7 @@ export class CastView {
     ) => {
       if (x < camera.x - 80 || x > camera.x + WIDTH + 80 || y < camera.y - 80 || y > camera.y + HEIGHT + 80)
         return;
+      const offset = this.registration[texture]?.[frame];
       keep.add(key);
       let actor = this.actors.get(key);
       if (!actor) {
@@ -50,7 +51,10 @@ export class CastView {
       }
       actor
         .setTexture(texture, frame)
-        .setPosition(Math.round(x - camera.x), Math.round(y - camera.y))
+        .setPosition(
+          Math.round(x + (flip ? -(offset?.x ?? 0) : (offset?.x ?? 0)) - camera.x),
+          Math.round(y + (offset?.y ?? 0) - camera.y),
+        )
         .setFlipX(flip)
         .setAlpha(alpha);
     };
@@ -59,14 +63,16 @@ export class CastView {
         draw('bonus-' + index, 'bonus/' + slot.frame, slot.x + 8, slot.y + 16, false, 1, 'creatures');
     }
     for (const e of state.entities) {
-      if (!e.active || e.roomId !== stage.id) continue;
-      const old = prevEntities.get(e.id),
-        t = old?.roomId === stage.id ? blend : 1;
-      const x = Phaser.Math.Linear(old?.x ?? e.x, e.x, t),
-        y = Phaser.Math.Linear(old?.y ?? e.y, e.y, t);
+      if (!e.active || !e.height || (e.stunnedUntil && e.kind === 'boss' && e.stunnedUntil > e.age) || e.roomId !== stage.id) continue;
+      const { x, y } = e;
       if (e.kind === 'platform' && drawPlatform(e, x, y, stage.spriteTileset, draw)) continue;
-      if (e.kind === 'throwBlock') {
-        this.drawTile(stage.atlas, 0x12e, x - camera.x, y - camera.y);
+      if (e.kind === 'lakitu') {
+        const cloud = frameForEntity({ ...e, spriteId: 0x87 }, state.tick, stage.spriteTileset, this.scene.textures.get('creatures'));
+        if (cloud) draw(e.id + '-cloud', cloud.frame, x + e.width / 2, y + 32, false, 1, cloud.texture);
+      }
+      if (e.kind === 'throwBlock' || e.kind === 'directionalCoins') {
+        const tile = e.kind === 'throwBlock' ? 0x12e : state.pSwitch ? 0x132 : 0x2b;
+        this.drawTile(stage.atlas, tile, x - camera.x, y - camera.y);
         continue;
       }
       const pose =
@@ -77,10 +83,7 @@ export class CastView {
     }
     for (const p of [peer, local]) {
       if (p.roomId !== stage.id || p.status === 'spectator') continue;
-      const old = p.id === peerId ? prev?.players[p.id] : undefined,
-        t = old?.roomId === stage.id ? blend : 1;
-      const x = Phaser.Math.Linear(old?.x ?? p.x, p.x, t),
-        y = Phaser.Math.Linear(old?.y ?? p.y, p.y, t);
+      const { x, y } = p;
       drawMount(p, x, y, stage.spriteTileset, state.tick, draw);
       draw(
         p.id,

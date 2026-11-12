@@ -2,7 +2,8 @@ import type Phaser from 'phaser';
 import { tiltFloor, type EntityState, type GameState } from '@smw/core';
 import type { Camera } from './terrain-view';
 interface BossArt {
-  background: string;
+  background?: string;
+  decoys?: string[];
   frames: string[];
   platform?: string;
   wheel?: string;
@@ -14,7 +15,8 @@ export function preloadBosses(scene: Phaser.Scene) {
   scene.load.once('filecomplete-json-boss-rooms', (_key: string, _type: string, arenas: Arenas) => {
     const files = new Set<string>();
     for (const arena of Object.values(arenas)) {
-      files.add(arena.background);
+      if (arena.background) files.add(arena.background);
+      for (const frame of arena.decoys ?? []) files.add(frame);
       for (const frame of arena.frames) files.add(frame);
       if (arena.platform) files.add(arena.platform);
       if (arena.wheel) files.add(arena.wheel);
@@ -34,7 +36,7 @@ export function drawBossArena(
   camera: Camera,
 ) {
   const arena = art(scene, id);
-  if (!arena) throw Error('Arena Mode 7 assente: ' + id);
+  if (!arena?.background) throw Error('Arena Mode 7 assente: ' + id);
   const img = (file: string) => scene.textures.get(prefix + file).getSourceImage() as HTMLImageElement;
   // The captured native playfield starts above the world's collision origin.
   const offset = arena.platform ? 0 : arena.background.startsWith('bowser') ? 16 : 8;
@@ -60,7 +62,9 @@ export function drawBossArena(
 }
 export function bossFrame(scene: Phaser.Scene, e: EntityState, tick: number) {
   const arena = art(scene, e.roomId);
-  if (!arena?.frames.length || (e.kind !== 'boss' && e.kind !== 'endingBoss')) return null;
-  const file = arena.frames[Math.floor(tick / 10) % arena.frames.length];
+  if (!arena || !['boss', 'endingBoss', 'pipeDecoy'].includes(e.kind)) return null;
+  const frames = e.kind === 'pipeDecoy' ? arena.decoys : arena.frames;
+  if (!frames?.length) return null;
+  const file = frames[Math.floor(tick / 10) % frames.length];
   return { texture: prefix + file, frame: '__BASE' };
 }

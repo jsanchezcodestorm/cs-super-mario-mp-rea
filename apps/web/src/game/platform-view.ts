@@ -20,6 +20,15 @@ export function drawPlatform(e: EntityState, x: number, y: number, tileset: numb
       part('block', i, x + 8 + ((e.width - 16) * i) / 4, y + 16 + ((e.height - 16) * i) / 4);
     return true;
   }
+  if (e.spriteId === 0xa3) {
+    const cx = e.origin.x + 8, cy = e.origin.y + 8;
+    for (let i = 0; i < 3; i++) {
+      part('link', i, cx + (x + 24 - cx) * i / 3, cy + (y + 8 - cy) * i / 3 + 4);
+    }
+    for (const [i, name] of ['deck-left', 'deck-center', 'deck-right'].entries())
+      part(name, i + 3, x + 8 + 16 * i, y + 16);
+    return true;
+  }
   if (e.spriteId !== 0x5f) return false;
   const ox = e.origin.x + 40,
     oy = e.origin.y + 104;

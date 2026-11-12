@@ -2,9 +2,11 @@
 <html lang="it">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#142b33" />
-    <title>Super Mario World · Co-op</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="SMW Solo e Co-op" />
+    <title>Super Mario World · Solo e Co-op</title>
     <link rel="icon" href="data:," />
   </head>
   <body>
@@ -12,7 +14,7 @@
       <a class="brand" href="/" aria-label="Super Mario World, inizio"
         ><span class="pad" aria-hidden="true"><i></i></span>SUPER MARIO WORLD</a
       >
-      <span class="service"><i></i> CO-OP PRIVATO</span>
+      <span class="service"><i></i> SINGOLO · CO-OP PRIVATO</span>
     </header>
     <main>
       <section class="lobby" id="lobby">
@@ -27,13 +29,14 @@
         </div>
         <div class="panel">
           <div id="start-view">
-            <p class="eyebrow"><span class="pixel square"></span>DUE GIOCATORI</p>
-            <h1>Gioca in<br />cooperativa<span>.</span></h1>
+            <p class="eyebrow"><span class="pixel square"></span>UNO O DUE GIOCATORI</p>
+            <h1>Gioca in<br />Dinosaur Land<span>.</span></h1>
             <p class="lead">
-              Entra a Dinosaur Land con Mario e Luigi. Ognuno ha il suo schermo, la campagna è condivisa.
+              Esplora il mondo da solo nei panni di Mario oppure condividi la campagna con un amico.
             </p>
-            <div class="choices" role="group" aria-label="Accesso stanza">
-              <button id="create-tab" aria-pressed="true">Crea stanza</button
+            <div class="choices" role="group" aria-label="Modalità di gioco">
+              <button id="solo-tab" aria-pressed="false">Gioca da solo</button
+              ><button id="create-tab" aria-pressed="true">Crea stanza</button
               ><button id="join-tab" aria-pressed="false">Entra con codice</button>
             </div>
             <form id="room-form">
@@ -75,10 +78,56 @@
       </section>
       <section id="play" hidden aria-label="Partita">
         <div class="play-head">
-          <span id="stage-name"></span><strong id="hud"></strong
-          ><button id="play-leave" class="subtle" type="button">Esci</button>
+          <span id="stage-name"></span>
+          <strong id="hud"></strong>
+          <button
+            id="fullscreen"
+            class="fullscreen-button"
+            type="button"
+            aria-label="Gioca a schermo intero"
+            title="Gioca a schermo intero"
+            aria-controls="fullscreen-help"
+          >
+            ⛶
+          </button>
+          <button id="play-leave" class="subtle" type="button">Esci</button>
         </div>
-        <div id="screen"><div id="play-notice" role="status" hidden></div></div>
+        <p id="fullscreen-help" class="fullscreen-help" role="status" hidden>
+          Su iPhone: Condividi → Aggiungi alla schermata Home, poi apri il gioco dall’icona.
+        </p>
+        <div class="play-body">
+          <div id="screen"><div id="play-notice" role="status" hidden></div></div>
+          <div id="touch-controls" role="group" aria-label="Comandi touch">
+            <div class="touch-directions" role="group" aria-label="Direzioni">
+              <span aria-hidden="true"></span>
+              <button type="button" data-control="up" aria-label="Su">↑</button>
+              <span aria-hidden="true"></span>
+              <button type="button" data-control="left" aria-label="Sinistra">←</button>
+              <span aria-hidden="true"></span>
+              <button type="button" data-control="right" aria-label="Destra">→</button>
+              <span aria-hidden="true"></span>
+              <button type="button" data-control="down" aria-label="Giù">↓</button>
+              <span aria-hidden="true"></span>
+            </div>
+            <div class="touch-actions" role="group" aria-label="Azioni">
+              <button type="button" data-control="jump" aria-label="Salto">
+                <span aria-hidden="true">Z</span><small>Salto</small>
+              </button>
+              <button type="button" data-control="run" aria-label="Corsa, fuoco o lingua">
+                <span aria-hidden="true">X</span><small>Corsa</small>
+              </button>
+              <button type="button" data-control="spin" aria-label="Salto avvitato">
+                <span aria-hidden="true">A</span><small>Avvita</small>
+              </button>
+              <button type="button" data-control="action" aria-label="Azione">
+                <span aria-hidden="true">↵</span><small>Azione</small>
+              </button>
+              <button type="button" data-control="reserve" aria-label="Rilascia la riserva">
+                <span aria-hidden="true">C</span><small>Riserva</small>
+              </button>
+            </div>
+          </div>
+        </div>
       </section>
       <aside class="controls" aria-label="Comandi">
         <h3>Comandi</h3>

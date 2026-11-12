@@ -7,6 +7,7 @@ import { createGateway } from './gateway.ts';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const generated = resolve(root, 'generated');
 const campaign = JSON.parse(await readFile(resolve(generated, 'content.json'), 'utf8')) as CampaignDefinition;
+campaign.overworldNodes = JSON.parse(await readFile(resolve(generated, 'world/nodes.json'), 'utf8'));
 campaign.movieTicks = JSON.parse(await readFile(resolve(generated, 'movies/durations.json'), 'utf8'));
 if (!campaign.levels?.[campaign.start])
   throw Error('Catalogo della ROM incompleto: eseguire npm run extract.');

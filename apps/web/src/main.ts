@@ -1,15 +1,17 @@
 import './style.css';
 import { CutsceneView } from './game/cutscene-view';
-import type { CampaignSave, GameState, PlayerId } from '@smw/core';
+import type { CampaignSave, GameEvent, GameState, PlayerId } from '@smw/core';
 import type { ServerMessage } from '@smw/protocol';
 import { RoomConnection } from './session/connection';
 import { readSave, writeSave } from './session/save';
 import { el, Lobby } from './ui/lobby';
 import { loadContent, type Content } from './game/content';
-import { Playback } from './game/playback';
+import { Playback, type GameSession } from './game/playback';
 import { GameAudio } from './game/audio';
+import { FullscreenToggle } from './ui/fullscreen';
+import { LocalGameSession } from './session/local-game';
 
-let localSave: CampaignSave | undefined, me: PlayerId | undefined, playback: Playback | undefined;
+let localSave: CampaignSave | undefined, me: PlayerId | undefined, playback: GameSession | undefined;
 let stopped: (() => void) | undefined,
   loading = false,
   session = 0,
@@ -18,6 +20,11 @@ let latest: Extract<ServerMessage, { type: 'snapshot' }> | undefined;
 let content: Content | undefined,
   resources: Promise<[Content, Record<string, { region: number; x: number; y: number }>]> | undefined;
 const audio = new GameAudio();
+const fullscreen = new FullscreenToggle(
+  el<HTMLButtonElement>('fullscreen'),
+  el('play'),
+  el('fullscreen-help'),
+);
 const cutscenes = new CutsceneView(el('screen'));
 window.addEventListener('keydown', () => audio.unlock(), { once: true });
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
@@ -50,12 +57,30 @@ const lobby = new Lobby({
     audio.unlock();
     connection.send({ v: 1, type: 'ready' });
   },
+  solo(resume) {
+    connection.leave();
+    latest = undefined;
+    paused = false;
+    me = 'mario';
+    void mountGame(
+      (gameContent) =>
+        new LocalGameSession(gameContent, resume ? localSave : undefined, {
+          step(state) {
+            for (const event of state.events) playGameEvent(event);
+            showHud(state);
+          },
+          save: persistSave,
+        }),
+      false,
+    );
+  },
   leave() {
     connection.leave();
     end();
   },
 });
 function end(message = '') {
+  void fullscreen.exitIfActive();
   cutscenes.close();
   session++;
   latest = undefined;
@@ -74,7 +99,8 @@ function showHud(s: GameState) {
   const p = s.players[me],
     stage = content.levels[p.roomId];
   el('stage-name').textContent = content.names?.[s.progress.course] ?? s.progress.course;
-  el('hud').textContent=audioNotice;
+  const canReturn = !s.cutscene && (s.phase === 'ending' || s.phase === 'gameOver');
+  el('hud').textContent = canReturn ? 'Invio · Torna alla mappa' : audioNotice;
   const phase = s.phase;
   const bgm =
     phase === 'map'
@@ -93,31 +119,48 @@ function showHud(s: GameState) {
     lobby.overlay('Spettatore · Rientro al prossimo livello', true);
   else lobby.overlay('');
 }
-async function startPlay() {
-  if (!me || loading || stopped) return;
+function persistSave(save: CampaignSave) {
+  localSave = save;
+  lobby.showSave(save);
+  void writeSave(save).catch(() => lobby.notice('Il browser non ha salvato la campagna.'));
+}
+function playGameEvent(event: GameEvent) {
+  const local = me && playback?.state?.players[me];
+  if (!event.roomId || event.roomId === local?.roomId) void audio.play(event).catch(audioError);
+}
+async function mountGame(makeSession: (content: Content) => GameSession, leaveRoomOnError = true) {
+  if (loading || stopped) return;
   loading = true;
-  const generation = session,
-    playerId = me;
+  const generation = session;
   lobby.play();
   lobby.overlay('Caricamento della campagna…');
   try {
     const [[gameContent, regions], renderer] = await Promise.all([loadResources(), import('./game/start')]);
     if (generation !== session) return;
     content = gameContent;
-    playback = new Playback(content, playerId, (seq, buttons) =>
-      connection.send({ v: 1, type: 'input', seq, buttons }),
-    );
-    playback.pause(paused);
-    if (latest) playback.receive(latest.state, latest.ack);
+    content.overworldNodes = regions;
+    playback = makeSession(content);
     stopped = renderer.startRenderer(content, playback, regions);
-    if (latest) showHud(latest.state);
+    if (playback.state) showHud(playback.state);
   } catch (error) {
     if (generation !== session) return;
-    connection.leave();
+    if (leaveRoomOnError) connection.leave();
     end(error instanceof Error ? error.message : 'Caricamento fallito.');
   } finally {
     if (generation === session) loading = false;
   }
+}
+function startPlay() {
+  if (!me) return;
+  const playerId = me;
+  void mountGame((gameContent) => {
+    const remote = new Playback(gameContent, playerId, (seq, buttons) =>
+      connection.send({ v: 1, type: 'input', seq, buttons }),
+    );
+    remote.pause(paused);
+    if (latest) remote.receive(latest.state, latest.ack);
+    return remote;
+  });
 }
 function message(m: ServerMessage) {
   switch (m.type) {
@@ -143,17 +186,14 @@ function message(m: ServerMessage) {
       return;
     case 'snapshot':
       latest = m;
-      playback?.receive(m.state, m.ack);
+      playback?.receive?.(m.state, m.ack);
       showHud(m.state);
       return;
     case 'gameEvent':
-      if (!m.event.roomId || m.event.roomId === latest?.state.players[me!]?.roomId)
-        void audio.play(m.event).catch(audioError);
+      playGameEvent(m.event);
       return;
     case 'save':
-      localSave = m.save;
-      lobby.showSave(m.save);
-      void writeSave(m.save).catch(() => lobby.notice('Il browser non ha salvato la campagna.'));
+      persistSave(m.save);
       return;
     case 'error':
       if (stopped) lobby.overlay(m.message);

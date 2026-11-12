@@ -1,10 +1,17 @@
 import { copyState, stepGame, type CampaignDefinition, type GameState, type PlayerId } from '@smw/core';
 
-export class Playback {
+export interface GameSession {
+  readonly playerId: PlayerId;
+  readonly state?: GameState;
+  readonly displayState?: GameState;
+  update(buttons: number): void;
+  pause(paused: boolean): void;
+  receive?(state: GameState, ack: number): void;
+}
+
+export class Playback implements GameSession {
   state?: GameState;
-  previous?: GameState;
-  predicted?: GameState;
-  sampledAt = 0;
+  private predicted?: GameState;
   paused = false;
   private seq = 0;
   private pending: { seq: number; buttons: number }[] = [];
@@ -14,10 +21,17 @@ export class Playback {
     private transmit: (seq: number, buttons: number) => boolean,
   ) {}
 
+  // Draw riders, decks and moving terrain at the same simulation tick.
+  // Phase changes are confirmed by the server before switching scenes.
+  get displayState() {
+    return ['playing', 'map'].includes(this.predicted?.phase ?? '') &&
+      this.state?.phase === this.predicted?.phase
+      ? this.predicted
+      : this.state;
+  }
+
   receive(state: GameState, ack: number) {
-    this.previous = this.state;
     this.state = state;
-    this.sampledAt = performance.now();
     this.seq = Math.max(ack, this.seq);
     this.pending = this.pending.filter((frame) => frame.seq > ack);
     this.predicted = copyState(state);
@@ -39,7 +53,7 @@ export class Playback {
   }
 
   private predict(buttons: number) {
-    if (!this.predicted || this.predicted.phase !== 'playing') return;
+    if (!this.predicted || !['playing', 'map'].includes(this.predicted.phase)) return;
     const p = this.predicted.players;
     stepGame(this.campaign, this.predicted, {
       mario: this.playerId === 'mario' ? buttons : p.mario.lastInput,

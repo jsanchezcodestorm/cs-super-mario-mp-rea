@@ -1,6 +1,6 @@
-# Super Mario World in cooperativa
+# Super Mario World da solo o in cooperativa
 
-Due persone giocano sulla stessa cartuccia europea 1.1 ricostruita per il browser. Ciascuna controlla un personaggio con la propria telecamera. Un server Node gestisce tramite WebSocket i due giocatori, i nemici, le collisioni e la progressione della stanza.
+Una o due persone giocano sulla stessa cartuccia europea 1.1 ricostruita per il browser. In singolo Mario controlla la campagna locale senza una connessione al server; in cooperativa ciascuno controlla un personaggio con la propria telecamera e un server Node gestisce tramite WebSocket i due giocatori, i nemici, le collisioni e la progressione della stanza.
 
 ## Giocare
 
@@ -14,6 +14,8 @@ npm start
 
 Apri [il gioco in locale](http://127.0.0.1:8787). Mario crea una stanza, Luigi sceglie **Entra con codice** e inserisce i sei caratteri mostrati a Mario. Entrambi selezionano **Sono pronto**. Per provare da un solo computer puoi usare due finestre indipendenti.
 
+Per giocare da soli seleziona **Gioca da solo**. La simulazione gira nel browser e controlli Mario sulla mappa e nei livelli; non serve creare una stanza. Puoi iniziare una nuova campagna o riprendere il salvataggio locale.
+
 | Comando | Tastiera |
 | --- | --- |
 | Movimento, porte e tubi | Frecce |
@@ -21,9 +23,9 @@ Apri [il gioco in locale](http://127.0.0.1:8787). Mario crea una stanza, Luigi s
 | Corsa, presa, lancio, fuoco, lingua di Yoshi | X o Maiusc sinistro |
 | Salto avvitato o discesa da Yoshi | A |
 | Lascia cadere il potenziamento in riserva | C o Select sul gamepad |
-| Entra nel corso selezionato o salta il filmato | Invio |
+| Entra nel corso selezionato, salta il filmato o torna alla mappa dopo il finale o il Game Over | Invio |
 
-Il client accetta anche un gamepad con mappatura standard del browser. In mappa le frecce selezionano i corsi sbloccati. Il checkpoint e l’uscita raggiunta da uno valgono per entrambi. Ogni personaggio ha le proprie vite, i propri potenziamenti e un oggetto in riserva. La barra SNES mostra le risorse del giocatore locale. Colpire il nastro al traguardo assegna stelle secondo l’altezza e a 100 stelle si entra nel minigioco bonus. Chi esaurisce le vite segue il compagno e rientra al corso successivo con una vita.
+Il client accetta anche un gamepad con mappatura standard del browser. In cooperativa la nuova campagna si apre sulla mappa dopo che entrambi sono pronti: Mario percorre i collegamenti disponibili con le frecce e il primo giocatore che conferma su un corso avvia la partita per entrambi. Il checkpoint e l’uscita raggiunta da uno valgono per entrambi. Ogni personaggio ha le proprie vite, i propri potenziamenti e un oggetto in riserva. La barra SNES mostra le risorse del giocatore locale. Colpire il nastro al traguardo assegna stelle secondo l’altezza e a 100 stelle si entra nel minigioco bonus. Chi esaurisce le vite segue il compagno e rientra al corso successivo con una vita.
 
 Il server congela la simulazione quando uno dei due si disconnette. La stessa scheda può rientrare entro 60 secondi. Ogni browser conserva la campagna in IndexedDB ai checkpoint e ai cambi di fase. Per continuare dopo la chiusura della stanza, crea una stanza scegliendo **Riprendi campagna salvata**. Le stanze attive vivono nella memoria del processo.
 
@@ -49,10 +51,11 @@ Con una sola ROM nella radice basta `npm run extract`. Il primo avvio dell’est
 
 ## Runtime e verifica
 
-`packages/core` contiene la simulazione TypeScript deterministica. `packages/protocol` definisce i messaggi versionati. `apps/server` avanza a 60 tick/s, accetta i comandi numerati e invia snapshot a 30 Hz. `apps/web` usa Phaser, predice il movimento, riconcilia gli input confermati e interpola i personaggi remoti.
+`packages/core` contiene la simulazione TypeScript deterministica. `packages/protocol` definisce i messaggi versionati. `apps/server` avanza a 60 tick/s, accetta i comandi numerati e invia snapshot a 30 Hz. `apps/web` usa Phaser, riconcilia gli input con gli snapshot del server e disegna entrambi i personaggi, le piattaforme e il terreno allo stesso tick della simulazione locale.
 
 ```sh
 npm test
+npm run test:campaign:online
 npm run build
 npx playwright install chromium
 # Con npm start in un altro terminale
@@ -61,7 +64,11 @@ npm run test:browser
 
 Il test browser apre due sessioni Chromium separate, crea una stanza, verifica il movimento dell’altro personaggio e ricarica una pagina per controllare la riconnessione. Una seconda prova ripristina un salvataggio sulla mappa e verifica che entrambi i browser registrino l’uscita del Palazzo Giallo quando Luigi preme l’interruttore in un’altra stanza. Le schermate sono in `test-results/`. I test del simulatore esercitano anche checkpoint, vite, porte, tubi, chiavi, interruttori e salvataggi. I replay in `tests/course-inputs.json` percorrono 13 corsi ciascuno dal proprio ingresso, inclusi tutti i livelli di Yoshi’s Island, Iggy e la Back Door fino alla sconfitta di Bowser. Il replay del finale verifica anche la durata dei titoli di coda.
 
-La cartuccia fornisce 235 stanze dagli slot principali, cinque varianti condizionali di Chocolate Island 2 e sei scene di ingresso. Il motore web reimplementa i comportamenti. Alcuni nemici condividono routine di movimento, le arene e i boss hanno differenze rispetto allo SNES e le tracce musicali sono registrazioni con ripetizione. La verifica integrale di tutte le 96 uscite con due giocatori rimane aperta.
+I replay in `tests/coop-routes` percorrono le **72 uscite normali e le 24 segrete** con i controller di Mario e Luigi. La prova cumulativa parte da una mappa nuova, raccoglie potenziamenti nel gioco, attiva i quattro palazzi e conserva in ordine uscite, vite e risorse. Include il minigioco bonus e il rientro dopo un Game Over. I due percorsi aggiuntivi dalla Front Door e dalla Back Door arrivano a Bowser e mantengono il contatore a 96.
+
+`npm run test:campaign:online` ripete la campagna con due client WebSocket locali. A ogni ingresso entrambi ricevono il salvataggio automatico e una nuova stanza lo riprende, così la registrazione dei comandi inizia sempre dallo stesso fotogramma. Il test confronta i progressi ricevuti dai due client a ogni tappa. In Chromium la prova riapre anche il salvataggio finale da **Riprendi campagna salvata · 96 uscite**, torna sulla mappa con Luigi e avvia un altro corso con Mario. Le registrazioni dei corsi usano triple `[pulsanti Mario, pulsanti Luigi, fotogrammi]`. L’ordine delle visite è in `tests/coop-routes/campaign.json`.
+
+La cartuccia fornisce 235 stanze dagli slot principali, cinque varianti condizionali di Chocolate Island 2 e sei scene di ingresso. Il motore web reimplementa i comportamenti. Alcuni nemici condividono routine di movimento, le arene e i boss hanno differenze rispetto allo SNES e le tracce musicali sono registrazioni con ripetizione.
 
 ## Due computer sulla rete privata
 

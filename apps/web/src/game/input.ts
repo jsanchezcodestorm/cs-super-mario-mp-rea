@@ -1,4 +1,5 @@
 import { Buttons } from '@smw/core';
+import { TouchInput } from './touch-input';
 
 const keys: Record<string, number> = {
   ArrowLeft: Buttons.left,
@@ -17,6 +18,7 @@ const keys: Record<string, number> = {
 export class Controls {
   private pressed = new Set<string>();
   private taps = 0;
+  private readonly touch = new TouchInput(document.getElementById('touch-controls'));
   private readonly toggle = (event: KeyboardEvent) => {
     if (!Object.hasOwn(keys, event.code) || event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.type === 'keyup') {
@@ -40,7 +42,7 @@ export class Controls {
   }
 
   sample() {
-    let buttons = this.taps;
+    let buttons = this.taps | this.touch.sample();
     this.taps = 0;
     for (const key of this.pressed) buttons |= keys[key];
     const pad = navigator.getGamepads?.().find((p) => p?.connected && p.mapping === 'standard');
@@ -68,5 +70,6 @@ export class Controls {
     window.removeEventListener('keydown', this.toggle);
     window.removeEventListener('keyup', this.toggle);
     window.removeEventListener('blur', this.clear);
+    this.touch.destroy();
   }
 }

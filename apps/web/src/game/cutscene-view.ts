@@ -33,10 +33,8 @@ export class CutsceneView {
     const scene = state.cutscene;
     if (!scene) {
       this.clear();
-      if (state.phase === 'ending' && this.still.hidden) {
-        this.still.src = '/assets/movies/end.png';
-        this.still.hidden = false;
-      }
+      if (state.phase === 'ending' && this.still.hidden) this.still.src = '/assets/movies/end.png';
+      this.still.hidden = state.phase !== 'ending';
       return state.phase === 'ending';
     }
     this.still.hidden = true;

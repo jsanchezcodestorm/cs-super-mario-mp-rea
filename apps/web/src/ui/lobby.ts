@@ -4,24 +4,28 @@ type RoomInfo = Extract<ServerMessage, { type: 'roomState' }>;
 export const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 export class Lobby {
-  private joining = false;
+  private mode: 'create' | 'join' | 'solo' = 'create';
   constructor(handlers: {
     enter: (code: string | null, resume: boolean) => void;
+    solo: (resume: boolean) => void;
     ready: () => void;
     leave: () => void;
   }) {
-    el('join-tab').onclick = () => this.showTab(true);
-    el('create-tab').onclick = () => this.showTab(false);
+    el('join-tab').onclick = () => this.showMode('join');
+    el('create-tab').onclick = () => this.showMode('create');
+    el('solo-tab').onclick = () => this.showMode('solo');
     el<HTMLFormElement>('room-form').onsubmit = (event) => {
       event.preventDefault();
       const code = el<HTMLInputElement>('room-code').value.trim().toUpperCase();
-      if (this.joining && !/^[A-Z2-9]{6}$/.test(code)) {
+      if (this.mode === 'join' && !/^[A-Z2-9]{6}$/.test(code)) {
         this.notice('Inserisci il codice di sei caratteri della stanza.');
         return;
       }
-      this.notice('Connessione alla stanza…');
+      this.notice(this.mode === 'solo' ? 'Avvio della partita…' : 'Connessione alla stanza…');
       el<HTMLButtonElement>('submit').disabled = true;
-      handlers.enter(this.joining ? code : null, el<HTMLSelectElement>('campaign').value === 'saved');
+      const resume = el<HTMLSelectElement>('campaign').value === 'saved';
+      if (this.mode === 'solo') handlers.solo(resume);
+      else handlers.enter(this.mode === 'join' ? code : null, resume);
     };
     el('ready').onclick = handlers.ready;
     el('leave').onclick = handlers.leave;
@@ -35,21 +39,27 @@ export class Lobby {
       }
     };
   }
-  private showTab(join: boolean) {
-    this.joining = join;
-    el('join-tab').setAttribute('aria-pressed', String(join));
-    el('create-tab').setAttribute('aria-pressed', String(!join));
-    el('code-field').hidden = !join;
-    el('save-field').hidden = join;
-    el('submit').firstElementChild!.textContent = join ? 'Entra nella stanza' : 'Crea stanza';
-    if (join) el('room-code').focus();
+  private showMode(mode: 'create' | 'join' | 'solo') {
+    this.mode = mode;
+    el<HTMLButtonElement>('submit').disabled = false;
+    el('join-tab').setAttribute('aria-pressed', String(mode === 'join'));
+    el('create-tab').setAttribute('aria-pressed', String(mode === 'create'));
+    el('solo-tab').setAttribute('aria-pressed', String(mode === 'solo'));
+    el('code-field').hidden = mode !== 'join';
+    el('save-field').hidden = mode === 'join';
+    el('submit').firstElementChild!.textContent =
+      mode === 'join' ? 'Entra nella stanza' : mode === 'solo' ? 'Gioca da solo' : 'Crea stanza';
+    if (mode === 'join') el('room-code').focus();
     this.notice('');
   }
   showSave(save: CampaignSave) {
     const select = el<HTMLSelectElement>('campaign');
-    if (![...select.options].some((option) => option.value === 'saved'))
-      select.add(new Option('Riprendi campagna salvata', 'saved'));
-    if (save.progress.completed.length) select.value = 'saved';
+    const count = save.progress.completed.length;
+    const label = 'Riprendi campagna salvata · ' + count + (count === 1 ? ' uscita' : ' uscite');
+    const saved = [...select.options].find((option) => option.value === 'saved');
+    if (saved) saved.text = label;
+    else select.add(new Option(label, 'saved'));
+    if (count) select.value = 'saved';
   }
   notice(message: string) {
     el('notice').textContent = message;

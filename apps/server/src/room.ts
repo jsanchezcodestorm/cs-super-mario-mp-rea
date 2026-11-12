@@ -44,7 +44,7 @@ export class Room {
     if (this.status !== 'waiting') throw Error('La partita è già iniziata.');
     this.seats[id].ready = true;
     if (ids.every((key) => this.seats[key].ready && this.seats[key].socket)) {
-      this.state = createGame(this.campaign, this.save);
+      this.state = createGame(this.campaign, this.save, 'coop');
       this.status = 'playing';
     }
     this.notify();
