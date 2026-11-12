@@ -1,5 +1,6 @@
-import type { World, EntityState, LevelDefinition } from './types.ts'
-import { changeTile, tileAt, AIR, USED } from './terrain.ts'
+import type { World, EntityState, LevelDefinition, PlayerState } from './types.ts'
+import { changeTile, clipDisplacement, overlaps, tileAt, AIR, USED } from './terrain.ts'
+import { die } from './resources.ts'
 
 const steps = [
   [1, 0],
@@ -7,8 +8,32 @@ const steps = [
   [0, 1],
   [0, -1],
 ]
+// CreateEatBlock calls InvisBlkMainRt on the moving head before writing Map16.
+// Its top probe is eight pixels above the player's feet. A side contact stops X.
+function touchHead(world: World, room: LevelDefinition, head: EntityState, p: PlayerState) {
+  if (p.status !== 'alive' || p.roomId !== room.id || !overlaps(p, head)) return
+  let axis: 'x' | 'y', target: number
+  if (p.y + p.height - 8 < head.y && p.vy >= 0) {
+    axis = 'y'
+    target = head.y - p.height
+    p.grounded = true
+    p.vy = 0
+  } else if (p.y >= head.y + (p.height === 16 ? 8 : 4)) {
+    axis = 'y'
+    target = head.y + head.height
+    if (p.vy < 0) p.vy = 1
+  } else {
+    axis = 'x'
+    target = p.x + p.width / 2 < head.x + head.width / 2 ? head.x - p.width : head.x + head.width
+    p.vx = 0
+  }
+  p[axis] = clipDisplacement(world, room, p, axis, target - p[axis])
+  if (Math.abs(p[axis] - target) > 1 / 256) die(world, p)
+}
+
 export function moveBlockSnake(world: World, room: LevelDefinition, e: EntityState) {
   const snake = e.snake
+  for (const p of Object.values(world.state.players)) touchHead(world, room, e, p)
   if (!snake?.started) return
   const col = Math.floor(e.x / 16),
     row = Math.floor(e.y / 16)

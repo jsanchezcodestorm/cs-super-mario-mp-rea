@@ -1,3 +1,4 @@
+import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts'
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -15,7 +16,7 @@ for (const [course, commands] of Object.entries(replays)) {
     // Each fixture boots directly at its course entrance. Every subsequent tick
     // takes the same simulation path as a network input, including exits.
     const fixture = { ...campaign, start: course, initial: [course] };
-    const state = createGame(fixture);
+    const state = enterFirstCourse(fixture);
     playing: for (const [buttons, frames] of commands) {
       for (let tick = 0; tick < frames; tick++) {
         stepGame(fixture, state, { mario: buttons, luigi: 0 });
@@ -54,7 +55,7 @@ test('ROM scroll capture and generator dispatch are shared by both players', asy
   assert.ok(scrollingCamera(tunnel, 100000)!.x > 700);
   const course = '119';
   const fixture = { ...campaign, start: course, initial: [course] };
-  const state = createGame(fixture);
+  const state = enterFirstCourse(fixture);
   const generator = campaign.levels[course].sprites.find((s) => s.spriteId === 0xd5)!;
   // Put both screen centers by the same vanilla generator. Its first burst must
   // produce only one bullet on the shared server even when both cameras cover it.
@@ -71,7 +72,7 @@ test('ROM scroll capture and generator dispatch are shared by both players', asy
 });
 
 test('reserve items and scores belong to each player and survive a campaign save', async () => {
-  const state = createGame(campaign),
+  const state = enterFirstCourse(campaign),
     world = { campaign, state };
   const { contact } = await import('../packages/core/src/entity-contact.ts');
   const { spawnEntity } = await import('../packages/core/src/state.ts');

@@ -4,6 +4,7 @@ import { koopaShell, yoshiPowers } from './yoshi-colors.ts'
 import { spawnEntity, emit } from './state.ts'
 import { collectCoin } from './resources.ts'
 import { overlaps } from './terrain.ts'
+import { expandPlayer } from './player-size.ts'
 
 export function clearMouth(p: PlayerState) {
   p.mouth = null
@@ -41,8 +42,7 @@ function swallow(world: World, p: PlayerState, food: YoshiMouth) {
       if (food.kind === 'mushroom' && p.form === 'small') p.form = 'super'
       if (food.kind === 'flower') p.form = 'fire'
       if (food.kind === 'feather') p.form = 'cape'
-      p.y -= 28 - p.height
-      p.height = 28
+      expandPlayer(world, p)
       break
     case 'star':
       p.star = 600

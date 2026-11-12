@@ -1,7 +1,8 @@
+import { enterFirstCourse } from './enter-first-course.ts'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, existsSync } from 'node:fs'
-import { createGame, stepGame, type CampaignDefinition, type ExitKind } from '../src/index.ts'
+import { stepGame, type CampaignDefinition, type ExitKind } from '../src/index.ts'
 import { enterRoom } from '../src/state.ts'
 
 const file = new URL('../../../generated/content.json', import.meta.url)
@@ -63,7 +64,7 @@ test(
     const ids = Object.keys(c.levels)
     assert.equal(ids.length, 246)
     for (const id of ids) {
-      const state = createGame(c)
+      const state = enterFirstCourse(c)
       // Enter each actual room directly, including bank 07 entrances and all Chocolate Island variants.
       for (const p of Object.values(state.players)) enterRoom({ campaign: c, state }, p, id)
       let seed = 736

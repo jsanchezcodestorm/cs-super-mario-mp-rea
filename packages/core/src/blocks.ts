@@ -7,6 +7,7 @@ import { collectCoin, die, hurt } from './resources.ts'
 import { bodyCells, tileAt, changeTile, isDanger, AIR, USED } from './terrain.ts'
 import type { Contact } from './terrain.ts'
 import { finishCourse } from './campaign.ts'
+import { expandPlayer } from './player-size.ts'
 
 export function setCheckpoint(world: World, p: PlayerState, x: number, y: number) {
   const cp = world.state.progress.checkpoint
@@ -14,8 +15,7 @@ export function setCheckpoint(world: World, p: PlayerState, x: number, y: number
   world.state.progress.checkpoint = { roomId: p.roomId, x, y }
   if (p.form === 'small') {
     p.form = 'super'
-    p.y -= 12
-    p.height = 28
+    expandPlayer(world, p)
   }
   emit(world, 'checkpoint', p)
 }
@@ -38,7 +38,7 @@ function exitThrough(world: World, p: PlayerState, room: LevelDefinition) {
   }
   emit(world, 'pipe', p)
 }
-function bump(world: World, p: PlayerState, room: LevelDefinition, c: Contact) {
+export function bump(world: World, p: PlayerState, room: LevelDefinition, c: Pick<Contact, 'col' | 'row' | 'tile'>, headBump = true) {
   const { tile, col, row } = c
   if (tile === 0x112) {
     world.state.onOff = !world.state.onOff
@@ -59,15 +59,18 @@ function bump(world: World, p: PlayerState, room: LevelDefinition, c: Contact) {
   ))
     return
   const reward = blockReward(tile, col, p, world.state.courseCoins)
-  if (tile >= 0x111 && tile <= 0x116) p.vy = 3
+  if (tile >= 0x111 && tile <= 0x116 && tile !== 0x114) {
+    if (headBump) p.vy = 3
+  }
   else changeTile(world, room, col, row, USED)
   if (reward === 'coin') collectCoin(world, p)
   else if (reward !== null) {
     const obtained = spawnEntity(world, room.id, {
       x: col * 16,
-      y: (row - 1) * 16,
+      y: (reward === 0x45 ? row : row - 1) * 16,
       spriteId: reward === 0x2c && p.mounted ? 0x78 : reward,
     })
+    if (obtained?.kind === 'directionalCoins') obtained.owner = p.id
     if (obtained?.kind === 'yoshiEgg') {
       obtained.adultEgg = true
       obtained.yoshiColor = 'green'
@@ -90,7 +93,7 @@ export function interactTiles(
     if (isDanger(c.tile, room.tileset)) hurt(world, p)
     if (c.layer2) continue
     if (c.side === 'top') bump(world, p, room, c)
-    if (c.side === 'bottom' && c.tile >= 0x111 && c.tile <= 0x116) p.vy = input & Buttons.jump ? -7 : -4
+    if (c.side === 'bottom' && c.tile >= 0x111 && c.tile <= 0x116 && c.tile !== 0x114) p.vy = input & Buttons.jump ? -7 : -4
     if (c.side === 'bottom' && c.tile === 0x11e && p.spin && p.form !== 'small')
       changeTile(world, room, c.col, c.row, AIR)
     if (c.side === 'bottom' && c.tile >= 0xec && c.tile <= 0xfb && (c.tile - 0xec) % 4 < 2)

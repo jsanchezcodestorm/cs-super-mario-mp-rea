@@ -6,6 +6,7 @@ export interface Point {
   y: number
 }
 export interface LayerOffset extends Point {
+  scrollSpeed?: number
   dx: number
   dy: number
   age: number
@@ -29,6 +30,7 @@ export interface Exit {
   spawn?: Point
 }
 export interface LevelDefinition {
+  layerOscillation?: { axis: 'x' | 'y'; start: number; samples: number[] }
   autoscroll?: [number, number][]
   id: string
   intro?: string
@@ -40,6 +42,7 @@ export interface LevelDefinition {
   exits: Exit[]
   checkpoint?: Point
   tileset?: number
+  tide?: 1 | 2
   water?: boolean
   vertical?: boolean
   layer2?: number[]
@@ -50,19 +53,54 @@ export type ExitKind = 'normal' | 'secret'
 export interface CampaignDefinition {
   emitters?: EmitterCatalog
   movieTicks?: Record<string, number>
+  mapLinks?: [string, string][]
+  overworldNodes?: Record<string, OverworldNode>
+  overworldPaths?: Record<string, OverworldStop>
   start: string
   initial?: string[]
   names?: Record<string, string>
   levels: Record<string, LevelDefinition>
   routes: Record<string, Partial<Record<ExitKind, string[]>>>
   yoshiTraits?: number[]
+  capeTargets?: number[]
+  slideTargets?: number[]
   lineGuides?: number[][]
   blockSnakePaths?: number[][]
   entranceInputs?: { onFoot: number[][]; mounted: number[][] }
-  slopes?: { shape: number[]; steepShape: number[]; heights: number[] }
+  slopes?: {
+    shape: number[]
+    steepShape: number[]
+    heights: number[]
+    motion: { slide: [number, number] | null; walk: [number, number][] }[]
+  }
+}
+export interface OverworldNode {
+  region: number
+  x: number
+  y: number
+}
+export type OverworldCommand = 'left' | 'right' | 'up' | 'down' | 'action'
+export interface OverworldEdge {
+  to: string
+  frames: number
+  path: [frame: number, region: number, x: number, y: number][]
+}
+export interface OverworldStop {
+  tile: number
+  position: [region: number, x: number, y: number]
+  directions: Partial<Record<OverworldCommand, OverworldEdge>>
+  exitDirections: Record<ExitKind, Exclude<OverworldCommand, 'action'>>
+}
+export interface OverworldTravel {
+  command: OverworldCommand
+  from: string
+  to: string
+  elapsed: number
+  duration: number
 }
 export const playerIds = ['mario', 'luigi'] as const
 export type PlayerId = (typeof playerIds)[number]
+export type GameMode = 'solo' | 'coop'
 export const Buttons = {
   left: 1,
   right: 2,
@@ -87,6 +125,11 @@ export interface YoshiMouth {
   ticks: number
 }
 export interface PlayerState extends Body {
+  capeReady?: number
+  cloud?: string
+  growthPending?: boolean
+  wallRun?: -1 | 1
+  sliding?: { speed: number; sixths: number }
   reserve: ReserveItem | null
   score: number
   bonusStars: number
@@ -117,7 +160,12 @@ export interface PlayerState extends Body {
   balloon: number
 }
 export type EntityKind =
+  | 'lakitu'
+  | 'cloud'
   | 'koopa'
+  | 'pipeDecoy'
+  | 'magikoopa'
+  | 'magic'
   | 'walker'
   | 'rex'
   | 'shell'
@@ -154,12 +202,22 @@ export type EntityKind =
   | 'chuck'
   | 'chuckShot'
   | 'blockSnake'
+  | 'directionalCoins'
   | 'vine'
   | 'balloon'
   | 'throwBlock'
   | 'switchPalace'
   | 'exitSide'
 export interface EntityState extends Body {
+  coinDirection?: number
+  coinTurn?: number
+  tossed?: boolean
+  eerieAcceleration?: number
+  raftX?: number
+  chainPhase?: number
+  platformStarted?: number
+  pickupDelay?: number
+  pipeOffset?: number
   reserveDrop?: boolean
   emission?: { c2: number; facing: number }
   yoshiColor?: YoshiColor
@@ -194,6 +252,7 @@ export interface CampaignProgress {
   selection: number
 }
 export interface CampaignSave {
+  mapStop?: string
   bonus?: BonusGame
   version: 1
   progress: CampaignProgress
@@ -240,8 +299,11 @@ export interface GameEvent {
   exit?: ExitKind
 }
 export interface GameState {
+  mode?: GameMode
   bonus?: BonusGame
   cutscene?: { key: string; start: number; duration: number }
+  mapStop?: string
+  mapTravel?: OverworldTravel
   tick: number
   phase: CampaignSave['phase']
   players: Record<PlayerId, PlayerState>
@@ -259,5 +321,9 @@ export interface GameState {
   courseCoins: number
   entrance: { frame: number; mounted: Record<PlayerId, boolean> } | null
   timeLeft: number
+}
+const soloPlayerIds = ['mario'] as const
+export function activePlayerIds(state: Pick<GameState, 'mode'>): readonly PlayerId[] {
+  return state.mode === 'solo' ? soloPlayerIds : playerIds
 }
 export type World = { campaign: CampaignDefinition; state: GameState }

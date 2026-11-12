@@ -1,17 +1,20 @@
 import {stepBonus} from './bonus-game.ts'
+import { guideCoins } from './directional-coins.ts'
 import { stepEmitters } from './emitters.ts'
+import { freeCloud } from './lakitu.ts'
 import { feedBaby } from './yoshi-growth.ts'
-import { isBlockBridge } from './bridges.ts'
+import { carryDeckRider } from './platform-rider.ts'
 import { stepLayer } from './layer-two.ts'
 import { stepEntrance } from './entrance.ts'
-import { Buttons, playerIds } from './types.ts'
+import { activePlayerIds, Buttons, playerIds } from './types.ts'
 import type { CampaignDefinition, GameState, World, EntityState, PlayerState, InputFrame } from './types.ts'
 import { stepPlayer } from './player.ts'
 import { die } from './resources.ts'
 import { moveEntity } from './entity-motion.ts'
-import { contact, strike } from './entity-contact.ts'
-import { navigate } from './campaign.ts'
-import { overlaps, changeTile } from './terrain.ts'
+import { contact, strike, weaponTargets } from './entity-contact.ts'
+import { navigate, returnToMap } from './campaign.ts'
+import { overlaps } from './terrain.ts'
+import { settleTurnBlocks } from './turn-block.ts'
 
 function carry(e: EntityState, p: PlayerState, buttons: number) {
   if (p.carrying !== e.id) return false
@@ -24,24 +27,17 @@ function carry(e: EntityState, p: PlayerState, buttons: number) {
   e.y = p.y - 6
   e.vx = p.facing * (e.kind === 'shell' || e.kind === 'throwBlock' ? 3.5 : 2)
   e.vy = buttons & Buttons.up ? -5 : -1
+  if (e.kind === 'shell' && buttons & Buttons.up) {
+    // E1 bank 01, carried-sprite release. An upward toss retains half of the runner's speed.
+    e.vx = p.vx / 2
+    e.vy = -7
+    e.tossed = true
+  }
   e.owner = p.id
   p.cooldown = 16
   p.carrying = null
   return false
 }
-const strikeable = new Set([
-  'chuck',
-  'koopa',
-  'walker',
-  'rex',
-  'spiny',
-  'jumper',
-  'flyer',
-  'fish',
-  'plant',
-  'boss',
-  'endingBoss',
-])
 function projectileContact(world: World, entity: EntityState) {
   if (
     !entity.owner ||
@@ -56,13 +52,14 @@ function projectileContact(world: World, entity: EntityState) {
     if (
       !target.active ||
       target.roomId !== entity.roomId ||
-      !strikeable.has(target.kind) ||
+      !weaponTargets.has(target.kind) ||
       !overlaps(entity, target)
     )
       continue
     if (target.kind === 'endingBoss' && entity.kind !== 'mechaShell') continue
     if (target.spriteId === 0xc5 && entity.kind !== 'throwBlock') continue
     strike(world, target, world.state.players[entity.owner])
+    if (target.kind === 'lakitu' && !target.active) freeCloud(world, target)
     if (
       entity.kind === 'fireball' ||
       entity.kind === 'yoshiFire' ||
@@ -76,6 +73,7 @@ function projectileContact(world: World, entity: EntityState) {
 }
 function updateEntities(world: World, inputs: InputFrame, bottoms: Record<string, number>) {
   const { state } = world
+  const transported = new Map<PlayerState['id'], EntityState>()
   for (const entity of [...state.entities]) {
     if (!entity.active) continue
     const players = playerIds
@@ -86,8 +84,14 @@ function updateEntities(world: World, inputs: InputFrame, bottoms: Record<string
       continue
     }
     const nearest = players.reduce((a, b) => (Math.abs(a.x - entity.x) < Math.abs(b.x - entity.x) ? a : b))
+    if (entity.kind === 'directionalCoins') {
+      entity.age++
+      guideCoins(world, world.campaign.levels[entity.roomId], entity, inputs[entity.owner ?? nearest.id])
+      continue
+    }
     if (entity.emission && Math.abs(nearest.x - entity.x) > 360) entity.active = false
-    if (entity.kind !== 'exitSide' && Math.abs(nearest.x - entity.x) > 360) continue
+    const followsRoom = entity.kind === 'exitSide' || (entity.kind === 'magikoopa' && entity.age > 0)
+    if (!followsRoom && Math.abs(nearest.x - entity.x) > 360) continue
     if (entity.owner && carry(entity, state.players[entity.owner], inputs[entity.owner])) {
       if (entity.kind === 'babyYoshi') {
         entity.age++
@@ -118,19 +122,12 @@ function updateEntities(world: World, inputs: InputFrame, bottoms: Record<string
     }
     projectileContact(world, entity)
     for (const p of players) {
-      if (
-        entity.kind === 'platform' &&
-        p.vy >= 0 &&
-        Math.abs(bottoms[p.id] - y) < 1 &&
-        p.x + p.width > x &&
-        p.x < x + width
-      ) {
-        if (!isBlockBridge(entity)) p.x += entity.x - x
-        if (p.x + p.width > entity.x && p.x < entity.x + entity.width) {
-          p.y = entity.y - p.height
-          p.vy = 0
-          p.grounded = true
-        }
+      if (entity.kind === 'platform') {
+        const previous = transported.get(p.id)
+        // FloatingSkullMain applies each contacted skull's own integer movement.
+        const sameRaft = entity.spriteId === 0x61 && previous?.spriteId === 0x61 && previous.raftX === entity.raftX
+        if ((!previous || sameRaft) && carryDeckRider(world, entity, p, bottoms[p.id], x, y, width))
+          transported.set(p.id, entity)
       }
       contact(world, entity, p, inputs[p.id], bottoms[p.id])
       if (state.phase !== 'playing') return
@@ -145,12 +142,13 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
   if (state.cutscene) {
     const elapsed = state.tick - state.cutscene.start
     const skip =
-      elapsed > 30 && playerIds.some((id) => inputs[id] & ~state.players[id].lastInput & Buttons.action)
+      elapsed > 30 && activePlayerIds(state).some((id) => inputs[id] & ~state.players[id].lastInput & Buttons.action)
     if (skip || elapsed >= state.cutscene.duration) delete state.cutscene
   } else if (state.phase === 'map') navigate(world, inputs)
+  else if (state.phase === 'ending' || state.phase === 'gameOver') returnToMap(state, inputs)
   else if (state.phase === 'playing' && state.entrance) stepEntrance(world, inputs)
   else if (state.phase === 'playing') {
-    const activePlayers = playerIds.map((id) => state.players[id]).filter((p) => p.status === 'alive')
+    const activePlayers = activePlayerIds(state).map((id) => state.players[id]).filter((p) => p.status === 'alive')
     for (const id of new Set(activePlayers.map((p) => p.roomId))) {
       const present = activePlayers.filter((p) => p.roomId === id)
       stepLayer(world, campaign.levels[id], present)
@@ -162,21 +160,17 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       mario: state.players.mario.y + state.players.mario.height,
       luigi: state.players.luigi.y + state.players.luigi.height,
     }
-    for (const block of state.turning) {
-      if (block.until === state.tick)
-        changeTile(world, campaign.levels[block.roomId], block.col, block.row, 0x11e)
-    }
-    state.turning = state.turning.filter((block) => block.until > state.tick)
+    settleTurnBlocks(world)
     if (state.silverSwitch > 0) state.silverSwitch--
     if (state.pSwitch > 0) state.pSwitch--
-    for (const id of playerIds) {
+    for (const id of activePlayerIds(state)) {
       stepPlayer(world, state.players[id], inputs[id])
       if (state.phase !== 'playing') break
     }
     if (state.phase === 'playing') updateEntities(world, inputs, bottoms)
     if(previousBonus && previousBonus===state.bonus)stepBonus(world,tops)
-    if (state.phase === 'playing' && state.timeLeft > 0 && state.tick % 41 === 0 && --state.timeLeft === 0) {
-      for (const id of playerIds) die(world, state.players[id])
+    if (state.phase === 'playing' && !state.bonus && state.timeLeft > 0 && state.tick % 41 === 0 && --state.timeLeft === 0) {
+      for (const id of activePlayerIds(state)) die(world, state.players[id])
       state.timeLeft = campaign.levels[state.progress.course].timeLimit ?? 400
     }
   }

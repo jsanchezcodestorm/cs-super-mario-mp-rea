@@ -1,10 +1,12 @@
 import { beginBonus, resumeBonus, validBonus } from './bonus-game.ts'
-import { Buttons, playerIds } from './types.ts'
+import { activePlayerIds, Buttons, playerIds } from './types.ts'
+import { beginOverworldTravel, navigateOverworld } from './overworld.ts'
 import type {
   World,
   CampaignDefinition,
   GameState,
   CampaignSave,
+  GameMode,
   PlayerState,
   ExitKind,
   InputFrame,
@@ -16,6 +18,8 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   const { state } = world
   if (!state.progress.unlocked.includes(course)) throw new Error('Course is locked')
   state.phase = 'playing'
+  delete state.mapStop
+  delete state.mapTravel
   delete state.bonus
   state.progress.course = course
   state.progress.selection = state.progress.unlocked.indexOf(course)
@@ -35,8 +39,13 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   state.tileChanges = {}
   state.pSwitch = 0
   state.timeLeft = world.campaign.levels[course].timeLimit ?? 400
+  const activePlayers = activePlayerIds(state)
   for (const id of playerIds) {
     const p = state.players[id]
+    if (!activePlayers.includes(id)) {
+      p.status = 'spectator'
+      continue
+    }
     if (p.lives === 0 && !resumeCheckpoint) {
       p.lives = 1
       p.form = 'small'
@@ -51,13 +60,18 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
     p.tongueFrame = 0
     p.wingTicks = 0
     p.carrying = null
+    p.growthPending = false
     p.dragonCoins = 0
     p.height = p.form === 'small' ? 16 : 28
     enterRoom(world, p, checkpoint?.roomId ?? intro ?? course, checkpoint ?? undefined)
   }
   emit(world, 'start')
 }
-export function createGame(campaign: CampaignDefinition, save?: CampaignSave | null): GameState {
+export function createGame(
+  campaign: CampaignDefinition,
+  save?: CampaignSave | null,
+  mode: GameMode = 'coop',
+): GameState {
   if (!Object.hasOwn(campaign.levels, campaign.start)) throw new Error('Campaign start room missing')
   if (save && !validateSave(campaign, save)) throw new Error('Invalid campaign save')
   const unlocked = initialCourses(campaign)
@@ -85,8 +99,10 @@ export function createGame(campaign: CampaignDefinition, save?: CampaignSave | n
       if (bonusStars !== undefined) player.bonusStars = bonusStars
     }
   const state: GameState = {
+    mode,
     tick: 0,
-    phase: 'playing',
+    phase: save?.phase ?? 'map',
+    ...(save?.mapStop ? { mapStop: save.mapStop } : {}),
     players,
     entities: [],
     nextEntity: 0,
@@ -103,9 +119,11 @@ export function createGame(campaign: CampaignDefinition, save?: CampaignSave | n
     entrance: null,
     timeLeft: 400,
   }
-  if (save?.bonus) resumeBonus({ campaign, state }, save.bonus)
-  else if (save && save.phase !== 'playing') state.phase = save.phase
-  else startCourse({ campaign, state }, progress.course, true)
+  const soloOutOfLives = mode === 'solo' && state.players.mario.lives === 0;
+  if (mode === 'solo') state.players.luigi.status = 'spectator'
+  if (soloOutOfLives && save?.phase === 'playing') state.phase = 'gameOver'
+  if (save?.bonus && !soloOutOfLives) resumeBonus({ campaign, state }, save.bonus)
+  else if (save?.phase === 'playing' && !soloOutOfLives) startCourse({ campaign, state }, progress.course, true)
   return state
 }
 export function finishCourse(
@@ -116,7 +134,7 @@ export function finishCourse(
   countsAsExit = true,
 ) {
   const { state, campaign } = world
-  if (state.phase !== 'playing') return
+  if (state.phase !== 'playing' || state.bonus) return
   const p = state.progress
   const exitId = p.course + ':' + kind
   const firstClear = !p.completed.includes(exitId)
@@ -127,25 +145,28 @@ export function finishCourse(
   const paths = campaign.routes[p.course]?.[kind] ?? []
   for (const path of paths) if (campaign.levels[path] && !p.unlocked.includes(path)) p.unlocked.push(path)
   const next = paths.find((id) => p.unlocked.includes(id))
-  p.selection = next ? p.unlocked.indexOf(next) : p.unlocked.indexOf(p.course)
+  const transitioned = !ending && next ? beginOverworldTravel(world, p.course, next, kind) : false
+  if (!transitioned) p.selection = next ? p.unlocked.indexOf(next) : p.unlocked.indexOf(p.course)
   p.checkpoint = null
   state.phase = ending ? 'ending' : 'map'
   emit(world, ending ? 'ending' : 'exit', player, kind)
   if (!ending && countsAsExit && player.bonusStars >= 100) beginBonus(world, player)
 }
 export function navigate(world: World, inputs: InputFrame) {
-  const { state } = world,
-    p = state.progress
-  for (const id of playerIds) {
-    const pressed = inputs[id] & ~state.players[id].lastInput
-    if (pressed & (Buttons.left | Buttons.up))
-      p.selection = (p.selection + p.unlocked.length - 1) % p.unlocked.length
-    if (pressed & (Buttons.right | Buttons.down)) p.selection = (p.selection + 1) % p.unlocked.length
-    if (pressed & (Buttons.jump | Buttons.action | Buttons.spin)) {
-      startCourse(world, p.unlocked[p.selection])
-      return
+  const course = navigateOverworld(world, inputs)
+  if (course) startCourse(world, course)
+}
+
+export function returnToMap(state: GameState, inputs: InputFrame) {
+  if (!activePlayerIds(state).some((id) => inputs[id] & ~state.players[id].lastInput & Buttons.action)) return
+  if (state.phase === 'gameOver') {
+    state.progress.checkpoint = null
+    for (const id of activePlayerIds(state)) {
+      state.players[id].lives = 5
+      state.players[id].status = 'alive'
     }
   }
+  state.phase = 'map'
 }
 export function makeSave(state: GameState): CampaignSave {
   const resources = (id: PlayerId) => {
@@ -154,6 +175,7 @@ export function makeSave(state: GameState): CampaignSave {
   }
   return {
     version: 1,
+    ...(state.mapStop ? { mapStop: state.mapStop } : {}),
     ...(state.bonus ? { bonus: structuredClone(state.bonus) } : {}),
     phase: state.phase,
     progress: structuredClone(state.progress),
@@ -171,6 +193,9 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
     !['playing', 'map', 'ending', 'gameOver'].includes(value.phase)
   )
     return false
+  if (value.mapStop !== undefined && (value.phase !== 'map' || typeof value.mapStop !== 'string' ||
+    !campaign.overworldPaths || !Object.hasOwn(campaign.overworldPaths, value.mapStop) ||
+    Object.hasOwn(campaign.routes, value.mapStop))) return false
   if (value.bonus !== undefined && (value.phase !== 'playing' || !validBonus(value.bonus, campaign.levels)))
     return false
   const p = value.progress,

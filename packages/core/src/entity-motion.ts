@@ -1,4 +1,11 @@
+import { bump } from './blocks.ts'
+import { moveSkull } from './skull-raft.ts'
+import { positionChainDeck, stepForestDeck, stepHammerDeck } from './flying-platforms.ts'
+import { isWallSpring } from './wall-spring.ts'
+import { movePipeBoss } from './pipe-boss.ts'
+import { castMagic, moveMagic } from './magikoopa.ts'
 import { moveTape } from './rewards.ts'
+import { moveCloud, moveLakitu } from './lakitu.ts'
 import { moveEmission } from './emitters.ts'
 import { hatch, feedBaby } from './yoshi-growth.ts'
 import { moveChuck, moveChuckShot } from './chuck.ts'
@@ -65,11 +72,13 @@ function bossMotion(world: World, e: EntityState, target: PlayerState, room: Lev
 export function moveEntity(world: World, e: EntityState, target: PlayerState) {
   const room = world.campaign.levels[e.roomId]
   e.age++
+  if (movePipeBoss(world, room, e)) return
   if (e.reserveDrop) {
     e.y += 1
     if (e.y > room.height * 16 + 16) e.active = false
     return
   }
+  if (isWallSpring(e.spriteId)) return
   if (e.kind === 'goal') {
     moveTape(e)
     return
@@ -80,6 +89,12 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
     return
   }
   switch (e.kind) {
+    case 'lakitu':
+      moveLakitu(world, e, target)
+      break
+    case 'cloud':
+      moveCloud(world, e)
+      break
     case 'chuck':
       moveChuck(world, room, e, target)
       break
@@ -107,6 +122,12 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       walk(world, room, e, 1.35, 4)
       break
     case 'feather':
+      if (e.pickupDelay) {
+        e.y += e.vy
+        e.vy += 1 / 16
+        e.pickupDelay--
+        break
+      }
       e.x = e.origin.x + wave(e.age, 85) * 14
       e.vy = Math.min(1, e.vy + 0.02)
       moveBody(world, room, e)
@@ -155,6 +176,17 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       }
       break
     case 'shell':
+      if (e.tossed && e.owner) {
+        e.vy = Math.min(4, e.vy + 0.23)
+        const hits = moveBody(world, room, e)
+        for (const hit of hits)
+          if (hit.side === 'top' && !hit.layer2) bump(world, world.state.players[e.owner], room, hit, false)
+        if (e.grounded) {
+          e.vx = 0
+          delete e.tossed
+        }
+        break
+      }
       if (e.rainbow) e.vx += limit(target.x - e.x, -0.12, 0.12)
       walk(world, room, e, e.rainbow ? 2.6 : Math.abs(e.vx) > 1 ? 3.5 : 0)
       break
@@ -166,6 +198,13 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       moveBody(world, room, e)
       break
     case 'flyer':
+      if (e.eerieAcceleration !== undefined) {
+        e.x += e.vx
+        e.vy += e.eerieAcceleration / 16
+        if (Math.abs(e.vy) >= 1.5) e.eerieAcceleration *= -1
+        e.y += e.vy
+        break
+      }
     case 'fish':
       e.x = e.origin.x + wave(e.age, 200) * 34
       e.y = e.origin.y + wave(e.age, e.kind === 'fish' ? 140 : 105) * 16
@@ -193,8 +232,24 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       }
       break
     case 'platform':
+      if (e.spriteId === 0x9c) {
+        stepHammerDeck(world, e)
+        break
+      }
+      if (e.spriteId === 0xc1) {
+        stepForestDeck(world, e)
+        break
+      }
+      if (e.spriteId === 0xa3) {
+        positionChainDeck(e)
+        break
+      }
       if (moveBridge(world, e)) break
-      if (e.spriteId === 0x61 || e.spriteId === 0x5e) {
+      if (e.spriteId === 0x61) {
+        moveSkull(world, room, e)
+        break
+      }
+      if (e.spriteId === 0x5e) {
         if (e.owner) e.x += 1.4
         break
       }
@@ -205,6 +260,12 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
           e.y += e.vy
         }
       } else e.x = e.origin.x + wave(e.age, 230) * 47
+      break
+    case 'magikoopa':
+      castMagic(world, e, target)
+      break
+    case 'magic':
+      moveMagic(world, room, e)
       break
     case 'boss':
     case 'endingBoss':

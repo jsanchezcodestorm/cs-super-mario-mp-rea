@@ -1,3 +1,4 @@
+import { enterFirstCourse } from './enter-first-course.ts'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
@@ -18,12 +19,21 @@ const rom: CampaignDefinition | undefined = existsSync(file)
 const extracted = { skip: !rom && 'Prepare PAL E1 with npm run extract' }
 function enterViaTape(id: string) {
   const campaign = { ...rom!, start: id, initial: [id] }
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   const tape = state.entities.find((e) => e.kind === 'goal')!
   Object.assign(state.players.mario, { x: tape.x, y: tape.origin.y, bonusStars: 99 })
   stepGame(campaign, state, { mario: 0, luigi: 0 })
   return { state, campaign }
 }
+test('the course timer cannot kill the team inside the post-goal bonus game', extracted, () => {
+  const { campaign, state } = enterViaTape('015')
+  state.timeLeft = 1
+  for (let frame = 0; frame < 82; frame++) stepGame(campaign, state, { mario: 0, luigi: 0 })
+  assert.ok(state.bonus)
+  assert.equal(state.timeLeft, 1)
+  assert.ok(Object.values(state.players).every((p) => p.status === 'alive' && p.lives === 5))
+  assert.ok(validateSave(campaign, makeSave(state)))
+})
 test(
   'crossing 100 on the tape consumes the stars once, unlocks the route, and selects the proper bonus bank',
   extracted,

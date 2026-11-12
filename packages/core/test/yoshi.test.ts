@@ -1,3 +1,4 @@
+import { enterFirstCourse } from './enter-first-course.ts'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
@@ -32,7 +33,7 @@ function game(spawns: Spawn[]) {
     routes: { field: {} },
     yoshiTraits: traits,
   }
-  const state = createGame(campaign),
+  const state = enterFirstCourse(campaign),
     events: string[] = []
   state.players.luigi.x = 350
   function advance(n: number, mario = 0) {
@@ -166,4 +167,19 @@ test('a carried baby eats five ordinary enemies, then grows and frees its carrie
   assert.equal(baby.kind, 'yoshi')
   assert.equal(g.p.carrying, null)
   assert.equal(g.events.filter((e) => e === 'yoshiGrow').length, 1)
+})
+
+test('feeding a carried shell to a baby frees the same player to pick up a key', () => {
+  const g = game([])
+  const world = { campaign: g.campaign, state: g.state }
+  const shell = spawnEntity(world, 'field', { x: g.p.x, y: g.p.y, spriteId: 0xda })!
+  g.advance(1, Buttons.run)
+  assert.equal(g.p.carrying, shell.id)
+  spawnEntity(world, 'field', { x: g.p.x + g.p.width, y: g.p.y, spriteId: 0x2d })
+  g.advance(1, Buttons.run)
+  assert.ok(!shell.active)
+  assert.equal(g.p.carrying, null)
+  const key = spawnEntity(world, 'field', { x: g.p.x, y: g.p.y, spriteId: 0x80 })!
+  g.advance(1, Buttons.run)
+  assert.equal(g.p.carrying, key.id)
 })

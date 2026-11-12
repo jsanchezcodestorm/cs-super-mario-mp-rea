@@ -1,7 +1,7 @@
 import { releaseReserve } from './rewards.ts'
 import { clearMouth, releaseMouth } from './yoshi-tongue.ts'
 import type { World, PlayerState } from './types.ts'
-import { playerIds } from './types.ts'
+import { activePlayerIds } from './types.ts'
 import { emit, enterRoom, spawnEntity } from './state.ts'
 export function die(world: World, p: PlayerState) {
   if (p.status !== 'alive') return
@@ -11,13 +11,14 @@ export function die(world: World, p: PlayerState) {
   p.reserve = null
   p.form = 'small'
   p.height = 16
+  p.growthPending = false
   p.mounted = false
   clearMouth(p)
   p.carrying = null
   p.star = 0
   p.vy = -5
   emit(world, 'death', p)
-  if (playerIds.every((id) => world.state.players[id].status === 'spectator')) {
+  if (activePlayerIds(world.state).every((id) => world.state.players[id].status === 'spectator')) {
     world.state.phase = 'gameOver'
     emit(world, 'gameOver')
   }
@@ -37,6 +38,7 @@ export function hurt(world: World, p: PlayerState) {
     p.y += p.height - 16
     p.height = 16
     p.form = 'small'
+    p.growthPending = false
   } else {
     die(world, p)
     return

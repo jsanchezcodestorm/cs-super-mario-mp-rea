@@ -26,6 +26,8 @@ export function feedBaby(world: World, baby: EntityState, target: PlayerState) {
   )
   if (!food) return
   food.active = false
+  if (food.owner && world.state.players[food.owner].carrying === food.id)
+    world.state.players[food.owner].carrying = null
   baby.meals = (baby.meals ?? 0) + 1
   baby.stunnedUntil = baby.age + 32
   if (baby.meals === 5 || (food.spriteId >= 0x74 && food.spriteId <= 0x77)) {

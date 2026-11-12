@@ -1,5 +1,5 @@
 import type { LevelDefinition, PlayerState, World } from './types.ts'
-import { bodyCells, isSolid, tileAt } from './terrain.ts'
+import { clipDisplacement } from './terrain.ts'
 import { die } from './resources.ts'
 
 /** The reference PAL viewport is sampled every four video frames. */
@@ -30,13 +30,8 @@ export function constrainToScroll(world: World, room: LevelDefinition, p: Player
     die(world, p)
     return
   }
-  if (p.x < camera.x) {
-    p.x = camera.x
-    const pinned = bodyCells(p).some(({ col, row }) => isSolid(tileAt(world, room, col, row)))
-    if (pinned) {
-      die(world, p)
-      return
-    }
-  }
-  p.x = Math.min(camera.x + 256 - p.width, p.x)
+  const target = Math.max(camera.x, Math.min(camera.x + 256 - p.width, p.x))
+  if (target === p.x) return
+  p.x = clipDisplacement(world, room, p, 'x', target - p.x)
+  if (p.x < camera.x) die(world, p)
 }

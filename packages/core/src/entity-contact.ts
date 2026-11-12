@@ -1,3 +1,9 @@
+import { isWallSpring, wallBounce } from './wall-spring.ts'
+import { withdrawWizard } from './magikoopa.ts'
+import { isPipeBoss } from './pipe-boss.ts'
+import { hammerRider } from './flying-platforms.ts'
+import { standOnDeck } from './platform-rider.ts'
+import { expandPlayer } from './player-size.ts'
 import { collectedBonusLife } from './bonus-game.ts'
 import { goalReward, addScore, storePowerup } from './rewards.ts'
 import { taste } from './yoshi-tongue.ts'
@@ -5,11 +11,25 @@ import { shellColor, koopaShell } from './yoshi-colors.ts'
 import { isTiltingArena } from './arena.ts'
 import { Buttons } from './types.ts'
 import type { World, PlayerState, EntityState } from './types.ts'
-import { overlaps } from './terrain.ts'
-import { emit } from './state.ts'
+import { overlaps, clipDisplacement } from './terrain.ts'
+import { emit, spawnEntity } from './state.ts'
 import { collectCoin, hurt } from './resources.ts'
 import { finishCourse } from './campaign.ts'
 
+export const weaponTargets = new Set([
+  'lakitu',
+  'chuck',
+  'koopa',
+  'walker',
+  'rex',
+  'spiny',
+  'jumper',
+  'flyer',
+  'fish',
+  'plant',
+  'boss',
+  'endingBoss',
+])
 const edible = new Set(['walker', 'koopa', 'rex', 'spiny', 'jumper', 'fish', 'flyer', 'plant'])
 const pickups = new Set(['mushroom', 'flower', 'star', 'feather', 'oneUp', 'coin'])
 function pickup(world: World, e: EntityState, p: PlayerState) {
@@ -26,17 +46,27 @@ function pickup(world: World, e: EntityState, p: PlayerState) {
     if (e.kind === 'mushroom' && p.form === 'small') p.form = 'super'
     if (e.kind === 'flower') p.form = 'fire'
     if (e.kind === 'feather') p.form = 'cape'
-    p.y -= 28 - p.height
-    p.height = 28
+    expandPlayer(world, p)
   }
   if (e.kind !== 'oneUp' && !e.reserveDrop) addScore(p, 1000)
   emit(world, 'item', p)
 }
 export function strike(world: World, e: EntityState, p: PlayerState) {
+  if (e.kind === 'magikoopa') {
+    if (e.height) {
+      addScore(p, 100)
+      withdrawWizard(e)
+    }
+    return
+  }
   if (e.kind === 'boss' && isTiltingArena(e.roomId)) {
     const downhill = Math.sign(Math.sin((world.state.tick * Math.PI) / 230)) || 1
     e.vx = downhill * 2.9
     return
+  }
+  if (isPipeBoss(e)) {
+    if (!e.height || e.kind === 'pipeDecoy' || (e.stunnedUntil ?? 0) > e.age) return
+    e.stunnedUntil = e.age + 100
   }
   if (e.kind === 'chuck') {
     if (e.stunnedUntil && e.age < e.stunnedUntil) return
@@ -81,14 +111,15 @@ export function strike(world: World, e: EntityState, p: PlayerState) {
   }
 }
 export function contact(world: World, e: EntityState, p: PlayerState, input: number, previousBottom: number) {
-  if (!e.active || p.status !== 'alive' || e.roomId !== p.roomId) return
+  if (!e.active || !e.height || p.status !== 'alive' || e.roomId !== p.roomId) return
+  if (isPipeBoss(e) && (!e.height || (e.stunnedUntil ?? 0) > e.age)) return
   if (e.kind === 'exitSide') {
     const end = world.campaign.levels[e.roomId].width * 16 - p.width - 1
     if (p.x >= end || (p.x <= 0 && input & Buttons.left)) finishCourse(world, p, 'normal', false, false)
     return
   }
   if (e.owner && world.state.players[e.owner].carrying === e.id) return
-  if (e.kind === 'vine' || e.kind === 'blockSnake') return
+  if (e.kind === 'vine' || e.kind === 'blockSnake' || e.kind === 'directionalCoins') return
   if (e.spriteId === 0x64) {
     if (
       !p.carrying &&
@@ -128,16 +159,27 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     emit(world, 'stomp', p)
     return
   }
-  if (e.kind === 'chuckShot') {
+  if (e.kind === 'chuckShot' || e.kind === 'magic') {
     hurt(world, p)
     return
   }
   if (pickups.has(e.kind)) {
+    if (e.pickupDelay) return
     pickup(world, e, p)
     return
   }
   if (e.kind === 'orb') {
     finishCourse(world, p)
+    return
+  }
+  if (e.kind === 'cloud') {
+    if (p.vy >= 0 && !e.owner && !p.cooldown && p.cloud === undefined) {
+      e.owner = p.id
+      p.cloud = e.id
+      p.flight = 0
+      p.y = e.y - p.height + 2
+      p.vy = 0
+    }
     return
   }
   if (e.kind === 'keyhole') {
@@ -148,11 +190,26 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   }
   const landed = previousBottom <= e.y + 6 && p.vy >= 0
   if (e.kind === 'platform' || e.kind === 'spring') {
+    if (e.spriteId === 0x9c && p.vy < 0 && previousBottom - p.height >= e.y + e.height - 4) {
+      p.y = e.y + e.height
+      p.vy = 0
+      const rider = hammerRider(world, e)
+      if (rider) strike(world, rider, p)
+      return
+    }
+    if (e.spriteId === 0x2f && !landed && !p.mounted && !p.carrying && input & Buttons.run) {
+      e.owner = p.id
+      p.carrying = e.id
+      return
+    }
     if (landed) {
+      if (e.kind === 'platform') {
+        standOnDeck(world, p, e)
+        return
+      }
       p.y = e.y - p.height
-      p.grounded = true
-      p.vy = e.kind === 'spring' ? (input & Buttons.jump ? -9 : -6) : 0
-      if (e.kind === 'platform') e.owner = p.id
+      p.vy = isWallSpring(e.spriteId) ? wallBounce(e, p, input) : input & Buttons.jump ? -9 : -6
+      p.grounded = p.vy >= 0
     }
     return
   }
@@ -204,8 +261,16 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     (e.kind === 'shell' && e.owner === p.id && p.cooldown > 0)
   )
     return
-  if (p.star > 0 && e.kind !== 'boss' && e.kind !== 'endingBoss') {
+  if (p.sliding && weaponTargets.has(e.kind) && e.kind !== 'boss' && e.kind !== 'endingBoss' &&
+      world.campaign.slideTargets?.includes(e.spriteId)) {
     e.active = false
+    addScore(p, 100)
+    emit(world, 'stomp', p)
+    return
+  }
+  if (p.star > 0 && e.kind !== 'boss' && e.kind !== 'endingBoss') {
+    if (e.kind === 'magikoopa') strike(world, e, p)
+    else e.active = false
     return
   }
   if (
@@ -215,8 +280,18 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
       p.mounted)
   ) {
     p.vy = input & Buttons.jump ? -4.8 : -3.1
-    p.y = e.y - p.height
-    if (e.kind === 'shell') {
+    const top = e.y - p.height
+    p.y = clipDisplacement(world, world.campaign.levels[p.roomId], p, 'y', top - p.y)
+    // E1 InitSuperKoopaFthr marks the even-column running Koopa with a
+    // flashing cape. A normal stomp ejects that feather (02:EAF2).
+    if (e.spriteId === 0x73 && !(e.origin.x & 16) && !p.spin && !p.mounted) {
+      const feather = spawnEntity(world, e.roomId, { x: e.x, y: e.y, spriteId: 0x77 })!
+      feather.pickupDelay = 48
+      feather.vy = -3
+      e.spriteId = 2
+      e.kind = 'walker'
+      addScore(p, 100)
+    } else if (e.kind === 'shell') {
       e.vx = 0
       e.owner = null
     } else if (

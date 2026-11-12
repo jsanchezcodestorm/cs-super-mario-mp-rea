@@ -1,5 +1,5 @@
 import type { World, PlayerState, PlayerId } from './types.ts'
-import { playerIds } from './types.ts'
+import { activePlayerIds, playerIds } from './types.ts'
 import { emit, enterRoom, spawnEntity } from './state.ts'
 
 export interface BonusSlot {
@@ -60,8 +60,13 @@ function movePlayers(world: World, bonus: BonusGame) {
   world.state.entities = []
   world.state.tileChanges = {}
   world.state.turning = []
+  const activePlayers = activePlayerIds(world.state)
   for (const id of playerIds) {
     const p = world.state.players[id]
+    if (!activePlayers.includes(id)) {
+      p.status = 'spectator'
+      continue
+    }
     p.status = p.lives > 0 ? 'alive' : 'spectator'
     p.height = p.form === 'small' ? 16 : 28
     p.carrying = null
@@ -174,7 +179,7 @@ export function stepBonus(world: World, tops: Record<PlayerId, number>) {
       slot.symbol = Math.floor(slot.frame / 3)
     }
   }
-  for (const id of playerIds) stopSlot(world, world.state.players[id], tops[id], bonus.slots)
+  for (const id of activePlayerIds(world.state)) stopSlot(world, world.state.players[id], tops[id], bonus.slots)
   if (bonus.age % 40 === 0 && bonus.slots.every((slot) => slot.stopped)) resolveBonus(bonus)
 }
 export function resumeBonus(world: World, bonus: BonusGame) {

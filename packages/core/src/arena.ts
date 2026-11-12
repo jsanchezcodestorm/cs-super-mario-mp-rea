@@ -12,7 +12,8 @@ export function prepareArena(world: World, room: LevelDefinition) {
   const tilting = isTiltingArena(room.id)
   const floor = room.id === '1c7' ? 13 : 11
   for (let x = 0; x < room.width; x++) {
-    if (!tilting) tiles[floor * room.width + x] = 0x132
+    // Mode 7 collision surfaces stay solid while a carried-over P-switch is active.
+    if (!tilting) tiles[floor * room.width + x] = 0x130
     if (room.id !== '1c7') tiles[(tilting ? 12 : 14) * room.width + x] = 0x5
   }
 }

@@ -1,5 +1,7 @@
+import { enterFirstCourse } from './enter-first-course.ts'
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   Buttons,
   createGame,
@@ -43,7 +45,7 @@ function tick(
 
 test('progress and events replay identically from an authoritative snapshot', () => {
   const { campaign } = fixture()
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   const predicted = copyState(state)
   for (const world of [state, predicted]) {
     tick(campaign, world, 40, Buttons.right | Buttons.run)
@@ -59,7 +61,7 @@ test('progress and events replay identically from an authoritative snapshot', ()
 test('a contested collectible and two overlapping players generate one authoritative reward', () => {
   const { campaign, first } = fixture([{ x: 16, y: 144, spriteId: 0x75 }])
   first.tiles[9 * first.width + 1] = 0x2b
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   tick(campaign, state)
   assert.equal(state.players.mario.coins + state.players.luigi.coins, 1)
   assert.equal(state.players.mario.form, 'fire')
@@ -72,7 +74,7 @@ test('separate players can occupy distinct sublevels with their own resources', 
   const { campaign, first } = fixture()
   first.tiles[10 * first.width + 1] = 0x137
   first.exits.push({ screen: 0, target: 'cellar', spawn: { x: 96, y: 128 } })
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   tick(campaign, state, 24)
   tick(campaign, state, 1, Buttons.down)
   assert.equal(state.players.mario.roomId, 'cellar')
@@ -85,7 +87,7 @@ test('horizontal pipe requires the enterable mouth and a direction toward it', (
   const { campaign, first } = fixture()
   first.tiles[9 * first.width + 3] = 0x13f
   first.exits.push({ screen: 0, target: 'cellar' })
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   tick(campaign, state, 60, Buttons.right)
   assert.equal(state.players.mario.roomId, 'cellar')
   assert.equal(state.players.luigi.roomId, 'first')
@@ -94,7 +96,7 @@ test('horizontal pipe requires the enterable mouth and a direction toward it', (
 test('a checkpoint activated by Luigi restores Mario when he loses a life', () => {
   const { campaign, first } = fixture()
   first.tiles[9 * first.width + 7] = 0x38
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   state.players.luigi.x = 112
   tick(campaign, state)
   assert.equal(state.progress.checkpoint?.x, 112)
@@ -109,7 +111,7 @@ test('a checkpoint activated by Luigi restores Mario when he loses a life', () =
 
 test('an exhausted player spectates through reload and rejoins at the next course', () => {
   const { campaign, first } = fixture([{ spriteId: 0x7b, x: 280, y: 144 }])
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   state.players.mario.lives = 1
   state.players.mario.y = first.height * 16 + 20
   tick(campaign, state)
@@ -131,7 +133,7 @@ test('an exhausted player spectates through reload and rejoins at the next cours
 
 test('both players running out of lives ends the game exactly once', () => {
   const { campaign } = fixture()
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   for (const player of Object.values(state.players)) {
     player.y = 512
     player.lives = 1
@@ -141,6 +143,16 @@ test('both players running out of lives ends the game exactly once', () => {
   assert.equal(state.events.filter((e) => e.type === 'gameOver').length, 1)
   tick(campaign, state)
   assert.deepEqual(state.events, [])
+  const restored = createGame(campaign, makeSave(state))
+  tick(campaign, restored, 1, 0, Buttons.action)
+  assert.equal(restored.phase, 'map')
+  assert.deepEqual(restored.progress.completed, state.progress.completed)
+  assert.deepEqual(Object.values(restored.players).map((p) => p.lives), [5, 5])
+  tick(campaign, restored, 1, 0, Buttons.action)
+  assert.equal(restored.phase, 'map', 'holding Continue must not immediately enter a course')
+  tick(campaign, restored)
+  tick(campaign, restored, 1, Buttons.action)
+  assert.equal(restored.phase, 'playing')
 })
 
 test('carrying the key into a keyhole completes its own exit and unlocks its route', () => {
@@ -148,7 +160,7 @@ test('carrying the key into a keyhole completes its own exit and unlocks its rou
     { x: 16, y: 144, spriteId: 0x80 },
     { x: 96, y: 144, spriteId: 0x0e },
   ])
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   tick(campaign, state, 60, Buttons.run | Buttons.right)
   assert.equal(state.phase, 'map')
   assert.deepEqual(state.progress.completed, ['first:secret'])
@@ -158,7 +170,7 @@ test('carrying the key into a keyhole completes its own exit and unlocks its rou
 
 test('save validation enforces reachable ordered unlocks, bounded resources and valid checkpoints', () => {
   const { campaign } = fixture()
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   const save = makeSave(state)
   assert.equal(validateSave(campaign, save), true)
   assert.equal(validateSave(campaign, { ...save, version: 99 }), false)
@@ -176,7 +188,7 @@ test('save validation enforces reachable ordered unlocks, bounded resources and 
 test('palace progression, blue and silver P switches remap original Map16 tiles', () => {
   const { campaign, first } = fixture()
   first.tiles.splice(0, 4, 0x6b, 0x2b, 0x132, 0x12f)
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   state.progress.completed.push('014:normal')
   assert.equal(effectiveTile(state, first, 0), 0x16b)
   state.pSwitch = 10
@@ -189,7 +201,7 @@ test('palace progression, blue and silver P switches remap original Map16 tiles'
 
 test('item blocks preserve positional rewards and Mario power-dependent upgrades', () => {
   const { campaign } = fixture()
-  const player = createGame(campaign).players.mario
+  const player = enterFirstCourse(campaign).players.mario
   assert.equal(blockReward(0x11f, 0, player, 0), 0x74)
   player.form = 'super'
   assert.equal(blockReward(0x11f, 0, player, 0), 0x75)
@@ -213,7 +225,7 @@ test('a Splittin’ Chuck produces two charging clones while a pitching Chuck th
     { x: 80, y: 132, spriteId: 0x92 },
     { x: 260, y: 132, spriteId: 0x98 },
   ])
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   state.players.luigi.x=430
   tick(campaign, state, 72)
   assert.equal(state.entities.filter((e) => e.spriteId === 0x91).length, 2)
@@ -226,8 +238,12 @@ test('layer two supports independent riders and keeps their feet on the moving f
   first.tiles.fill(0x25)
   first.layer2 = Array<number>(first.tiles.length).fill(0x25)
   first.layer2.fill(0x130, 10 * first.width)
+  const rom: CampaignDefinition = JSON.parse(readFileSync(
+    new URL('../../../generated/content.json', import.meta.url), 'utf8',
+  ))
+  first.layerOscillation = rom.levels['1e3'].layerOscillation
   first.spawn.y = 140
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   tick(campaign, state, 140)
   const offset = state.layerOffsets.first
   assert.ok(offset.y > 4)
@@ -251,7 +267,7 @@ test('the decoded castle entrance can be skipped by either player', () => {
       [0, 48],
     ],
   }
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   assert.equal(state.players.luigi.roomId, 'hall')
   tick(campaign, state, 3)
   tick(campaign, state, 1, 0, Buttons.jump)

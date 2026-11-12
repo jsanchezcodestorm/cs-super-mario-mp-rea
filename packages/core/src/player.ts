@@ -1,4 +1,10 @@
+import { slopeMotion } from './slope-motion.ts'
+import { tideSurface } from './tide.ts'
+import { startWallRun, stepWallRun } from './wall-run.ts'
 import { releaseReserve } from './rewards.ts'
+import { rideCloud } from './lakitu.ts'
+import { spinCape } from './cape-spin.ts'
+import { resumePlayerGrowth } from './player-size.ts'
 import { constrainToScroll } from './autoscroll.ts'
 import { yoshiPowers } from './yoshi-colors.ts'
 import { releaseMouth, stepTongue } from './yoshi-tongue.ts'
@@ -29,7 +35,7 @@ function shoot(world: World, p: PlayerState) {
   p.cooldown = 14
   emit(world, 'shot', p)
 }
-function advanceMotion(p: PlayerState, input: number, pressed: number, water: boolean, climb: boolean) {
+function advanceMotion(world: World, room: LevelDefinition, p: PlayerState, input: number, pressed: number, water: boolean, climb: boolean) {
   const direction = Number(!!(input & Buttons.right)) - Number(!!(input & Buttons.left))
   const running = !!(input & Buttons.run)
   if (running && direction !== 0 && p.grounded && Math.abs(p.vx) >= 2)
@@ -45,7 +51,7 @@ function advanceMotion(p: PlayerState, input: number, pressed: number, water: bo
   }
   const max = water ? 1.25 : running ? (p.runTicks === 64 ? 3 : 2.5) : 1.5
   const accel = direction === 0 ? 0.0625 : Math.sign(p.vx) === -direction ? 0.15 : 0.08
-  p.vx = approach(p.vx, direction * max, accel)
+  if (!slopeMotion(world, room, p, input, pressed, water)) p.vx = approach(p.vx, direction * max, accel)
   if (direction && !p.flight) p.facing = direction > 0 ? 1 : -1
   const jump = pressed & (Buttons.jump | Buttons.spin)
   const clinging = climb && !!(input & (Buttons.up | Buttons.down)) && !jump
@@ -80,15 +86,28 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
     tickDead(world, p)
     return
   }
+  resumePlayerGrowth(world, p)
   const room = world.campaign.levels[p.roomId],
     pressed = input & ~p.lastInput
   for (const key of ['invincible', 'star', 'cooldown'] as const) if (p[key] > 0) p[key]--
   const tileIds = bodyCells(p).map(({ col, row }) => tileAt(world, room, col, row))
-  const water = !!room.water || tileIds.some((t) => t >= 0 && t < 5)
+  const tide = tideSurface(room, world.state)
+  const water = !!room.water || tileIds.some((t) => t >= 0 && t < 5) || (tide !== null && p.y + p.height / 2 >= tide)
   const climb = tileIds.some((t) => t >= 6 && t <= 0x1c)
   if (pressed & Buttons.reserve) releaseReserve(world, p)
+  if (stepWallRun(world, room, p, input, pressed)) return
+  const jumpOut = !room.water && water && p.vy <= 0 &&
+    (input & (Buttons.up | Buttons.jump)) === (Buttons.up | Buttons.jump) &&
+    (tide !== null ? p.y + 2 < tide :
+      tileAt(world, room, Math.floor((p.x + p.width / 2) / 16), Math.floor((p.y + 2) / 16)) >= 5)
   const grounded = p.grounded
-  if (advanceMotion(p, input, pressed, water, climb) && (grounded || water || climb)) emit(world, 'jump', p)
+  if (!rideCloud(world, p, input, pressed) && advanceMotion(world, room, p, input, pressed, water, climb) && (grounded || water || climb))
+    emit(world, 'jump', p)
+  if (jumpOut) {
+    // The PAL surface check assigns signed $AA in sixteenths of a pixel.
+    p.vy = -86 / 16
+    p.grounded = false
+  }
   stepTongue(world, p, input, pressed)
   const powers = yoshiPowers(p)
   if (powers.wings && !p.grounded) {
@@ -99,6 +118,7 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
     }
   } else p.wingTicks = 0
   if (!p.mounted && pressed & Buttons.run) shoot(world, p)
+  if (!p.mounted && p.form === 'cape' && pressed & Buttons.run) spinCape(world, room, p)
   if (p.mounted && pressed & Buttons.spin) {
     releaseMouth(world, p, 0, true)
     p.mounted = false
@@ -112,7 +132,14 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
     p.cooldown = 18
   }
   const oldBottom = p.y + p.height
+  const speed = p.vx
   const contacts = moveBody(world, room, p)
+  if (p.sliding && contacts.some((c) => c.side === 'left' || c.side === 'right')) delete p.sliding
+  if (contacts.some((hit) => hit.crushed)) {
+    die(world, p)
+    return
+  }
+  startWallRun(p, contacts, speed)
   constrainToScroll(world, room, p)
   if (p.status !== 'alive') return
   standOnTilt(world, p, oldBottom)

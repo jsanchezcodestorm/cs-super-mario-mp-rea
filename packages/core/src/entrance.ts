@@ -1,4 +1,4 @@
-import { Buttons, playerIds } from './types.ts'
+import { activePlayerIds, Buttons } from './types.ts'
 import type { InputFrame, World, PlayerState } from './types.ts'
 import { enterRoom } from './state.ts'
 import { stepPlayer } from './player.ts'
@@ -29,11 +29,12 @@ export function stepEntrance(world: World, inputs: InputFrame) {
   const { state, campaign } = world,
     entry = state.entrance
   if (!entry || !campaign.entranceInputs) return
-  const skip = playerIds.some(
+  const participants = activePlayerIds(state)
+  const skip = participants.some(
     (id) => inputs[id] & ~state.players[id].lastInput & (Buttons.jump | Buttons.spin),
   )
   let finished = true
-  for (const id of playerIds) {
+  for (const id of participants) {
     const p = state.players[id]
     if (p.status !== 'alive' || p.roomId === state.progress.course) continue
     const script = entry.mounted[id] ? campaign.entranceInputs.mounted : campaign.entranceInputs.onFoot
