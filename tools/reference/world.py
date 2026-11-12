@@ -3,6 +3,7 @@ import json
 from core import Core
 from map_tiles import MapTiles
 from map_events import generate as generate_events
+from map_paths import generate as generate_paths
 
 def generate(library,image,output):
     core=Core(library,image)
@@ -34,6 +35,8 @@ def generate(library,image,output):
         maps.append(MapTiles(core,region))
         (output/f'{region}.png').write_bytes(maps[-1].image())
     generate_events(core,freeze,image,maps,nodes,output)
+    paths = generate_paths(core, freeze, nodes, output / 'paths.json')
     (output/'nodes.json').write_text(json.dumps(nodes))
     (output/'regions.json').write_text(json.dumps({k:v['region'] for k,v in nodes.items()}))
     core.lib.retro_unload_game();core.lib.retro_deinit()
+    return nodes, paths

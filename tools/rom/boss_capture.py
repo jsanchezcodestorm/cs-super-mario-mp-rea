@@ -134,6 +134,22 @@ def generate(core_file, image, generated):
         scenes[name] = scene
     levels = json.loads((generated/'content.json').read_text())['levels']
     rooms = {key:scenes[boss_name(level)] for key,level in levels.items() if level['specialMode7']}
+    for key, name in [('1f2', 'lemmy'), ('0d3', 'wendy')]:
+        enter_room(core, base, key)
+        core.run(208)
+        scene = {'frames': [], 'decoys': []}
+        for frame in range(2):
+            memory = vram(core)
+            colors = rgba_palette(PPU.in_dll(core.lib, 'PPU'))
+            ram = core.ram
+            for role, dummy in [('frames', False), ('decoys', True)]:
+                slot = next(i for i in range(12) if ram[0x14c8+i] == 8 and ram[0x9e+i] == 0x29
+                            and bool(ram[0x1570+i]) == dummy)
+                first = 64 + ram[0x15ea+slot] // 4
+                image = trim(oam(ram, memory, colors, range(first, first + 6)))
+                scene[role].append(save(f'{name}-{role}-{frame}.png', image))
+            core.run(12)
+        rooms[key] = scene
     (output/'index.json').write_text(json.dumps(rooms,separators=(',',':')))
     core.lib.retro_unload_game()
     core.lib.retro_deinit()

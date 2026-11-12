@@ -84,12 +84,22 @@ int main(int argc,char **argv) {
     ram[0x94]=32;ram[0x96]=96;
     ram[0x64]=0x20;
     if (!run_actor(0x7f7d2,1)) return 5; // InitSpriteTables, X=slot zero
-    for(int frame=0;frame<(id==0x35?24:22);frame++){
+    // Sample one 32-frame window of the PAL counter; Yoshi keeps its four
+    // authored idle/tongue poses from the dedicated path.
+    for(int frame=0;frame<(id==0x35?24:32);frame++){
         for(int i=0;i<128;i++){ram[0x201+4*i]=0xf0;ram[0x420+i]=0;}
         ram[0x13]=ram[0x14]=frame;
         ram[0xe4]=96;ram[0xd8]=96;ram[0x14e0]=ram[0x14d4]=0;
         ram[0x1a]=ram[0x1b]=ram[0x1c]=ram[0x1d]=0;
-        if (id==0x35) {
+        if (id==0x1f || id==0x20) {
+            // Capture the visible wand-casting state and the projectile at rest.
+            // The caster's waiting/teleport phase has no OAM.
+            ram[0x14c8] = 8;
+            ram[0xc2] = 2;
+            ram[0x1540] = frame>12 ? 0x32 : 0x68;
+            ram[0x9d] = id==0x20;
+            if (!run_actor(id==0x1f ? 0x01be75 : 0x01808c, id!=0x1f)) return 5;
+        } else if (id==0x35) {
             ram[0x157c] = 1; // face left
             ram[0x1602] = frame==22 ? 7 : frame==23 ? 8 : frame>12 ? 1 : 0;
             ram[0x15f6] = 0x0a;
@@ -104,7 +114,7 @@ int main(int argc,char **argv) {
             uint32_t address = id==0x33 ? 0x01e1a6 : id==0x9b ? 0x02dafd : id==0x79 ? 0x01c18a : 0x01b655;
             if(!run_actor(address,0)) return 5;
         } else if (!run_actor(0x01808c,1)) return 5;
-        if(frame==5 || frame>=21) {
+        if((id==0x35 && (frame==5 || frame>=21)) || id!=0x35) {
             upload_dynamic_tiles();
             if(fwrite(ram+0x200,1,0x2a0,stdout)!=0x2a0 || fwrite(vram,1,sizeof vram,stdout)!=sizeof vram) return 4;
         }

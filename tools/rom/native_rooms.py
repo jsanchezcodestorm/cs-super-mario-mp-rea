@@ -7,6 +7,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'reference'))
 from core import Core
 
 
+def read_word(ram, address):
+    return ram[address] + 256 * ram[address + 1]
+
+
+def write_word(ram, address, value):
+    ram[address] = value & 255
+    ram[address + 1] = (value >> 8) & 255
+
+
 def cartridge_image(path):
     image = Path(path).read_bytes()
     if len(image) == 524800:

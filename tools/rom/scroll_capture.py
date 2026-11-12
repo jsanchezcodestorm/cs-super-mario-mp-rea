@@ -3,15 +3,8 @@ import json
 import sys
 from pathlib import Path
 from native_rooms import Core, first_course, enter_room, cartridge_image
-
-
-def word(ram,index):
-    return ram[index]+256*ram[index+1]
-
-
-def write(ram,index,value):
-    ram[index]=value&255
-    ram[index+1]=(value>>8)&255
+from layer_motion import oscillation
+from native_rooms import read_word as word, write_word as write
 
 
 def capture(core,base,room):
@@ -48,6 +41,8 @@ def generate(library,rom,output):
     core=Core(library,data)
     base=first_course(core)
     for room in campaign['levels'].values():
+        if room.get('layer2') and any(s['spriteId'] in (0xea, 0xef) for s in room['sprites']):
+            room['layerOscillation'] = oscillation(core,base,room)
         if any(s['spriteId'] in (0xe8,0xf3) for s in room['sprites']):
             points=capture(core,base,room)
             print('Auto-scroll',room['id'],points[0],points[-1],len(points),flush=True)

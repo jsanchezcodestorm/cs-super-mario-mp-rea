@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +26,15 @@ if (!core) {
   core = join(dir, 'libretro', 'snes9x_libretro.' + (process.platform === 'darwin' ? 'dylib' : 'so'));
 }
 run('python3', ['tools/reference/capture.py', resolve(core), rom, join(root, 'generated')]);
+
+const catalogPath = join(root, 'generated/content.json');
+const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'));
+for (const [field, name] of [['overworldNodes', 'nodes'], ['overworldPaths', 'paths']]) {
+  catalog[field] = JSON.parse(readFileSync(join(root, 'generated/world', name + '.json'), 'utf8'));
+}
+const pending = join(root, 'generated/content.pending.json');
+writeFileSync(pending, JSON.stringify(catalog));
+renameSync(pending, catalogPath);
 
 run('python3', ['tools/rom/scroll_capture.py', resolve(core), rom, join(root, 'generated')]);
 run('python3', ['tools/rom/boss_capture.py', resolve(core), rom, join(root, 'generated')]);

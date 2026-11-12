@@ -33,6 +33,8 @@ export function captureCreatures(root, rom) {
         rewardIds.push(0x38, 0x3f, 0x40, 0x41, 0x17, 0x71, 0x9d, 0x1c, 0xb3, 0x44);
       if (room.sprites.some((s) => [0x46, 0x92, 0x97, 0x98].includes(s.spriteId)))
         rewardIds.push(0x48, 0x1b, 0x91);
+      if (room.sprites.some((s) => s.spriteId === 0x1f)) rewardIds.push(0x20);
+      if (room.sprites.some((s) => s.spriteId === 0x1e)) rewardIds.push(0x87, 0x13);
       const sprites = [
         ...room.sprites.filter((s) => s.spriteId <= 0xc8),
         ...rewardIds.map((spriteId) => ({ spriteId })),
@@ -48,14 +50,17 @@ export function captureCreatures(root, rom) {
         const key = room.spriteTileset + '-' + sprite.spriteId;
         if (seen.has(key)) continue;
         seen.add(key);
-        const run = spawnSync(runner, [romFile, memFile, String(sprite.spriteId)]);
+        const sampleCount = sprite.spriteId === 0x35 ? 4 : 32;
+        const run = spawnSync(runner, [romFile, memFile, String(sprite.spriteId)], {
+          maxBuffer: 0x102a0 * sampleCount + 0x10000,
+        });
         if (run.error || run.status !== 0) {
           throw Error(
             'Capture failed for ' + key + ': ' + (run.error?.message || run.stderr.toString().trim()),
           );
         }
         let poses = 0;
-        for (let f = 0; f < (sprite.spriteId === 0x35 ? 4 : 2); f++) {
+        for (let f = 0; f < sampleCount; f++) {
           const pos = (0x2a0 + 0x10000) * f;
           const image = decode(
             run.stdout.subarray(pos, pos + 0x2a0),

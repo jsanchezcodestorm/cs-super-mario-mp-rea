@@ -5,7 +5,7 @@ export function capturePlayerFrames(output, runner, romFile, memFile, basePalett
   const players = new Map();
   for (const [character, id] of ['mario', 'luigi'].entries())
     for (const [power, form] of ['small', 'super', 'cape', 'fire'].entries()) {
-      const poses = [0, 1, 2, 4, 5, 6, 7, 8, 9, 11, 12, 15, 22, 23, 24, 25, 26, 27, 32, 39, 40, 62];
+      const poses = [0, 1, 2, 4, 5, 6, 7, 8, 9, 11, 12, 15, 22, 23, 24, 25, 26, 27, 28, 32, 39, 40, 62];
       if (power === 0) poses.push(37, 66);
       else poses.push(67, 68, 69);
       if (form === 'cape') poses.push(42, 45);

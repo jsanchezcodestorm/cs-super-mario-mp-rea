@@ -86,6 +86,13 @@ function layer2(ram, rom, ptr, mode, width, height) {
   return { width, height, repeat: false, tiles: screenLayer(ram, width, height, vertical, start) };
 }
 
+export function tideSetting(rom, id, tileset) {
+  const layer3 = rom.byte(0x05f200 + id) >> 6;
+  if (!layer3) return undefined;
+  const type = rom.byte(0x009f8f + tileset * 3 + layer3 - 1);
+  return type === 1 || type === 2 ? type : undefined;
+}
+
 export function decodeRoom(rom, { id, key, layer1: p1, layer2: p2, sprites, spawn }, state) {
   const mode = state[0x1925],
     vertical = Boolean(state[0x5b] & 1);
@@ -109,6 +116,7 @@ export function decodeRoom(rom, { id, key, layer1: p1, layer2: p2, sprites, spaw
     spriteTileset: state[0x192b],
     music: (header[2] >> 4) & 7,
     timeLimit: [0, 200, 300, 400][header[3] >> 6],
+    tide: !spawn ? tideSetting(rom, id, state[0x1931]) : undefined,
     water: ((rom.byte(0x5f200 + id) >> 3) & 7) === 7,
     spawn: spawn ?? entrance(rom, id),
     sprites: spriteList(rom, id, vertical, sprites),
