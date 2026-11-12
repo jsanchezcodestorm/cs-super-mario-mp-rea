@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#142b33" />
+    <title>Super Mario World · Co-op</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Super Mario World, inizio"
+        ><span class="pad" aria-hidden="true"><i></i></span>SUPER MARIO WORLD</a
+      >
+      <span class="service"><i></i> CO-OP PRIVATO</span>
+    </header>
+    <main>
+      <section class="lobby" id="lobby">
+        <div class="preview">
+          <img
+            src="/assets/title.png"
+            alt="Schermata del titolo originale di Super Mario World"
+            width="256"
+            height="224"
+          />
+          <div class="game-label"><span>SNES</span> SUPER MARIO WORLD <b>EUR · 1.1</b></div>
+        </div>
+        <div class="panel">
+          <div id="start-view">
+            <p class="eyebrow"><span class="pixel square"></span>DUE GIOCATORI</p>
+            <h1>Gioca in<br />cooperativa<span>.</span></h1>
+            <p class="lead">
+              Entra a Dinosaur Land con Mario e Luigi. Ognuno ha il suo schermo, la campagna è condivisa.
+            </p>
+            <div class="choices" role="group" aria-label="Accesso stanza">
+              <button id="create-tab" aria-pressed="true">Crea stanza</button
+              ><button id="join-tab" aria-pressed="false">Entra con codice</button>
+            </div>
+            <form id="room-form">
+              <div id="save-field">
+                <label for="campaign">Campagna</label
+                ><select id="campaign">
+                  <option value="new">Nuova partita</option>
+                </select>
+              </div>
+              <div id="code-field" hidden>
+                <label for="room-code">Codice stanza</label
+                ><input
+                  id="room-code"
+                  maxlength="12"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  spellcheck="false"
+                  placeholder="Codice di invito"
+                />
+              </div>
+              <button class="primary" id="submit" type="submit">
+                <span>Crea stanza</span><b aria-hidden="true">→</b>
+              </button>
+            </form>
+          </div>
+          <div id="room-view" hidden>
+            <p class="eyebrow"><span class="pixel square"></span>SALA D’ATTESA</p>
+            <h2>La tua stanza<span>.</span></h2>
+            <label for="invite">Codice di invito</label>
+            <div class="invite"><output id="invite"></output><button id="copy">Copia</button></div>
+            <ul id="seats" class="seats"></ul>
+            <button class="primary" id="ready" type="button">
+              <span>Sono pronto</span><b aria-hidden="true">→</b>
+            </button>
+            <button class="subtle" id="leave" type="button">Esci dalla stanza</button>
+          </div>
+          <p class="notice" id="notice" role="status" aria-live="polite"></p>
+        </div>
+      </section>
+      <section id="play" hidden aria-label="Partita">
+        <div class="play-head">
+          <span id="stage-name"></span><strong id="hud"></strong
+          ><button id="play-leave" class="subtle" type="button">Esci</button>
+        </div>
+        <div id="screen"><div id="play-notice" role="status" hidden></div></div>
+      </section>
+      <aside class="controls" aria-label="Comandi">
+        <h3>Comandi</h3>
+        <div><kbd>←</kbd> <kbd>→</kbd> Movimento</div>
+        <div><kbd>Z</kbd> Salto</div>
+        <div><kbd>X</kbd> Corsa / fuoco / lingua</div>
+        <div><kbd>A</kbd> Salto avvitato</div>
+        <div><kbd>↑</kbd> <kbd>↓</kbd> Porte / tubi</div>
+        <div><kbd>↵</kbd> Azione</div>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

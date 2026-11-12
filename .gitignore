@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+test-results/
+generated/
+*.smc
+*.sfc
+*.spc
+*.srm
+.env
+.DS_Store
+__pycache__/
+.cache/

@@ -1,0 +1,500 @@
+{
+  "initial": [
+    "105",
+    "106",
+    "104"
+  ],
+  "names": {
+    "104": "Yoshi’s House",
+    "105": "Yoshi’s Island 1",
+    "014": "Yellow Switch Palace",
+    "106": "Yoshi’s Island 2",
+    "103": "Yoshi’s Island 3",
+    "102": "Yoshi’s Island 4",
+    "101": "#1 Iggy’s Castle",
+    "015": "Donut Plains 1",
+    "009": "Donut Plains 2",
+    "00a": "Donut Secret 1",
+    "008": "Green Switch Palace",
+    "004": "Donut Ghost House",
+    "013": "Donut Secret House",
+    "005": "Donut Plains 3",
+    "006": "Donut Plains 4",
+    "10b": "Donut Secret 2",
+    "007": "#2 Morton’s Castle",
+    "003": "Top Secret Area",
+    "11a": "Vanilla Dome 1",
+    "118": "Vanilla Dome 2",
+    "109": "Vanilla Secret 1",
+    "107": "Vanilla Ghost House",
+    "10a": "Vanilla Dome 3",
+    "119": "Vanilla Dome 4",
+    "11b": "Red Switch Palace",
+    "001": "Vanilla Secret 2",
+    "002": "Vanilla Secret 3",
+    "00b": "Vanilla Fortress",
+    "11c": "#3 Lemmy’s Castle",
+    "00c": "Butter Bridge 1",
+    "00d": "Butter Bridge 2",
+    "00f": "Cheese Bridge Area",
+    "011": "Soda Lake",
+    "010": "Cookie Mountain",
+    "00e": "#4 Ludwig’s Castle",
+    "11e": "Forest of Illusion 1",
+    "120": "Forest of Illusion 2",
+    "123": "Forest of Illusion 3",
+    "11f": "Forest of Illusion 4",
+    "11d": "Forest Ghost House",
+    "122": "Forest Secret Area",
+    "121": "Blue Switch Palace",
+    "01f": "Forest Fortress",
+    "020": "#5 Roy’s Castle",
+    "022": "Chocolate Island 1",
+    "024": "Chocolate Island 2",
+    "023": "Chocolate Island 3",
+    "01d": "Chocolate Island 4",
+    "01c": "Chocolate Island 5",
+    "021": "Chocolate Ghost House",
+    "01b": "Chocolate Fortress",
+    "117": "Chocolate Secret",
+    "01a": "#6 Wendy’s Castle",
+    "018": "Sunken Ghost Ship",
+    "116": "Valley of Bowser 1",
+    "115": "Valley of Bowser 2",
+    "113": "Valley of Bowser 3",
+    "10f": "Valley of Bowser 4",
+    "114": "Valley Ghost House",
+    "111": "Valley Fortress",
+    "110": "#7 Larry’s Castle",
+    "10d": "Front Door",
+    "10e": "Back Door",
+    "134": "Star World 1",
+    "130": "Star World 2",
+    "132": "Star World 3",
+    "135": "Star World 4",
+    "136": "Star World 5",
+    "12a": "Gnarly",
+    "12b": "Tubular",
+    "12c": "Way Cool",
+    "12d": "Awesome",
+    "128": "Groovy",
+    "127": "Mondo",
+    "126": "Outrageous",
+    "125": "Funky"
+  },
+  "routes": {
+    "104": {},
+    "105": {
+      "normal": [
+        "014"
+      ]
+    },
+    "014": {},
+    "106": {
+      "normal": [
+        "103"
+      ]
+    },
+    "103": {
+      "normal": [
+        "102"
+      ]
+    },
+    "102": {
+      "normal": [
+        "101"
+      ]
+    },
+    "101": {
+      "normal": [
+        "015"
+      ]
+    },
+    "015": {
+      "normal": [
+        "009"
+      ],
+      "secret": [
+        "00a"
+      ]
+    },
+    "009": {
+      "normal": [
+        "004"
+      ],
+      "secret": [
+        "008"
+      ]
+    },
+    "00a": {
+      "normal": [
+        "004"
+      ],
+      "secret": [
+        "013"
+      ]
+    },
+    "008": {},
+    "004": {
+      "normal": [
+        "005"
+      ],
+      "secret": [
+        "003"
+      ]
+    },
+    "013": {
+      "normal": [
+        "10b"
+      ],
+      "secret": [
+        "134"
+      ]
+    },
+    "005": {
+      "normal": [
+        "006"
+      ]
+    },
+    "006": {
+      "normal": [
+        "007"
+      ]
+    },
+    "10b": {
+      "normal": [
+        "005"
+      ]
+    },
+    "007": {
+      "normal": [
+        "11a"
+      ]
+    },
+    "003": {},
+    "11a": {
+      "normal": [
+        "118"
+      ],
+      "secret": [
+        "109"
+      ]
+    },
+    "118": {
+      "normal": [
+        "107"
+      ],
+      "secret": [
+        "11b"
+      ]
+    },
+    "109": {
+      "normal": [
+        "001"
+      ],
+      "secret": [
+        "130"
+      ]
+    },
+    "107": {
+      "normal": [
+        "10a"
+      ]
+    },
+    "10a": {
+      "normal": [
+        "119"
+      ]
+    },
+    "119": {
+      "normal": [
+        "11c"
+      ]
+    },
+    "11b": {},
+    "001": {
+      "normal": [
+        "002"
+      ]
+    },
+    "002": {
+      "normal": [
+        "00b"
+      ]
+    },
+    "00b": {
+      "normal": [
+        "00c"
+      ]
+    },
+    "11c": {
+      "normal": [
+        "00f"
+      ]
+    },
+    "00c": {
+      "normal": [
+        "00d"
+      ]
+    },
+    "00d": {
+      "normal": [
+        "00e"
+      ]
+    },
+    "00f": {
+      "normal": [
+        "010"
+      ],
+      "secret": [
+        "011"
+      ]
+    },
+    "011": {
+      "normal": [
+        "132"
+      ]
+    },
+    "010": {
+      "normal": [
+        "00e"
+      ]
+    },
+    "00e": {
+      "normal": [
+        "11e"
+      ]
+    },
+    "11e": {
+      "normal": [
+        "120"
+      ],
+      "secret": [
+        "11d"
+      ]
+    },
+    "120": {
+      "normal": [
+        "123"
+      ],
+      "secret": [
+        "121"
+      ]
+    },
+    "123": {
+      "normal": [
+        "11d"
+      ],
+      "secret": [
+        "020"
+      ]
+    },
+    "11f": {
+      "normal": [
+        "120"
+      ],
+      "secret": [
+        "122"
+      ]
+    },
+    "11d": {
+      "normal": [
+        "11e"
+      ],
+      "secret": [
+        "11f"
+      ]
+    },
+    "122": {
+      "normal": [
+        "01f"
+      ]
+    },
+    "121": {},
+    "01f": {
+      "normal": [
+        "135"
+      ]
+    },
+    "020": {
+      "normal": [
+        "022"
+      ]
+    },
+    "022": {
+      "normal": [
+        "021"
+      ]
+    },
+    "024": {
+      "normal": [
+        "023"
+      ],
+      "secret": [
+        "117"
+      ]
+    },
+    "023": {
+      "normal": [
+        "023"
+      ],
+      "secret": [
+        "01b"
+      ]
+    },
+    "01d": {
+      "normal": [
+        "01c"
+      ]
+    },
+    "01c": {
+      "normal": [
+        "01a"
+      ]
+    },
+    "021": {
+      "normal": [
+        "024"
+      ]
+    },
+    "01b": {
+      "normal": [
+        "01d"
+      ]
+    },
+    "117": {
+      "normal": [
+        "01a"
+      ]
+    },
+    "01a": {
+      "normal": [
+        "018"
+      ]
+    },
+    "018": {
+      "normal": [
+        "116"
+      ]
+    },
+    "116": {
+      "normal": [
+        "115"
+      ]
+    },
+    "115": {
+      "normal": [
+        "114"
+      ],
+      "secret": [
+        "111"
+      ]
+    },
+    "113": {
+      "normal": [
+        "10f"
+      ]
+    },
+    "10f": {
+      "normal": [
+        "110"
+      ],
+      "secret": [
+        "136"
+      ]
+    },
+    "114": {
+      "normal": [
+        "113"
+      ],
+      "secret": [
+        "110"
+      ]
+    },
+    "111": {
+      "normal": [
+        "10e"
+      ]
+    },
+    "110": {
+      "normal": [
+        "10d"
+      ]
+    },
+    "10d": {},
+    "10e": {},
+    "134": {
+      "secret": [
+        "130",
+        "109"
+      ]
+    },
+    "130": {
+      "secret": [
+        "132",
+        "011"
+      ]
+    },
+    "132": {
+      "secret": [
+        "135",
+        "01f"
+      ]
+    },
+    "135": {
+      "secret": [
+        "136",
+        "10f"
+      ]
+    },
+    "136": {
+      "normal": [
+        "134",
+        "013"
+      ],
+      "secret": [
+        "12a"
+      ]
+    },
+    "12a": {
+      "normal": [
+        "12b"
+      ]
+    },
+    "12b": {
+      "normal": [
+        "12c"
+      ]
+    },
+    "12c": {
+      "normal": [
+        "12d"
+      ]
+    },
+    "12d": {
+      "normal": [
+        "128"
+      ]
+    },
+    "128": {
+      "normal": [
+        "127"
+      ]
+    },
+    "127": {
+      "normal": [
+        "126"
+      ]
+    },
+    "126": {
+      "normal": [
+        "125"
+      ]
+    },
+    "125": {
+      "normal": [
+        "104"
+      ]
+    }
+  }
+}
