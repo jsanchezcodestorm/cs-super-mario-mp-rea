@@ -1,3 +1,4 @@
+import { moveRopePlayer } from './rope-motor.ts'
 import { playerPipePosition } from './emergence.ts'
 import { reboundGravity, shatterOnLanding } from './spin-block.ts'
 import { stepNetClimb } from './net-door.ts'
@@ -124,7 +125,8 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
     (tide !== null ? p.y + 2 < tide :
       tileAt(world, room, Math.floor((p.x + p.width / 2) / 16), Math.floor((p.y + 2) / 16)) >= 5)
   const grounded = p.grounded
-  const onNet = stepNetClimb(world, room, p, tileIds.some(t => t >= 7 && t <= 0x1c), input, pressed)
+  const onRope = moveRopePlayer(world, p, input, pressed)
+  const onNet = onRope || stepNetClimb(world, room, p, tileIds.some(t => t >= 7 && t <= 0x1c), input, pressed)
   if (!onNet && !rideCloud(world, p, input, pressed) && advanceMotion(world, room, p, input, pressed, water, climb) && (grounded || water || climb))
     emit(world, 'jump', p)
   if (jumpOut) {

@@ -1,3 +1,4 @@
+import { initializeLift } from './travelling-lifts.ts'
 import { isWallSpring } from './wall-spring.ts'
 import { initPipePlant, isPipePlant } from './pipe-plant.ts'
 import { eggColor, shellColor, koopaShell } from './yoshi-colors.ts'
@@ -16,6 +17,7 @@ assign(
     0xbd, 0xbf,
   ],
 )
+assign('ropeMotor', [0x64])
 assign('flyingQuestion', [0x83, 0x84])
 assign('magikoopa', [0x1f])
 assign('magic', [0x20])
@@ -33,8 +35,8 @@ assign('bullet', [0x1c, 0x44, 0x9f])
 assign(
   'platform',
   [
-    0x41, 0x42, 0x43, 0x55, 0x56, 0x57, 0x58, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f, 0x59, 0x5a, 0x61, 0x62, 0x63,
-    0x64, 0x8f, 0x9c, 0xa3, 0xbb, 0xb7, 0xb8, 0xba, 0xc0, 0xc1, 0xc4,
+    0x41, 0x42, 0x43, 0x49, 0x55, 0x56, 0x57, 0x58, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f, 0x59, 0x5a, 0x61, 0x62, 0x63,
+    0x8f, 0x9c, 0xa3, 0xbb, 0xb7, 0xb8, 0xba, 0xc0, 0xc1, 0xc4,
   ],
 )
 assign(
@@ -121,6 +123,16 @@ export function entityFromSpawn(
             : kind === 'rex'
               ? 2
               : 1,
+  }
+  if (spriteId === 0x9b) entity.y -= 16
+  if (kind === 'platform') initializeLift(entity)
+  if (spriteId >= 0x62 && spriteId <= 0x64) {
+    const rope = spriteId === 0x64
+    entity.width = rope ? 16 : spriteId === 0x63 && !(spawn.x & 16) ? 80 : 48
+    entity.height = rope ? (spawn.longRope ? 144 : 80) : 16
+    entity.x = spawn.x - entity.width / 2
+    entity.y = spawn.y - 8
+    entity.vx = 0
   }
   if (kind === 'plant' && isPipePlant(spriteId)) initPipePlant(entity)
   if (kind === 'yoshi') {

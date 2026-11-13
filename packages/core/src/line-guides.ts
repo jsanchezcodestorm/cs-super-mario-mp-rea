@@ -1,4 +1,5 @@
 import type { World, EntityState, LevelDefinition } from './types.ts'
+import { moveRailDeck } from './rail-decks.ts'
 import { tileAt } from './terrain.ts'
 
 type Rail = NonNullable<EntityState['rail']>
@@ -34,9 +35,8 @@ function findTrack(world: World, room: LevelDefinition, e: EntityState, x: numbe
   return best
 }
 export function moveLineGuide(world: World, room: LevelDefinition, e: EntityState) {
-  if ((e.spriteId === 0x63 || e.spriteId === 0x64) && !e.owner && e.rail) return
-  // For platforms the attachment pin is at the midpoint of the top edge.
-  const dx = e.kind === 'platform' && e.spriteId !== 0x64 ? -e.width / 2 : -8
+  if (e.spriteId <= 0x64) return moveRailDeck(world, room, e)
+  const dx = -8
   const dy = e.spriteId === 0x65 || e.spriteId === 0x66 ? -8 : 0
   const x = e.rail ? e.x - dx : e.origin.x,
     y = e.rail ? e.y - dy : e.origin.y

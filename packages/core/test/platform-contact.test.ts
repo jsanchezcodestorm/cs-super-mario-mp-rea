@@ -46,7 +46,7 @@ for (const layer of ['foreground', 'moving-layer']) {
       world.state.layerOffsets.r = { age: 1, x: 16, y: 0, dx: 0, dy: 0, engaged: true }
     }
     deck.owner = 'mario'
-    for (let frame = 0; frame < 12; frame++) {
+    for (let frame = 0; frame < 48; frame++) {
       step()
       for (const p of players) {
         assert.equal(p.x + p.width, 48)
@@ -69,7 +69,7 @@ test('an ascending Forest deck cannot embed either rider in a low ceiling', () =
       assert.ok(isBodyFree(world, room, p))
     }
   }
-  assert.equal(deck.y, 93)
+  assert.equal(deck.y, 94)
 })
 
 test('a player rising from below passes through a one-way deck; the other can stay on top', () => {
@@ -82,4 +82,15 @@ test('a player rising from below passes through a one-way deck; the other can st
   assert.ok(!mario.grounded)
   assert.equal(luigi.y + luigi.height, deck.y)
   assert.ok(luigi.grounded)
+})
+
+test('the orange traveling lift supports a rider across its full 80-pixel width', () => {
+  const { players: [mario, luigi], deck, step } = stage(0x5e, 16)
+  mario.x = deck.x + 79
+  luigi.x = deck.x + 80
+  step()
+  assert.equal(deck.owner, 'mario')
+  assert.equal(mario.y + mario.height, deck.y)
+  assert.ok(mario.grounded)
+  assert.ok(!luigi.grounded)
 })

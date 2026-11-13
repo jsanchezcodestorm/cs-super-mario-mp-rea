@@ -1,3 +1,5 @@
+import { moveFreeLift } from './travelling-lifts.ts'
+import { moveScalePan } from './scale-platforms.ts'
 import { palFrame } from './pal-time.ts'
 import { moveBlockEnemy } from './statue-enemies.ts'
 import { moveNetKoopa } from './net-koopa.ts'
@@ -146,13 +148,12 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
     case 'walker':
     case 'koopa':
     case 'rex':
-      walk(world, room, e, e.kind === 'rex' ? 0.75 : 0.6)
       if (e.spriteId === 0x9b) {
         const frame = palFrame(e.age)
         const cycle = frame - Math.floor(frame / 4)
         const submap = world.campaign.overworldNodes?.[world.state.progress.course]?.region
         e.facing = cycle & (submap ? 16 : 32) ? 1 : -1
-      }
+      } else walk(world, room, e, e.kind === 'rex' ? 0.75 : 0.6)
       break
     case 'spiny':
       if (e.spriteId === 0x14) {
@@ -283,6 +284,7 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       }
       break
     case 'platform':
+      if (e.scale) { moveScalePan(world, e); return }
       if (e.spriteId === 0x9c) {
         stepHammerDeck(world, e)
         break
@@ -300,21 +302,7 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
         moveSkull(world, room, e)
         break
       }
-      if (e.spriteId === 0x5e) {
-        if (e.owner) e.x += 1.4
-        break
-      }
-      if ([0x43, 0x57, 0x58].includes(e.spriteId)) e.y = e.origin.y + wave(e.age, 210) * 40
-      else if ([0x5c, 0xc4].includes(e.spriteId)) {
-        if (e.owner) {
-          e.vy += 0.03
-          e.y += e.vy
-        }
-      } else {
-        const x = e.origin.x + wave(e.age, 230) * 47
-        if (x !== e.x) e.facing = x < e.x ? -1 : 1
-        e.x = x
-      }
+      moveFreeLift(world, e, target)
       break
     case 'magikoopa':
       castMagic(world, e, target)

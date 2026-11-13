@@ -36,6 +36,7 @@ export interface Body extends Point {
 export interface Spawn extends Point {
   spriteId: number
   extra?: number
+  longRope?: boolean
 }
 export interface Exit {
   screen: number
@@ -44,6 +45,8 @@ export interface Exit {
 }
 export interface LevelDefinition {
   layerOscillation?: { axis: 'x' | 'y'; start: number; samples: number[] }
+  /** Solid Layer 2's world offset per PAL frame during a scripted camera path. */
+  layerScrollPath?: [number, number][]
   autoscroll?: [number, number][]
   id: string
   intro?: string
@@ -77,6 +80,7 @@ export interface CampaignDefinition {
   yoshiTraits?: number[]
   capeTargets?: number[]
   slideTargets?: number[]
+  lineGuideExits?: { axis: number[]; x: number[]; y: number[] }
   lineGuides?: number[][]
   blockSnakePaths?: number[][]
   entranceInputs?: { onFoot: number[][]; mounted: number[][] }
@@ -143,6 +147,8 @@ export interface YoshiMouth {
   ticks: number
 }
 export interface PlayerState extends Body {
+  ropeId?: string
+  ropeReleased?: number
   netClinging?: boolean
   behindNet?: boolean
   netPunchTick?: number
@@ -212,6 +218,7 @@ export type EntityKind =
   | 'plant'
   | 'bullet'
   | 'platform'
+  | 'ropeMotor'
   | 'spring'
   | 'switch'
   | 'hazard'
@@ -275,7 +282,14 @@ export interface EntityState extends Body {
   tossed?: boolean
   eerieAcceleration?: number
   raftX?: number
+  scale?: import('./scale-platforms.ts').ScalePair
+  riderTick?: number
   chainPhase?: number
+  liftTimer?: number
+  liftStep?: number
+  liftReverse?: boolean
+  liftWet?: boolean
+  deckRider?: PlayerId
   platformStarted?: number
   pickupDelay?: number
   pipeOffset?: number
@@ -305,6 +319,7 @@ export interface EntityState extends Body {
   stunnedUntil?: number
   split?: boolean
   projectile?: 'rock' | 'football' | 'baseball'
+  railFlight?: { vx: number; vy: number; hold: number }
   rail?: { col: number; row: number; tile: number; direction: 1 | -1; step: number }
   snake?: { eater: boolean; started: boolean; command: number; remaining: number; direction: number }
   secret: boolean

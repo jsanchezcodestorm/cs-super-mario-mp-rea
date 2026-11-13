@@ -118,7 +118,6 @@ export function moveEmission(world: World, room: LevelDefinition, e: EntityState
       e.y = e.origin.y + Math.sin(e.age / 24) * 12
       break
     case 0x17:
-    case 0x41:
       e.vy += 0.1
       e.y += e.vy
       e.x += e.vx

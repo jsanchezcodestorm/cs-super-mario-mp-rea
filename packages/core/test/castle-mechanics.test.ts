@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { type CampaignDefinition } from '../src/index.ts'
 import { enterRoom, spawnEntity } from '../src/state.ts'
-import { effectiveTile, isSolid } from '../src/terrain.ts'
+import { effectiveTile, isSolid, moveBody } from '../src/terrain.ts'
 import { stepLayer } from '../src/layer-two.ts'
 import { contact } from '../src/entity-contact.ts'
 import { castMagic, moveMagic } from '../src/magikoopa.ts'
@@ -32,6 +32,42 @@ test('castle oscillators use their native initial offset and repeat while both p
       assert.equal(state.layerOffsets[id][path.axis], path.samples[index])
     }
   }
+})
+
+test('Donut Plains 2 moves both riders with the PAL autoscroll terrain and seeks without pushing', () => {
+  const state = enterFirstCourse(campaign), world = { campaign, state }
+  const room = campaign.levels['009'], team = Object.values(state.players)
+  const path = room.layerScrollPath!
+  assert.deepEqual([0, 600, 1200, 1808, 2400, 4236, 7299].map(frame => path[frame][1]),
+    [0, 8, -84, -101, 57, 66, 34])
+  const tick = 3780, floor = 14 * 16
+  team.forEach((p, i) => {
+    enterRoom(world, p, room.id)
+    p.scrollClock = tick
+    p.x = (90 + i) * 16
+    p.y = floor + path[tick * 5 / 6][1] - p.height
+    p.layer2Ground = p.grounded = true
+  })
+  // Mario re-entered earlier along the moving camera. Luigi keeps the room's
+  // current phase while both stand on adjacent cells of the same platform.
+  team[0].scrollClock! -= 120
+  for (let i = 0; i < 420; i++) {
+    stepLayer(world, room, team)
+    const layer = state.layerOffsets[room.id]
+    assert.equal(layer.y, path[Math.floor((tick + i) * 5 / 6)][1])
+    if (!i) assert.equal(layer.dy, 0)
+    for (const p of team) {
+      p.vy = 0.25
+      moveBody(world, room, p)
+      assert.ok(p.layer2Ground)
+      assert.equal(p.y + p.height, floor + layer.y)
+      p.scrollClock!++
+    }
+  }
+  team.forEach(p => { p.scrollClock = 0 })
+  stepLayer(world, room, team)
+  assert.equal(state.layerOffsets[room.id].y, 0)
+  assert.equal(state.layerOffsets[room.id].dy, 0)
 })
 
 test('the wand removes one struck turn block and creates one shared sprite', () => {

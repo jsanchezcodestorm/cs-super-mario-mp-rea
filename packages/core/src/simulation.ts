@@ -18,6 +18,7 @@ import { freeCloud } from './lakitu.ts'
 import { feedBaby } from './yoshi-growth.ts'
 import { stepBerries } from './yoshi-berries.ts'
 import { carryDeckRider } from './platform-rider.ts'
+import { deckBounds, type PreviousFoot } from './deck-bounds.ts'
 import { stepLayer } from './layer-two.ts'
 import { stepEntrance } from './entrance.ts'
 import { activePlayerIds, Buttons, playerIds } from './types.ts'
@@ -83,7 +84,7 @@ function projectileContact(world: World, entity: EntityState) {
     }
   }
 }
-function updateEntities(world: World, inputs: InputFrame, bottoms: Record<string, number>) {
+function updateEntities(world: World, inputs: InputFrame, feet: Record<string, PreviousFoot>) {
   const { state } = world
   const transported = new Map<PlayerState['id'], EntityState>()
   for (const entity of [...state.entities]) {
@@ -116,9 +117,7 @@ function updateEntities(world: World, inputs: InputFrame, bottoms: Record<string
       }
       continue
     }
-    const x = entity.x,
-      y = entity.y,
-      width = entity.width
+    const old = entity.kind === 'platform' || entity.kind === 'flyingQuestion' ? deckBounds(entity) : undefined
     moveEntity(world, entity, nearest)
     if (entity.spriteId === 3 && entity.kind === 'walker') {
       const shell = state.entities.find(
@@ -140,14 +139,16 @@ function updateEntities(world: World, inputs: InputFrame, bottoms: Record<string
     if (entity.kind === 'shell' && entity.active) shellContact(world, entity)
     else projectileContact(world, entity)
     for (const p of players) {
-      if (entity.kind === 'platform' || entity.kind === 'flyingQuestion') {
+      if (old) {
         const previous = transported.get(p.id)
         // FloatingSkullMain applies each contacted skull's own integer movement.
         const sameRaft = entity.spriteId === 0x61 && previous?.spriteId === 0x61 && previous.raftX === entity.raftX
-        if ((!previous || sameRaft) && carryDeckRider(world, entity, p, bottoms[p.id], x, y, width))
+        if (entity.active && (!previous || sameRaft) && carryDeckRider(world, entity, p, feet[p.id], old)) {
           transported.set(p.id, entity)
+          continue
+        }
       }
-      contact(world, entity, p, inputs[p.id], bottoms[p.id])
+      contact(world, entity, p, inputs[p.id], feet[p.id].bottom, old, feet[p.id].x)
       if (state.phase !== 'playing') return
     }
   }
@@ -195,9 +196,9 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
     }
     const previousBonus=state.bonus
     const tops={mario:state.players.mario.y,luigi:state.players.luigi.y}
-    const bottoms = {
-      mario: state.players.mario.y + state.players.mario.height,
-      luigi: state.players.luigi.y + state.players.luigi.height,
+    const feet = {
+      mario: { x: state.players.mario.x, bottom: state.players.mario.y + state.players.mario.height },
+      luigi: { x: state.players.luigi.x, bottom: state.players.luigi.y + state.players.luigi.height },
     }
     settleBlockBounces(world)
     expireShatters(state)
@@ -211,7 +212,7 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       stepStarTrail(state.players[id], state.tick)
       if (state.phase !== 'playing') break
     }
-    if (state.phase === 'playing') updateEntities(world, inputs, bottoms)
+    if (state.phase === 'playing') updateEntities(world, inputs, feet)
     if (state.phase === 'playing') {
       for (const id of activePlayerIds(state)) stepBerries(world, state.players[id], inputs[id])
     }

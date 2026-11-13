@@ -1,3 +1,4 @@
+import { carryRopePlayer } from './rope-motor.ts'
 import { netKoopaBox } from './net-koopa.ts'
 import { takeFishingPrize } from './lakitu.ts'
 import { palFrame } from './pal-time.ts'
@@ -13,7 +14,9 @@ import { isWallSpring, wallBounce } from './wall-spring.ts'
 import { withdrawWizard } from './magikoopa.ts'
 import { isPipeBoss } from './pipe-boss.ts'
 import { hammerRider } from './flying-platforms.ts'
-import { standOnDeck } from './platform-rider.ts'
+import { landOnMovingDeck } from './platform-rider.ts'
+import { deckBounds, type DeckBounds } from './deck-bounds.ts'
+import { hitSolidDeck } from './solid-deck.ts'
 import { playerContactBody } from './player-size.ts'
 import { takeItem } from './item-pickup.ts'
 import { goalReward, addScore, showHitAward } from './rewards.ts'
@@ -104,7 +107,8 @@ export function strike(world: World, e: EntityState, p: PlayerState) {
       finishCourse(world, p, world.state.progress.course === '013' ? 'secret' : 'normal')
   }
 }
-export function contact(world: World, e: EntityState, p: PlayerState, input: number, previousBottom: number) {
+export function contact(world: World, e: EntityState, p: PlayerState, input: number, previousBottom: number,
+  previousDeck?: DeckBounds, previousX = p.x) {
   if (!e.active || !e.height || p.status !== 'alive' || e.roomId !== p.roomId) return
   // Ordinary level sprites occupy the front plane. The PAL standard contact
   // handler compares their scenery-side bit with the player's before clipping.
@@ -117,6 +121,7 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     }
     return
   }
+  if (e.kind === 'ropeMotor') { carryRopePlayer(world, e, p, input); return }
   if (e.kind === 'lakitu') takeFishingPrize(world, e, p)
   if (e.booStream?.trail.some(part => part.until > palFrame(world.state.tick) &&
     overlaps(playerContactBody(p), { x: part.x+4, y: part.y+4, width: 8, height: 8 }))) hurt(world,p)
@@ -138,23 +143,6 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     return
   }
   if (e.kind === 'vine' || e.kind === 'blockSnake' || e.kind === 'directionalCoins') return
-  if (e.spriteId === 0x64) {
-    if (
-      !p.carrying &&
-      !p.mounted &&
-      input & Buttons.up &&
-      Math.abs(p.x - e.x) < 16 &&
-      p.y + p.height > e.y &&
-      p.y < e.y + 64
-    ) {
-      e.owner = p.id
-      p.x = e.x
-      p.vy = Math.min(0, p.vy)
-      p.grounded = true
-      if (input & ~p.lastInput & Buttons.jump) p.vy = -5
-    }
-    return
-  }
   if (e.kind === 'goal') {
     if (p.x + p.width >= e.x - 8 && p.x < e.x + 8 && p.y <= e.origin.y + 16) {
       const scoreBefore = p.score, starsBefore = p.bonusStars
@@ -167,6 +155,16 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     return
   }
   if (e.kind === 'plant' && e.pipePlant?.hidden) return
+  if (e.kind === 'platform') {
+    const foot = { x: previousX, bottom: previousBottom }
+    const old = previousDeck ?? deckBounds(e)
+    if (landOnMovingDeck(world, e, p, foot, old)) return
+    if (hitSolidDeck(world, e, p, foot, old) === 'head' && e.spriteId === 0x9c) {
+      const rider = hammerRider(world, e)
+      if (rider) strike(world, rider, p)
+    }
+    return
+  }
   if (taste(world, p, e, input)) return
   if (e.kind === 'yoshiEgg') return
   // E1 $B3 uses clipping profile $2D. Only the tip of the two-tile fireball burns.
@@ -182,7 +180,7 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     addScore(p, 100)
     return
   }
-  const surface = e.kind === 'platform' || e.kind === 'spring'
+  const surface = e.kind === 'spring'
   const body = e.kind === 'netKoopa' ? netKoopaBox(e) : e.kind === 'plant' && e.pipePlant ? plantContactBox(e) : e
   if (!overlaps(surface ? p : playerContactBody(p), body)) return
   if (e.kind === 'balloon') {
@@ -231,24 +229,13 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     return
   }
   const landed = previousBottom <= e.y + 6 && p.vy >= 0
-  if (e.kind === 'platform' || e.kind === 'spring') {
-    if (e.spriteId === 0x9c && p.vy < 0 && previousBottom - p.height >= e.y + e.height - 4) {
-      p.y = e.y + e.height
-      p.vy = 0
-      const rider = hammerRider(world, e)
-      if (rider) strike(world, rider, p)
-      return
-    }
+  if (e.kind === 'spring') {
     if (e.spriteId === 0x2f && !landed && !p.mounted && !p.carrying && input & Buttons.run) {
       e.owner = p.id
       p.carrying = e.id
       return
     }
     if (landed) {
-      if (e.kind === 'platform') {
-        standOnDeck(world, p, e)
-        return
-      }
       p.y = e.y - p.height
       p.vy = isWallSpring(e.spriteId) ? wallBounce(e, p, input) : input & Buttons.jump ? -9 : -6
       p.grounded = p.vy >= 0

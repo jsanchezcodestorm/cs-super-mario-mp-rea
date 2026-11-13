@@ -46,5 +46,5 @@ test('a room loads the three chain decks, the four skulls and both linked Forest
     for (const deck of [left,right]) moveEntity({campaign, state}, deck, state.players.luigi)
   }
   assert.equal(right.platformStarted, left.platformStarted)
-  assert.deepEqual([left.x, right.x, left.y, right.y], [212, 292, 204, 244])
+  assert.deepEqual([left.x, right.x, left.y, right.y], [208.5, 288.5, 207.5, 240.5])
 })

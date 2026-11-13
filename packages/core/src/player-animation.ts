@@ -71,7 +71,7 @@ export function stepPlayerAnimation(p: PlayerState, tick: number, input: number,
   const a = playerAnimation(p)
   const frame = palFrame(tick)
   a.swimming = water && !p.cloud
-  const climbing = !!p.netClinging || (!p.mounted && !p.carrying && !p.cloud && !p.balloon && climb && !p.grounded &&
+  const climbing = !!p.ropeId || !!p.netClinging || (!p.mounted && !p.carrying && !p.cloud && !p.balloon && climb && !p.grounded &&
     !!(input & (Buttons.up | Buttons.down)) && !(pressed & (Buttons.jump | Buttons.spin)))
   if (climbing && !a.climbing) { a.climbRight = p.facing === 1; a.climbTimer = 0 }
   a.climbing = climbing

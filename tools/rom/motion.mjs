@@ -16,6 +16,11 @@ export function motionTables(rom) {
   });
   return {
     lineGuides,
+    lineGuideExits: {
+      axis: bytes(0x01dcff, 32),
+      x: bytes(0x01dd5f, 64).map(n => n << 24 >> 24),
+      y: bytes(0x01dd1f, 64).map(n => n << 24 >> 24),
+    },
     slideTargets: bytes(0x07f659, 201).flatMap((traits, id) => traits & 4 ? [] : [id]),
     yoshiTraits: bytes(0x07f590, 201),
     capeTargets: bytes(0x07f3fe, 201).flatMap((traits, id) =>

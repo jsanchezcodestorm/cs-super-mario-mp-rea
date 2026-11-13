@@ -1,4 +1,5 @@
 import { stepSinkingLayer } from './sinking-layer.ts'
+import { palFrame } from './pal-time.ts'
 import type { World, LevelDefinition, LayerOffset, PlayerState } from './types.ts'
 
 function initialLayer(): LayerOffset {
@@ -17,6 +18,19 @@ export function stepLayer(world: World, room: LevelDefinition, players: PlayerSt
   }
   if (!room.layer2?.length) return
   const layer = (world.state.layerOffsets[room.id] ??= initialLayer())
+  if (room.layerScrollPath) {
+    const clock = Math.max(...players.map(p => p.scrollClock ?? 0))
+    const path = room.layerScrollPath
+    const [x, y] = path[Math.min(palFrame(clock), path.length - 1)]
+    // Re-entry or a respawn can seek the camera. Only consecutive samples
+    // physically carry a rider; seeking loads the terrain at its new offset.
+    layer.dx = clock === layer.age ? x - layer.x : 0
+    layer.dy = clock === layer.age ? y - layer.y : 0
+    layer.x = x
+    layer.y = y
+    layer.age = clock + 1
+    return
+  }
   if (room.layerOscillation && layer.age === 0) layer[room.layerOscillation.axis] = room.layerOscillation.samples[0]
   const beforeX = layer.x,
     beforeY = layer.y

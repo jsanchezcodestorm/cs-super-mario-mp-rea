@@ -2,6 +2,7 @@ import { leaveQuestionBonus } from './question-bonus.ts'
 import { reloadTurnBlocks } from './turn-block.ts'
 import { pipeEndpoint } from './pipe-entry.ts'
 import { chainPhases, positionChainDeck } from './flying-platforms.ts'
+import { pairScalePans } from './scale-platforms.ts'
 import { startScrollAt } from './autoscroll.ts'
 import type {
   CampaignDefinition,
@@ -48,7 +49,11 @@ export function enterRoom(world: World, p: PlayerState, id: string, position?: E
     world.state.loadedRooms.push(id)
     if (room.specialMode7) prepareArena(world, room)
     for (const spawn of room.sprites) {
-      if (spawn.spriteId === 0xe0) {
+      if (spawn.spriteId === 0x8f) {
+        const left = spawnEntity(world, id, spawn)!
+        const right = spawnEntity(world, id, spawn)!
+        pairScalePans(left, right)
+      } else if (spawn.spriteId === 0xe0) {
         for (const phase of chainPhases) {
           const deck = spawnEntity(world, id, { ...spawn, spriteId: 0xa3 })!
           deck.chainPhase = phase
@@ -85,6 +90,8 @@ export function enterRoom(world: World, p: PlayerState, id: string, position?: E
   delete p.wallRun
   delete p.animation
   delete p.netTurn
+  delete p.ropeId
+  delete p.ropeReleased
   delete p.netClinging
   delete p.netPunchTick
   delete p.behindNet

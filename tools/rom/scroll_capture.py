@@ -7,12 +7,21 @@ from layer_motion import oscillation
 from native_rooms import read_word as word, write_word as write
 
 
+def scroll_difference(foreground, background):
+    return (foreground - background + 0x8000) % 0x10000 - 0x8000
+
+
 def capture(core,base,room):
     enter_room(core,base,room['id'])
     ram=core.ram
     points=[]
+    displacements = []
+    moving_terrain = bool(room.get('layer2'))
     for frame in range(18000):
         x,y=word(ram,0x1a),word(ram,0x1c)
+        if moving_terrain:
+            displacements.append([scroll_difference(x, word(ram, 0x1e)),
+                                  scroll_difference(y, word(ram, 0x20))])
         if frame%4==0:
             points.append([x,y])
         # Keep the observer within the moving viewport while the native scroll
@@ -31,7 +40,11 @@ def capture(core,base,room):
         raise RuntimeError('scroll controller did not move in '+room['id'])
     while len(points)>1 and points[-1]==points[-2]:
         points.pop()
-    return points
+    # A special scroll can stop moving Layer 1 before Layer 2. Trim each
+    # trajectory independently, keeping a sample at every PAL frame for solids.
+    while len(displacements) > 1 and displacements[-1] == displacements[-2]:
+        displacements.pop()
+    return points, displacements
 
 
 def generate(library,rom,output):
@@ -44,9 +57,11 @@ def generate(library,rom,output):
         if room.get('layer2') and any(s['spriteId'] in (0xea, 0xef) for s in room['sprites']):
             room['layerOscillation'] = oscillation(core,base,room)
         if any(s['spriteId'] in (0xe8,0xf3) for s in room['sprites']):
-            points=capture(core,base,room)
+            points, displacements = capture(core, base, room)
             print('Auto-scroll',room['id'],points[0],points[-1],len(points),flush=True)
             room['autoscroll']=points
+            if displacements:
+                room['layerScrollPath'] = displacements
     core.lib.retro_unload_game()
     core.lib.retro_deinit()
     temp=campaign_file.with_suffix('.pending.json')

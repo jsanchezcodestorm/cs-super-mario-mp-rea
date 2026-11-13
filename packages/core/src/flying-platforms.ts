@@ -1,3 +1,4 @@
+import { palFrame } from './pal-time.ts'
 import type { EntityState, World } from './types.ts'
 
 /** E1 Load3Platforms and Banzai_Rotating use a nine-bit angle and a 48-pixel arm. */
@@ -17,17 +18,23 @@ export function stepForestDeck(world: World, e: EntityState) {
     for (const deck of world.state.entities)
       if (deck.roomId === e.roomId && deck.spriteId === 0xc1) deck.platformStarted = world.state.tick
   }
-  const elapsed = world.state.tick - e.platformStarted! + 1
-  const phase = elapsed % 512
-  const wave = phase <= 256 ? phase : 512 - phase
+  const elapsed = palFrame(world.state.tick) - palFrame(e.platformStarted!)
+  // $1602 begins at $7F, then wraps to $FF after each reversal.
+  // The first ascent is 254 PAL frames. Later half-cycles last 512.
+  const phase = Math.max(0, elapsed - 254) % 1024
+  const vertical = elapsed <= 254 ? elapsed / 2 : 127 - Math.min(phase, 1024 - phase) / 2
   e.x = e.origin.x + elapsed / 2
-  e.y = e.origin.y + (e.origin.x & 16 ? 1 : -1) * wave / 2
+  e.y = e.origin.y + (e.origin.x & 16 ? vertical : -vertical)
 }
 
 /** E1 FlyingPlatformMain. Acceleration updates every other frame and
  * reverses at signed speed $20. Position uses sixteenths of a pixel. */
 export function stepHammerDeck(world: World, e: EntityState) {
-  const step = Math.floor(e.age / 2)
+  const tick = world.state.tick, frame = palFrame(tick)
+  const previousFrame = palFrame(tick - 1)
+  if (frame === previousFrame) return
+  const activation = palFrame(tick - e.age)
+  const step = Math.floor(frame / 2) - Math.floor(activation / 2)
   const speed = (phase: number, peak: number) => {
     const t = phase % (4 * peak)
     return t <= peak ? t : t < 3 * peak ? 2 * peak - t : t - 4 * peak

@@ -2,7 +2,7 @@ import { rgb15, palette } from './atlas.mjs';
 import { backgroundScroll } from './background-scroll.mjs';
 export const roomKey = (id) => id.toString(16).padStart(3, '0');
 
-function spriteList(rom, id, vertical, address) {
+export function spriteList(rom, id, vertical, address) {
   const sprites = [];
   let p = address;
   for (p++; rom.byte(p) !== 255; p += 3) {
@@ -10,10 +10,15 @@ function spriteList(rom, id, vertical, address) {
       b = rom.byte(p + 1);
     const along = ((b & 15) | ((a & 2) << 3)) * 256 + (b & 0xf0);
     const across = (a & 0xf0) | ((a & 1) << 8);
+    const spriteId = rom.byte(p + 2);
+    const setting = rom.byte(address) & 0x3f;
+    const motorSlot = setting && spriteId === 0x64 && (along & 16) && rom.byte(0x02a7e4 + setting) === spriteId
+      ? rom.byte(0x02a799 + setting) : 0;
     sprites.push({
       x: vertical ? across : along,
       y: vertical ? along : across,
-      spriteId: rom.byte(p + 2),
+      spriteId,
+      ...(motorSlot >= 6 ? { longRope: true } : {}),
       extra: (a >> 2) & 3,
     });
     if (sprites.length > 255) throw new Error('Invalid sprite stream in room ' + roomKey(id));

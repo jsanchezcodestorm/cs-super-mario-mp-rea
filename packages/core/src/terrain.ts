@@ -68,7 +68,7 @@ export function isDanger(tile: number, tileset: number | undefined) {
     tile === 0x5 ||
     tile >= 0x1fb ||
     tile === 0x12f ||
-    (tile >= 0x166 && tile < 0x16a) ||
+    (tileset === 1 && tile >= 0x166 && tile < 0x16a) ||
     ((tileset === 3 || tileset === 14) && tile >= 0x1d2 && tile <= 0x1d7) ||
     ((tileset === 5 || tileset === 13) && tile >= 0x159 && tile <= 0x15b)
   )
