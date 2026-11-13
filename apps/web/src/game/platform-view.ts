@@ -35,11 +35,17 @@ export function drawPlatform(e: EntityState, x: number, y: number, tileset: numb
   if (e.spriteId !== 0x5f) return false;
   const ox = e.origin.x + 40,
     oy = e.origin.y + 104;
-  for (let i = 0; i < 5; i++) {
-    const t = i / 5;
-    part('brown-platform/' + i, i, ox + (x + 32 - ox) * t, oy + (y + 8 - oy) * t + 8);
+  const endX = x + 32,
+    endY = y + 8;
+  // Native OAM order is the platform-end link, pivot link, then four links
+  // at fifths of the chain length.
+  part('brown-platform/0', 0, endX, endY + 8);
+  part('brown-platform/0', 1, ox, oy + 8);
+  for (let link = 1; link <= 4; link++) {
+    const t = link / 5;
+    part('brown-platform/0', link + 1, ox + (endX - ox) * t, oy + (endY - oy) * t + 8);
   }
-  for (let slot = 5; slot < 9; slot++)
-    part('brown-platform/' + slot, slot, x + 56 - 16 * (slot - 5), y + 16);
+  for (let tile = 0; tile < 4; tile++)
+    part('brown-platform/' + (tile + 5), tile + 6, x + 56 - 16 * tile, y + 16);
   return true;
 }

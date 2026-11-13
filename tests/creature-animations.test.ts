@@ -79,6 +79,27 @@ test('all six gray platform components follow the moving deck with native OBJ sl
   ]);
 });
 
+test('a brown chained platform draws both endpoints, four intermediate links and its deck', () => {
+  const e = { id: 'swing', spriteId: 0x5f, origin: { x: 64, y: 80 } } as EntityState;
+  const parts: Array<[string, string, number, number]> = [];
+  drawPlatform(e, 72, 256, 0, (key, frame, x, bottom) => parts.push([key, frame, x, bottom]));
+  assert.equal(parts.length, 10);
+  assert.deepEqual(parts.slice(0, 6), [
+    ['swing/0', '0:brown-platform/0', 104, 272],
+    ['swing/1', '0:brown-platform/0', 104, 192],
+    ['swing/2', '0:brown-platform/0', 104, 208],
+    ['swing/3', '0:brown-platform/0', 104, 224],
+    ['swing/4', '0:brown-platform/0', 104, 240],
+    ['swing/5', '0:brown-platform/0', 104, 256],
+  ]);
+  assert.deepEqual(parts.slice(6), [
+    ['swing/6', '0:brown-platform/5', 128, 272],
+    ['swing/7', '0:brown-platform/6', 112, 272],
+    ['swing/8', '0:brown-platform/7', 96, 272],
+    ['swing/9', '0:brown-platform/8', 80, 272],
+  ]);
+});
+
 test('Morton and Roy walk in a 16-PAL-frame cycle and Bowser advances his propeller every two', () => {
   const manifest = json('generated/bosses/index.json');
   const scene = { cache: { json: { get: () => manifest } } } as unknown as Phaser.Scene;
