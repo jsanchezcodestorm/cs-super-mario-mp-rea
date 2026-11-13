@@ -1,5 +1,9 @@
 import type { EntityState, World } from './types.ts'
 
+const swingGravity = 0.9
+const swingSpeedLimit = 64
+const initialSwingAngle = 448
+
 export function isBlockBridge(entity: EntityState) {
   return entity.spriteId === 0x59 || entity.spriteId === 0x5a
 }
@@ -19,7 +23,7 @@ function extendBlocks(e: EntityState) {
 }
 
 function swingChain(world: World, e: EntityState) {
-  const swing = (e.swing ??= { angle: 0, speed: 0 })
+  const swing = (e.swing ??= { angle: initialSwingAngle, speed: 0 })
   const occupied = Object.values(world.state.players).some(
     (p) =>
       p.status === 'alive' &&
@@ -29,13 +33,16 @@ function swingChain(world: World, e: EntityState) {
       p.x + p.width > e.x &&
       p.x < e.x + e.width,
   )
-  // A rider supplies angular acceleration. Empty platforms lose a speed unit
-  // every four ticks. The original stores 512 angle units per revolution.
+  // The empty chain behaves as an undamped pendulum. A rider can add energy
+  // to the same motion; 512 angle units represent one full revolution.
+  const currentRadians = (swing.angle * Math.PI) / 256
+  swing.speed -= Math.sin(currentRadians) * swingGravity
   if (occupied) {
-    const direction = Math.cos((swing.angle * Math.PI) / 256) >= 0 ? 1 : -1
+    const direction = Math.cos(currentRadians) >= 0 ? 1 : -1
     if (swing.speed * direction >= 0 || e.age % 2 === 0)
-      swing.speed = Math.max(-64, Math.min(64, swing.speed + direction))
-  } else if (e.age % 4 === 0) swing.speed -= Math.sign(swing.speed)
+      swing.speed += direction
+  }
+  swing.speed = Math.max(-swingSpeedLimit, Math.min(swingSpeedLimit, swing.speed))
   swing.angle = (swing.angle + swing.speed / 16 + 512) % 512
   const radians = (swing.angle * Math.PI) / 256
   e.width = 64
