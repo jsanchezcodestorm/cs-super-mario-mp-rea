@@ -277,6 +277,7 @@ export interface EntityState extends Body {
   coinDirection?: number
   coinTurn?: number
   shellKnockedOut?: boolean
+  defeat?: { kind: 'tumble' | 'puff'; tick: number }
   /** World direction used by the NPC's drawing routine, including pauses and turns. */
   facing?: -1 | 1
   boo?: { watching: boolean; check: number; turn: number; wait: number; peek: number; pose: number }

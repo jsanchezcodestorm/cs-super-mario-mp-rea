@@ -27,7 +27,7 @@ export function frameForEntity(
   if (e.kind === 'shell') {
     const colors = ['green', 'red', 'blue', 'yellow'];
     const id = e.shellColor ? 4 + colors.indexOf(e.shellColor) : e.spriteId;
-    const spinning = !!e.vx && !e.tossed && !e.shellKnockedOut;
+    const spinning = !!e.vx && !e.tossed && !e.shellKnockedOut && !e.defeat;
     return { texture: 'creatures', frame: tileset + ':shell' + id + '/' + (spinning ? (frameClock >> 2) & 3 : 0) };
   }
   if (e.kind === 'chuckShot' && e.projectile === 'baseball')

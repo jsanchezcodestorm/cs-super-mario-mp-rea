@@ -2,6 +2,7 @@ import { carryRopePlayer } from './rope-motor.ts'
 import { isNetKoopaTurning, netKoopaBox } from './net-koopa.ts'
 import { takeFishingPrize } from './lakitu.ts'
 import { palFrame, switchDurationTicks } from './pal-time.ts'
+import { beginEntityDefeat } from './entity-defeat.ts'
 import { keyholeAnchor } from './keyhole.ts'
 import { residentContact } from './level-npcs.ts'
 import { beginOrbFinish } from './orb-finish.ts'
@@ -96,7 +97,9 @@ export function strike(world: World, e: EntityState, p: PlayerState) {
     e.vx = 0
     e.owner = null
   } else {
-    e.active = false
+    const horizontal = e.x + e.width / 2 - (p.x + p.width / 2)
+    const direction: -1 | 1 = horizontal < 0 ? -1 : horizontal > 0 ? 1 : p.facing
+    beginEntityDefeat(world, e, direction)
     if (e.kind === 'endingBoss') finishCourse(world, p, 'normal', { ending: true })
     if (
       e.kind === 'boss' &&
@@ -296,14 +299,14 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   if (e.kind === 'fireball' || e.kind === 'yoshiFire') return
   if (p.sliding && weaponTargets.has(e.kind) && e.kind !== 'boss' && e.kind !== 'endingBoss' &&
       world.campaign.slideTargets?.includes(e.spriteId)) {
-    e.active = false
+    beginEntityDefeat(world, e, p.facing)
     addScore(p, 100)
     emit(world, 'stomp', p)
     return
   }
   if (p.star > 0 && e.kind !== 'boss' && e.kind !== 'endingBoss') {
     if (e.kind === 'magikoopa') strike(world, e, p)
-    else e.active = false
+    else beginEntityDefeat(world, e, p.facing)
     return
   }
   if (

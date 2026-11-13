@@ -11,6 +11,7 @@ import { drawBlockBounces, queueEffectTile } from './effect-tiles';
 import { playerAppearance } from './player-effects';
 import { playerFacingRight } from './player-animation';
 import { drawnBehindNet } from './net-player';
+import { enemyDefeatPose } from './enemy-defeat-view';
 import type { Stage } from './content';
 import { WIDTH, HEIGHT, type Camera } from './terrain-view';
 
@@ -72,7 +73,8 @@ export class CastView {
         draw('bonus-' + index, 'bonus/' + slot.frame, slot.x + 8, slot.y + 16, false, 1, 'creatures');
     }
     for (const e of state.entities) {
-      if ((!e.active && !e.shellKnockedOut) || !e.height || (e.stunnedUntil && e.kind === 'boss' && e.stunnedUntil > e.age) || e.roomId !== stage.id) continue;
+      const defeat = enemyDefeatPose(e, state.tick);
+      if ((!e.active && !e.shellKnockedOut && !defeat) || !e.height || (e.stunnedUntil && e.kind === 'boss' && e.stunnedUntil > e.age) || e.roomId !== stage.id) continue;
       const { x, y } = e;
       for (const part of e.booStream?.trail ?? []) {
         if (part.until <= palFrame(state.tick)) continue;
@@ -81,7 +83,13 @@ export class CastView {
           part.x + 8, part.y + 16, false, 1, 'creatures');
       }
       const plant = e.kind === 'plant' ? e.pipePlant : undefined;
-      if (plant?.hidden) continue;
+      if (plant?.hidden && !defeat) continue;
+      if (defeat?.kind === 'puff') {
+        const sheet = this.scene.textures.get('reward-tiles').getSourceImage() as HTMLImageElement;
+        queueEffectTile(this.objects, sheet, 18 + defeat.frame,
+          x + e.width / 2 - 8 - camera.x, y + e.height / 2 - 8 - camera.y, 2, 11);
+        continue;
+      }
       if (e.kind === 'flyingQuestion' && e.questionHit) {
         const age = Math.floor((state.tick - e.questionHit.tick) * 5 / 6);
         const lift = [0, 3, 5, 7, 8, 8, 7, 5, 3][Math.floor(age / 2)] ?? 0;
@@ -89,7 +97,7 @@ export class CastView {
         continue;
       }
       if (e.kind === 'platform' && drawPlatform(e, x, y, stage.spriteTileset, draw)) continue;
-      if (e.kind === 'lakitu' && !e.shellKnockedOut) {
+      if (e.kind === 'lakitu' && !e.shellKnockedOut && !defeat) {
         const cloud = frameForEntity({ ...e, kind: 'cloud', spriteId: 0x87 }, state.tick, stage.spriteTileset, this.scene.textures.get('creatures'));
         if (cloud) draw(e.id + '-cloud', cloud.frame, x + e.width / 2, y + 32, false, 1, cloud.texture);
       }
@@ -112,8 +120,10 @@ export class CastView {
         e.kind === 'platform' && e.spriteId !== 0x62 && e.spriteId !== 0x63
           ? { x: x + (e.scale ? 16 : 8), y: y + 16 }
           : { x: (emerging?.x ?? x) + e.width / 2, y: (emerging?.y ?? plant?.drawY ?? y) + height };
+      const flipY = (e.shellKnockedOut && !e.netKoopa?.punched) ||
+        (defeat?.kind === 'tumble' && defeat.flipY);
       draw(e.id, pose.frame, anchor.x, anchor.y, boss ? boss.flipX : mirrorEntity(e), 1, pose.texture,
-        e.shellKnockedOut && !e.netKoopa?.punched, order, emerging ? 1 : undefined);
+        flipY, order, emerging ? 1 : undefined);
     }
     for (const p of [state.players.luigi, state.players.mario]) {
       if (p.roomId !== stage.id) continue;

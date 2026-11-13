@@ -15,7 +15,6 @@ import { resumeBonus, stepBonus } from './bonus-game.ts'
 import { guideCoins } from './directional-coins.ts'
 import { stepEmitters } from './emitters.ts'
 import { stepBooGroups } from './boo-clusters.ts'
-import { freeCloud } from './lakitu.ts'
 import { feedBaby } from './yoshi-growth.ts'
 import { stepBerries } from './yoshi-berries.ts'
 import { carryDeckRider } from './platform-rider.ts'
@@ -32,6 +31,7 @@ import { navigate, returnToMap } from './campaign.ts'
 import { overlaps } from './terrain.ts'
 import { settleBlockBounces } from './block-bounce.ts'
 import { settleTurnBlocks } from './turn-block.ts'
+import { advanceEntityDefeat } from './entity-defeat.ts'
 
 const playerProjectiles = new Set<EntityState['kind']>(['fireball', 'yoshiFire'])
 
@@ -75,7 +75,6 @@ function projectileContact(world: World, entity: EntityState) {
     if (target.kind === 'endingBoss' && entity.kind !== 'mechaShell') continue
     if (target.spriteId === 0xc5 && entity.kind !== 'throwBlock') continue
     strike(world, target, world.state.players[entity.owner])
-    if (target.kind === 'lakitu' && !target.active) freeCloud(world, target)
     if (
       entity.kind === 'fireball' ||
       entity.kind === 'yoshiFire' ||
@@ -91,6 +90,10 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
   const { state } = world
   const transported = new Map<PlayerState['id'], EntityState>()
   for (const entity of [...state.entities]) {
+    if (entity.defeat) {
+      advanceEntityDefeat(world, entity)
+      continue
+    }
     if (entity.shellKnockedOut) {
       stepKnockedOut(world, entity)
       continue
@@ -162,7 +165,7 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
       for (const p of players) punchNetKoopa(world, entity, p)
   }
   const mouths = [state.players.mario.mouth, state.players.luigi.mouth]
-  state.entities = state.entities.filter((e) => e.active || e.shellKnockedOut ||
+  state.entities = state.entities.filter((e) => e.active || e.shellKnockedOut || e.defeat ||
     mouths.some(food => food?.entityId === e.id && food.ticks === 0))
 }
 export function stepGame(campaign: CampaignDefinition, state: GameState, inputs: InputFrame) {

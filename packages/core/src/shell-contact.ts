@@ -1,9 +1,9 @@
 import { triggerFlyingQuestion } from './flying-question.ts'
 import type { EntityState, World } from './types.ts'
 import { awardShellClash, awardShellHit } from './shell-rewards.ts'
-import { freeCloud } from './lakitu.ts'
 import { catchIncomingShell } from './shell-defense.ts'
 import { palFrame } from './pal-time.ts'
+import { beginEntityDefeat } from './entity-defeat.ts'
 
 // E1 SubSprSprInteract uses a 32x24 window around each sprite origin.
 // A nonzero clipping nibble in Sprite1662Vals lowers the contact point by 8.
@@ -12,9 +12,6 @@ const lowContact = new Set([
   0x2a, 0x3a, 0x3b, 0x3c, 0x44, 0x46, 0x53, 0x83, 0x84, 0x90, 0x91,
   0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x9a, 0xa2, 0xa6, 0xab,
 ])
-// Sprite1656Vals bit 7 gives a puff on defeat instead of a falling body.
-const puffOnDefeat = new Set([0x1a, 0x1d, 0x20, 0x2a, 0x4f, 0x50, 0x99])
-
 function contactY(e: EntityState) {
   return Math.floor(e.y + e.height - 16) + (lowContact.has(e.spriteId) ? 10 : 2)
 }
@@ -28,17 +25,6 @@ function canHit(world: World, shell: EntityState, target: EntityState) {
   if (traits === undefined || traits & 8) return false
   const dx = Math.floor(target.x) - Math.floor(shell.x), dy = contactY(target) - contactY(shell)
   return dx >= -16 && dx < 16 && dy >= -12 && dy < 12
-}
-function knockedOut(world: World, e: EntityState, direction: number) {
-  if (e.owner && world.state.players[e.owner].carrying === e.id) world.state.players[e.owner].carrying = null
-  if (e.kind === 'lakitu') freeCloud(world, e)
-  e.active = false
-  if (puffOnDefeat.has(e.spriteId) || e.kind === 'throwBlock') return
-  e.shellKnockedOut = true
-  e.grounded = false
-  // E1 status 02 sets ±$10 and $D0 in sixteenths of a pixel per PAL frame.
-  e.vx = direction * 5 / 6
-  e.vy = -3 * 5 / 6
 }
 function isHeld(world: World, e: EntityState) {
   return !!e.owner && world.state.players[e.owner].carrying === e.id
@@ -59,12 +45,12 @@ export function shellContact(world: World, shell: EntityState) {
     const direction = Math.sign(shell.vx) || (shell.owner && world.state.players[shell.owner].facing) || 1
     if (carried || isHeld(world, target) || movingTarget) {
       awardShellClash(world.state, shell, target)
-      knockedOut(world, shell, -direction)
-      knockedOut(world, target, direction)
+      beginEntityDefeat(world, shell, direction === 1 ? -1 : 1)
+      beginEntityDefeat(world, target, direction === 1 ? 1 : -1)
       return
     }
     awardShellHit(world.state, shell, target)
-    knockedOut(world, target, direction)
+    beginEntityDefeat(world, target, direction === 1 ? 1 : -1)
   }
 }
 
