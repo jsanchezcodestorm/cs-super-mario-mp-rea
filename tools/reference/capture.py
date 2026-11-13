@@ -10,6 +10,7 @@ from pathlib import Path
 from core import Core
 from world import generate as generate_world
 from cutscenes import generate as generate_cutscenes
+from title_demo import generate as generate_title, mounted_title
 
 ROM_SHA256 = '5cc54b1e5c8d3c7701a5e20514145c3b36f15f26fe0a4fe6d2e43677e4b4eda9'
 # Bank selector and SPC I/O mirrors from SMWDisX SMW_E1.sym.
@@ -20,8 +21,10 @@ LEVEL = ['athletic','level','water','bowser-start','boss','underground','ghost',
          'spotlight','bonus','intro','bonus-over','cutscene','bowser-interlude','zoom-out',
          'zoom-in','bowser-phase-2','bowser-phase-3','bowser-defeated','peach','bowser-interlude-2']
 SOUNDS = {'jump':(1,1),'coin':(3,1),'powerup':(0,10),'stomp':(0,19),'pipe':(0,4),
-          'kick':(0,3),'checkpoint':(0,5),'spin':(3,4),'one-up':(3,5),'fireball':(3,6),
+          'kick':(0,3),'checkpoint':(0,5),'spin':(3,4),'one-up':(3,5),'fireball':(3,6),'shatter':(3,7),
           'tongue':(3,33),'swallow':(0,6),'spit':(0,32),'yoshi-stomp':(3,37),'yoshi-grow':(3,31)}
+
+SOUNDS.update({f'stomp-{i}': (0, 18+i) for i in range(2, 8)})
 
 
 class Geometry(C.Structure):
@@ -47,8 +50,7 @@ def boot(library, image, bank):
         # diagonally sloped hill. Stop before the first Koopa encounter.
         for _ in range(1200):
             core.run()
-            camera_x = core.ram[0x1a] + 256*core.ram[0x1b]
-            if core.ram[0x187a] and camera_x >= 882 and core.ram[0x96] == 80:
+            if mounted_title(core.ram):
                 break
         else:
             raise RuntimeError('title demo did not reach the mounted sequence')
@@ -95,7 +97,6 @@ def main():
     audio.mkdir(parents=True, exist_ok=True)
     for bank,songs in [('map',enumerate(MAP,1)),('level',enumerate(LEVEL,1)),('ending',[(9,'credits'),(10,'yoshi-house'),(11,'thank-you')])]:
         core = boot(args.core,image,bank)
-        if bank == 'map': core.png(args.output/'title.png')
         core.capture_video = False
         state = core.freeze()
         for cmd,name in songs:
@@ -108,6 +109,7 @@ def main():
         core.lib.retro_get_system_av_info(C.byref(info))
         core.lib.retro_unload_game()
         core.lib.retro_deinit()
+    generate_title(args.core, image, args.output, info.fps)
     generate_cutscenes(args.core,image,args.output/'movies',info.fps,info.rate)
 
 if __name__ == '__main__':

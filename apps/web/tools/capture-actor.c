@@ -51,12 +51,21 @@ static void upload_dynamic_tiles(void) {
 static void clear_oam(void) {
     for(int i=0;i<128;i++){ram[0x201+4*i]=0xf0;ram[0x420+i]=0;}
 }
-static int capture_player(int character,int form,int pose) {
+#include "capture-yoshi.h"
+#include "capture-pipe-plant.h"
+
+static int capture_player(int character, int form, int frame) {
+    int pose = frame & 127;
     clear_oam();
     ram[0x19] = form;
     ram[0xdb3] = character;
     ram[0x13e0] = pose;
-    ram[0x13df] = pose%3;
+    // DrawMarioAndYoshi reads the cape and walking phases independently.
+    ram[0x13df] = frame >> 7;
+    if (pose <= 2) ram[0x13db] = pose;
+    else if (pose >= 4 && pose <= 9) ram[0x13db] = (pose - 4) % 3;
+    else ram[0x13db] = 0;
+    if (pose >= 17 && pose <= 19) ram[0x13e3] = 6; // left-facing wall run
     ram[0x94] = ram[0x96] = 96;
     ram[0x76] = ram[0x78] = 0;
     memset(ram+0x1a,0,4);
@@ -71,26 +80,42 @@ static int capture_player(int character,int form,int pose) {
 }
 
 int main(int argc,char **argv) {
-    if((argc!=4 && argc!=6) || !load(argv[1],rom,sizeof rom)) return 1;
+    if((argc<4 || argc>6) || !load(argv[1],rom,sizeof rom)) return 1;
     FILE *state=fopen(argv[2],"rb");
     if(!state || fread(ram,1,sizeof ram,state)!=sizeof ram || fread(vram,1,sizeof vram,state)!=sizeof vram) return 2;
     fclose(state);
+    ram[0x64]=0x20; // SpriteProperties during normal level play.
     if(argc==6) return capture_player(atoi(argv[3]),atoi(argv[4]),atoi(argv[5]));
     int id=atoi(argv[3]);
+    int stomped=argc==5 && strcmp(argv[4], "stomped")==0;
+    if(argc==5 && (!stomped || (id!=0xab && id!=0xa2))) return 3;
     if(id<0 || id>200) return 3;
     memset(ram+0x14c8,0,12);
     ram[0x0100]=0x14;
     ram[0x9e]=id; ram[0x14c8]=1; ram[0xe4]=96;ram[0xd8]=96;
     ram[0x94]=32;ram[0x96]=96;
-    ram[0x64]=0x20;
     if (!run_actor(0x7f7d2,1)) return 5; // InitSpriteTables, X=slot zero
-    // Sample one 32-frame window of the PAL counter; Yoshi keeps its four
-    // authored idle/tongue poses from the dedicated path.
-    for(int frame=0;frame<(id==0x35?24:32);frame++){
-        for(int i=0;i<128;i++){ram[0x201+4*i]=0xf0;ram[0x420+i]=0;}
+    // Direct draw routines bypass 01:80D2, which assigns this OAM base.
+    ram[0x15ea] = read8(NULL, 0x07f000 + read8(NULL, 0x07f0b4 + ram[0x1692]));
+    if (id == 0x35) return capture_yoshi();
+    if (id == 0x1a || id == 0x2a || id == 0x4f || id == 0x50) return capture_pipe_plant(id);
+    // The first pass runs INIT (and for some sprites several setup frames).
+    // Keep those one-time empty OAM slots out of the repeating active cycle.
+    for(int elapsed=0;elapsed<64;elapsed++){
+        int frame=elapsed & 31;
+        clear_oam();
         ram[0x13]=ram[0x14]=frame;
         ram[0xe4]=96;ram[0xd8]=96;ram[0x14e0]=ram[0x14d4]=0;
         ram[0x1a]=ram[0x1b]=ram[0x1c]=ram[0x1d]=0;
+        if (stomped && elapsed) {
+            if (id==0xab) ram[0xc2]=1;    // Rex walks compressed after one stomp.
+            if (id==0xa2) ram[0x1540]=128; // Mechakoopa's native inactive pose.
+        }
+        if (id==0x54 && elapsed) {
+            // ClimbingDoor draws only while its punch-triggered timer is live.
+            ram[0x1540] = frame < 30 ? 31-frame : 1;
+            ram[0x9d] = 1;  // drive the countdown explicitly
+        }
         if (id==0x1f || id==0x20) {
             // Capture the visible wand-casting state and the projectile at rest.
             // The caster's waiting/teleport phase has no OAM.
@@ -99,11 +124,6 @@ int main(int argc,char **argv) {
             ram[0x1540] = frame>12 ? 0x32 : 0x68;
             ram[0x9d] = id==0x20;
             if (!run_actor(id==0x1f ? 0x01be75 : 0x01808c, id!=0x1f)) return 5;
-        } else if (id==0x35) {
-            ram[0x157c] = 1; // face left
-            ram[0x1602] = frame==22 ? 7 : frame==23 ? 8 : frame>12 ? 1 : 0;
-            ram[0x15f6] = 0x0a;
-            if (!run_actor(0x1ee61,0)) return 5; // HandleOffYoshi, original drawing and DMA setup
         } else if (id==0x33 || id==0x5b || id==0x5d || id==0xa4 || id==0x9b || id==0x79) {
             // Podoboo and water platforms require a native liquid spawn point;
             // a hammer brother normally depends on a second flying platform.
@@ -114,10 +134,9 @@ int main(int argc,char **argv) {
             uint32_t address = id==0x33 ? 0x01e1a6 : id==0x9b ? 0x02dafd : id==0x79 ? 0x01c18a : 0x01b655;
             if(!run_actor(address,0)) return 5;
         } else if (!run_actor(0x01808c,1)) return 5;
-        if((id==0x35 && (frame==5 || frame>=21)) || id!=0x35) {
-            upload_dynamic_tiles();
-            if(fwrite(ram+0x200,1,0x2a0,stdout)!=0x2a0 || fwrite(vram,1,sizeof vram,stdout)!=sizeof vram) return 4;
-        }
+        upload_dynamic_tiles();
+        if(elapsed < 32) continue;
+        if(fwrite(ram+0x200,1,0x2a0,stdout)!=0x2a0 || fwrite(vram,1,sizeof vram,stdout)!=sizeof vram) return 4;
     }
     return 0;
 }

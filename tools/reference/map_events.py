@@ -42,10 +42,9 @@ def generate(core, freeze, image, maps, nodes, output):
                 for x,y,bg2,bg1 in board.cells:
                     if all(before[a:a+2]==after[a:a+2] for a in (bg1,bg2)):
                         continue
-                    tile = board.tile(after,(bg2,bg1))
-                    if tile != board.tile(before,(bg2,bg1)):
-                        index = atlas.setdefault(tile,len(atlas))
-                        positions.append([x,y,index])
+                    words = board.words(after,(bg2,bg1))
+                    index = atlas.setdefault((region,words),len(atlas))
+                    positions.append([x,y,index])
                 if positions:
                     patches.setdefault(event,{})[region] = positions
     if not atlas:
@@ -53,7 +52,10 @@ def generate(core, freeze, image, maps, nodes, output):
     width = 256
     height = ((len(atlas)+31)//32)*8
     pixels = bytearray(width*height*3)
-    for tile,index in atlas.items():
+    for (region,words),index in atlas.items():
+        board = maps[region]
+        tile = board.raster(words,board.gfx,board.palette)
         paste(pixels,width,index%32*8,index//32*8,tile)
     (output/'events.png').write_bytes(png(width,height,pixels))
     (output/'events.json').write_text(json.dumps({'ids':ids,'patches':patches},separators=(',',':')))
+    return atlas

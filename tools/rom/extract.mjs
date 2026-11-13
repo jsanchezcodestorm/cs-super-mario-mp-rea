@@ -13,7 +13,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Cartridge, expectedSha256 } from './cartridge.mjs';
 import { exportGraphics } from './graphics.mjs';
-import { exportAtlas } from './atlas.mjs';
+import { screenRouting, tilePriorities } from './tile-priorities.mjs';
+import { exportAtlas, goalPaletteRects } from './atlas.mjs';
 import { decodeRoom } from './rooms.mjs';
 import { motionTables } from './motion.mjs';
 import { roomDirectory, chocolateIslandVariants, entranceScenes, courseIntro } from './directory.mjs';
@@ -49,6 +50,8 @@ function extract(temp) {
   exportGraphics(rom, join(out, 'gfx'));
   const levels = {},
     atlases = new Map(),
+    goalMasks = {},
+    priorities = {},
     roomIndex = {};
   const world = JSON.parse(readFileSync(join(root, 'packages/core/data/world.json'), 'utf8'));
   const slots = roomDirectory(rom);
@@ -66,10 +69,16 @@ function extract(temp) {
     if (Object.hasOwn(world.names, room.id)) room.intro = courseIntro(rom, record.id, room.tileset);
     levels[room.id] = room;
     if (!atlases.has(room.atlas)) {
+      priorities[room.atlas] = tilePriorities(rom, state);
       atlases.set(room.atlas, exportAtlas(join(out, room.atlas), rom, state, room.spritePalette));
     }
     room.animatedTiles = atlases.get(room.atlas);
+    if (room.sprites.some(s => s.spriteId === 0x7b) && !Object.hasOwn(goalMasks, room.atlas)) {
+      goalMasks[room.atlas] = goalPaletteRects(rom, state, room.animatedTiles);
+    }
   }
+  writeFileSync(join(out, 'tiles/goal-palettes.json'), JSON.stringify(goalMasks));
+  writeFileSync(join(out, 'tiles/priorities.json'), JSON.stringify({ atlases: priorities, screens: screenRouting(rom) }));
   const campaign = {
     version: 1,
     romSha256: expectedSha256,

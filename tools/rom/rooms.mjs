@@ -31,7 +31,9 @@ function entrance(rom, target, secondary) {
   let y = rom.byte(0x5d730 + yIndex) + 256 * rom.byte(0x5d740 + yIndex);
   if (vertical) y = (y & 255) + screen * 256;
   else x = (x & 255) + screen * 256;
-  return { x, y };
+  const type = isSecondary ? rom.byte(0x05fe00 + secondary) & 7 : (rom.byte(0x05f200 + target) >> 3) & 7;
+  const pipe = [undefined, 'left', 'right', 'up', 'down', undefined, undefined, 'down'][type];
+  return pipe ? { x, y, pipe } : { x, y };
 }
 
 function exits(rom, id, layer1) {
@@ -52,6 +54,10 @@ function exits(rom, id, layer1) {
     });
   }
   return exits;
+}
+
+export function roomEntrances(rom, { id, layer1, spawn }) {
+  return { spawn: spawn ?? entrance(rom, id), exits: exits(rom, id, layer1) };
 }
 
 function screenLayer(ram, width, height, vertical, start = 0xc800) {
@@ -118,9 +124,8 @@ export function decodeRoom(rom, { id, key, layer1: p1, layer2: p2, sprites, spaw
     timeLimit: [0, 200, 300, 400][header[3] >> 6],
     tide: !spawn ? tideSetting(rom, id, state[0x1931]) : undefined,
     water: ((rom.byte(0x5f200 + id) >> 3) & 7) === 7,
-    spawn: spawn ?? entrance(rom, id),
+    ...roomEntrances(rom, { id, layer1: p1, spawn }),
     sprites: spriteList(rom, id, vertical, sprites),
-    exits: exits(rom, id, p1),
     checkpoint: bar < 0 ? undefined : { x: 16 * (bar % width), y: 16 * Math.floor(bar / width) },
     background: bg,
     layer2: state[0x5b] & 0x80 ? bg?.tiles : undefined,

@@ -38,4 +38,7 @@ renameSync(pending, catalogPath);
 
 run('python3', ['tools/rom/scroll_capture.py', resolve(core), rom, join(root, 'generated')]);
 run('python3', ['tools/rom/boss_capture.py', resolve(core), rom, join(root, 'generated')]);
+run('python3', ['tools/rom/player_feedback.py', resolve(core), rom, join(root, 'generated/player-death.json')]);
 run('python3', ['tools/rom/hud_capture.py', resolve(core), rom, join(root, 'generated')]);
+run('python3', ['tools/rom/course_clear.py', resolve(core), rom, join(root, 'generated/hud'), catalogPath]);
+run('python3', ['tools/rom/tide_capture.py', resolve(core), rom, join(root, 'generated', 'tiles', 'tide.png')]);

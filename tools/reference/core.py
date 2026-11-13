@@ -17,6 +17,7 @@ class Core:
     def __init__(self, library, image):
         self.lib = lib = C.CDLL(str(library))
         self.keys = 0
+        self.input_port = 0
         self.audio = bytearray()
         self.frame = None
         self.capture_video = False
@@ -46,7 +47,7 @@ class Core:
             return frames
 
         def input_state(port, device, index, button):
-            return int(not port and bool(self.keys & (1 << button)))
+            return int(port == self.input_port and bool(self.keys & (1 << button)))
 
         connect('environment', env, C.c_bool, U, P)
         connect('video_refresh', video, None, P, U, U, S)

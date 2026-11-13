@@ -1,12 +1,11 @@
 """Render the cartridge's seven castle vignettes and complete staff roll."""
-import ctypes as C
 import json
-import os
 import subprocess
 import tempfile
 import wave
 from pathlib import Path
 from core import Core
+from video import ffmpeg, record_frames
 
 COURSES = ('101','007','11c','00e','020','01a','110','ending')
 
@@ -20,33 +19,20 @@ def record(core, baseline, index, output, fps, rate):
     with tempfile.TemporaryDirectory(prefix='smw-scene-') as temp:
         silent = Path(temp,'video.mp4')
         sound = Path(temp,'audio.wav')
-        ffmpeg = [os.environ.get('FFMPEG','ffmpeg'),'-hide_banner','-loglevel','error','-y']
-        args = ['-f','rawvideo','-pix_fmt','rgb565le','-s','256x224','-r',str(fps/2),
-                '-i','pipe:0','-c:v','libx264','-preset','veryfast','-crf','15','-pix_fmt','yuv420p',str(silent)]
-        process = subprocess.Popen(ffmpeg+args,stdin=subprocess.PIPE)
-        try:
+        core.capture_video = True
+        with record_frames(silent, fps) as write:
             for frame in range(20000):
-                core.capture_video = frame%2==0
                 # Castle messages wait for a button after the text has appeared.
                 core.run(1,256 if index<8 and frame>300 and frame%200==0 else 0)
-                if core.capture_video and core.frame:
-                    w,h,data = core.frame
-                    if (w,h)!=(256,224):
-                        raise ValueError(f'unexpected cinematic resolution {w}x{h}')
-                    process.stdin.write(data)
+                write(core.frame)
                 if core.ram[0x100] == (0x29 if index==8 else 0x0b):
                     break
             else:
                 raise RuntimeError(f'cutscene {index} did not reach its ending')
-        finally:
-            process.stdin.close()
-            result = process.wait()
-        if result:
-            raise RuntimeError('ffmpeg failed while encoding a cutscene')
         with wave.open(str(sound),'wb') as stream:
             stream.setparams((2,2,round(rate),0,'NONE',''))
             stream.writeframes(core.audio)
-        subprocess.run(ffmpeg+['-i',str(silent),'-i',str(sound),'-c:v','copy','-c:a','aac',
+        subprocess.run(ffmpeg()+['-i',str(silent),'-i',str(sound),'-c:v','copy','-c:a','aac',
                                '-b:a','96k','-movflags','+faststart',str(output)],check=True)
         if index==8:
             core.capture_video=True

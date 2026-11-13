@@ -5,6 +5,7 @@ from native_rooms import Core, first_course, cartridge_image
 from boss_capture import LayerSwitch
 from map_tiles import vram
 from boss_pixels import png, oam, video_pixels
+from reward_tiles import reward_sheet
 from hud_tiles import StatusPlane, canvas, crop, stamp, snes_colors, set_counters, render_counters
 
 
@@ -54,7 +55,7 @@ def generate(library,image,output):
             phase = (core.ram[0x13] >> 1) & 3
             phases[phase] = reserve_tile(core)
             stamp(star,phases[phase],16*phase,0)
-        files = {'digits':digits, 'dragon':dragon, 'reserve':reserve, 'star':star}
+        files = {'digits':digits, 'dragon':dragon, 'reserve':reserve, 'star':star, 'rewards':reward_sheet(core, image)}
         tests = [
             {'lives':5,'coins':0,'stars':0,'score':0,'timer':299,'dragon':0},
             {'lives':78,'coins':56,'stars':34,'score':123450,'timer':98,'dragon':3},

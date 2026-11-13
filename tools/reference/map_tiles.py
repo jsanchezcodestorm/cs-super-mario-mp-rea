@@ -22,12 +22,12 @@ def vram(core):
     return bytes((U8*65536).from_address(core.lib.retro_get_memory_data(3)))
 
 
-def png(width, height, pixels):
+def png(width, height, pixels, alpha=False):
     def chunk(kind, data):
         return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind+data))
-    stride = width * 3
+    stride = width * (4 if alpha else 3)
     rows = b''.join(b'\x00' + pixels[i:i+stride] for i in range(0, len(pixels), stride))
-    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB',width,height,8,2,0,0,0))
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB',width,height,8,6 if alpha else 2,0,0,0))
             + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
 
 
@@ -60,20 +60,25 @@ class MapTiles:
                     addresses.append((2*bg.map+(qx+qy)*2048+(sy%32*32+sx%32)*2)&65535)
                 self.cells.append((x,y,*addresses))
 
+    def words(self, memory, addresses):
+        return tuple(struct.unpack_from('<H', memory, addr)[0] for addr in addresses)
+
     def tile(self, memory, addresses):
-        pixels = bytearray(self.palette[0]*64)
-        for base, addr in zip(self.bases,addresses):
-            tile = struct.unpack_from('<H',memory,addr)[0]
+        return self.raster(self.words(memory, addresses), self.gfx, self.palette)
+
+    def raster(self, words, gfx, palette):
+        pixels = bytearray(palette[0]*64)
+        for base, tile in zip(self.bases, words):
             start = (base+(tile&1023)*32)&65535
             for row in range(8):
                 pos = start + 2*(7-row if tile&32768 else row)
-                a,b,c,d = [self.gfx[(pos+p)&65535] for p in (0,1,16,17)]
+                a,b,c,d = [gfx[(pos+p)&65535] for p in (0,1,16,17)]
                 for col in range(8):
                     bit = col if tile&16384 else 7-col
                     value = (a>>bit&1) + 2*(b>>bit&1) + 4*(c>>bit&1) + 8*(d>>bit&1)
                     if value:
                         i = (row*8+col)*3
-                        pixels[i:i+3] = self.palette[((tile>>10)&7)*16+value]
+                        pixels[i:i+3] = palette[((tile>>10)&7)*16+value]
         return bytes(pixels)
 
     def image(self):

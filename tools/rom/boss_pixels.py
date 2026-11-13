@@ -30,9 +30,14 @@ def mode7(memory, colors, tile_x, tile_y, width, height):
     return width, height, pixels
 
 
-def oam(ram, memory, colors, entries):
+def oam(ram, memory, colors, entries, registration=None, center=False):
     width, height = 256, 224
     pixels = bytearray(width*height*4)
+    owners = bytearray([255]) * (width * height) if registration is not None else None
+    if center:
+        anchor = next(i for i in entries if ram[0x201+4*i] < 224)
+        origin_x = ram[0x200+4*anchor] - 256*(ram[0x420+anchor] & 1)
+        origin_y = ram[0x201+4*anchor]
     for entry in reversed(entries):
         x, y, tile, attr = ram[0x200+4*entry:0x204+4*entry]
         size = ram[0x420+entry]
@@ -40,6 +45,11 @@ def oam(ram, memory, colors, entries):
             x -= 256
         if y >= 224:
             continue
+        if center:
+            # Keep original relative sprite coordinates, including OBJ pixels
+            # which were off the right edge in the reference camera.
+            x = 96 + (x-origin_x+256) % 512 - 256
+            y = 96 + y-origin_y
         side = 16 if size & 2 else 8
         for dy in range(side):
             for dx in range(side):
@@ -55,6 +65,14 @@ def oam(ram, memory, colors, entries):
                 if index:
                     pos = 4*((y+dy)*width+x+dx)
                     pixels[pos:pos+4] = colors[128+8*(attr & 14)+index]
+                    if owners is not None:
+                        owners[pos//4] = entry
+    if owners is not None:
+        slots = set(owners) - {255}
+        priorities = {(ram[0x203+4*slot] >> 4) & 3 for slot in slots}
+        if len(priorities) != 1:
+            raise ValueError(f"Expected a single OBJ plane for these boss parts, saw {priorities}")
+        registration.update(priority=priorities.pop(), oam=min(slots))
     return width, height, pixels
 
 

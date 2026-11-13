@@ -53,12 +53,18 @@ def opened_map(core, initial, region):
     return core.freeze()
 
 
+def idle_pose(tile):
+    # E1 bank 04 marks these overworld cells as water and selects the facing-down pose.
+    return 10 if tile == 0x80 or 0x6a <= tile <= 0x6d else 2
+
+
 def place_player(ram, source):
     region, x, y = source
     ram[0x1f11] = region
     for address, value in ((0x1f17, x), (0x1f19, y), (0x1f1f, x // 16), (0x1f21, y // 16)):
         set_word(ram, address, value)
     ram[0x13c1] = ram[0xc800 + tile_index(source)]
+    ram[0x1f13] = idle_pose(ram[0x13c1])
     ram[0x13d9] = WAITING_FOR_INPUT
     ram[0x0dd5] = 0  # disable automatic movement after an exit
     ram[0x0ef7] = 0
@@ -72,10 +78,15 @@ def trace(core, saved, source, button):
     place_player(ram, source)
     core.run(2)
     samples = [[0, *source]]
+    poses = [[0, ram[0x1f13]]]
     core.run(1, KEYS[button])
     for frame in range(2, 1202):
         core.run(1)
         position = player_position(ram)
+        # -1 is the four-direction star spin. -2 hides the actor during a map reload.
+        pose = -2 if ram[0x100] != MAP_MODE else -1 if ram[0x13d9] == 0x0b else ram[0x1f13]
+        if pose != poses[-1][1]:
+            poses.append([frame, pose])
         if ram[0x100] != MAP_MODE:
             if button != 'action':
                 raise RuntimeError(f'unexpected mode during walk from {source}')
@@ -86,7 +97,8 @@ def trace(core, saved, source, button):
         if (frame % 8 == 0 and tuple(samples[-1][1:]) != position) or finished:
             samples.append([frame, *position])
         if finished:
-            return position, frame, samples
+            core.run(20)  # allow the native face-direction timer to settle
+            return position, frame, samples, poses, ram[0x1f13]
     raise RuntimeError(f'overworld input {button} at {source} never settled')
 
 
@@ -96,6 +108,7 @@ def generate(core, initial, nodes, output):
     pending = deque(names)
     states = {region: opened_map(core, initial, region) for region in sorted({p[0] for p in names})}
     result = {}
+    pose_paths, idle = {}, {}
 
     def label(position):
         return names.get(position, 'ow-%d-%d-%d' % position)
@@ -119,9 +132,15 @@ def generate(core, initial, nodes, output):
                 continue
             journey = trace(core, saved, source, button)
             if journey:
-                target, frames, path = journey
+                target, frames, path, poses, resting = journey
+                pose_paths.setdefault(name,{})[button] = poses
+                idle[label(target)] = resting
                 directions[button] = {'to': label(target), 'frames': frames, 'path': path}
                 pending.append(target)
         result[name] = {'position': list(source), 'tile': tile, 'directions': directions, 'exitDirections': exits}
+    for stop,data in result.items():
+        if stop not in idle:
+            idle[stop] = idle_pose(data['tile'])
+    output.with_name('poses.json').write_text(json.dumps({'idle':idle,'paths':pose_paths},separators=(',',':')))
     output.write_text(json.dumps(result, separators=(',', ':')))
     return result
