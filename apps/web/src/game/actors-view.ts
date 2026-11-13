@@ -11,6 +11,16 @@ export function frameForEntity(
   atlas: { has: (key: string) => boolean },
 ) {
   const frameClock = palFrame(tick);
+  if (e.kind === 'platform' && e.spriteId === 0xba) {
+    const timer = e.liftTimer!;
+    return { texture: 'creatures', frame: tileset + '-186/' + (timer < 8 ? 0 : 1 + (timer >> 6)) };
+  }
+  if ((e.kind === 'platform' && (e.spriteId === 0x62 || e.spriteId === 0x63)) || e.kind === 'ropeMotor') {
+    const rope = e.spriteId === 0x64;
+    const variant = Number(rope ? e.height === 144 : e.width === 80);
+    const pose = rope ? (frameClock >> 3) & 3 : 0;
+    return { texture: 'creatures', frame: tileset + ':rail' + e.spriteId + '-' + variant + '/' + pose };
+  }
   if (e.pipePlant) return { texture: 'creatures', frame: tileset + ':pipe-plant' + e.spriteId + '/' + e.pipePlant.pose };
   if (e.kind === 'exitSide') return null;
   if (e.kind === 'cloudCoin') return { texture: 'creatures', frame: tileset + ':cloud-coin' };

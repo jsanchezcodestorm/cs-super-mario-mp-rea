@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { captureNpcPoses, directionalNpcs } from './npc-poses.mjs';
+import { captureRailPoses } from './rail-poses.mjs';
 import { captureResidentPoses } from './resident-poses.mjs';
 import { decode, atlas } from './object-atlas.mjs';
 import { captureBonusSlots } from './bonus-slots.mjs';
@@ -10,6 +11,9 @@ import { parts, capturePlayerFrames } from './actor-parts.mjs';
 import { captureOpenNetDoor } from './net-door.mjs';
 
 const pipePlantPoses = new Map([[0x1a, 2], [0x2a, 2], [0x4f, 4], [0x50, 4]]);
+// The client positions these platform sprites at their original SNES anchor.
+const platformOrigins = new Set([0x43, 0x49, 0x55, 0x56, 0x57, 0x58, 0x5b, 0x5c, 0x5d, 0x5e,
+  0x61, 0x8f, 0x9c, 0xb7, 0xb8, 0xba, 0xbb, 0xc0, 0xc1, 0xc4]);
 
 // Include offspring, transformed enemies and shots that have no level spawn
 // of their own. Resolve generator output from the cartridge's emission trace.
@@ -82,6 +86,7 @@ export function captureCreatures(root, rom) {
       for (const { id: spriteId, stomped, key } of sprites) {
         if (seen.has(key)) continue;
         seen.add(key);
+        if (spriteId >= 0x62 && spriteId <= 0x64) captureRailPoses(runner, romFile, memFile, room, spriteId, frames);
         captureResidentPoses(runner, romFile, memFile, room, spriteId, frames);
         if (captureNpcPoses(runner, romFile, memFile, room, spriteId, stomped, key, frames)) continue;
         const plantPoses = pipePlantPoses.get(spriteId);
@@ -108,6 +113,7 @@ export function captureCreatures(root, rom) {
             splitAtSlot,
           );
           if (image) {
+            if (platformOrigins.has(spriteId)) image.anchor = { x: 8, y: 16 };
             if (plantPoses) image.anchor = { x: 8, y: 16 };
             frames.set(key + '/' + f, image);
             poses++;

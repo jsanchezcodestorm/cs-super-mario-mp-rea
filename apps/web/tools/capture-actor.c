@@ -76,6 +76,7 @@ static void clear_oam(void) {
 #include "capture-pipe-plant.h"
 #include "capture-npc.h"
 #include "capture-residents.h"
+#include "capture-rail.h"
 
 static int capture_player(int character, int form, int frame) {
     int pose = frame & 127;
@@ -110,6 +111,7 @@ int main(int argc,char **argv) {
     ram[0x64]=0x20; // SpriteProperties during normal level play.
     if (argc >= 6 && (!strcmp(argv[3], "resident") || !strcmp(argv[3], "npc")))
         actor_slot = capture_slot(atoi(argv[4]));
+    if (argc == 5 && !strcmp(argv[3], "rail")) return capture_rail(atoi(argv[4]));
     if (argc == 9 && !strcmp(argv[3], "npc"))
         return capture_npc(atoi(argv[4]), argv[5], atoi(argv[6]), atoi(argv[7]), atoi(argv[8]));
     if (argc == 6 && !strcmp(argv[3], "resident")) return capture_resident(atoi(argv[4]), atoi(argv[5]));
@@ -146,7 +148,15 @@ int main(int argc,char **argv) {
             ram[0x1540 + actor_slot] = frame < 30 ? 31-frame : 1;
             ram[0x9d] = 1;  // drive the countdown explicitly
         }
-        if (id==0x1f || id==0x20) {
+        if (id == 0x61 || id == 0x8f || id == 0xba) {
+            // Each serialised body is one skull or one mushroom pan; the
+            // world loader instantiates its partners. Capture that body alone.
+            ram[0x14c8 + actor_slot] = 8;
+            ram[0x9d] = 1;
+            ram[0x1570 + actor_slot] = (int[]){0, 8, 64, 128, 192}[frame % 5];
+            uint32_t gfx = id == 0x61 ? 0x02edd0 : id == 0x8f ? 0x02e57e : 0x038e12;
+            if (!run_actor(gfx, id == 0x61)) return 5;
+        } else if (id==0x1f || id==0x20) {
             // Capture the visible wand-casting state and the projectile at rest.
             // The caster's waiting/teleport phase has no OAM.
             ram[0x14c8 + actor_slot] = 8;

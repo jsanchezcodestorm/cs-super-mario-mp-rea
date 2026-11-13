@@ -109,7 +109,9 @@ export class CastView {
       // Anchor the full drawing to its moving head and let the pipe mask OBJ1.
       const height = boss && isPipeBoss(e) ? 32 : e.height;
       const anchor = e.kind === 'keyhole' ? keyholeAnchor(e) :
-        { x: (emerging?.x ?? x) + e.width / 2, y: (emerging?.y ?? plant?.drawY ?? y) + height };
+        e.kind === 'platform' && e.spriteId !== 0x62 && e.spriteId !== 0x63
+          ? { x: x + (e.scale ? 16 : 8), y: y + 16 }
+          : { x: (emerging?.x ?? x) + e.width / 2, y: (emerging?.y ?? plant?.drawY ?? y) + height };
       draw(e.id, pose.frame, anchor.x, anchor.y, boss ? boss.flipX : mirrorEntity(e), 1, pose.texture,
         e.shellKnockedOut, order, emerging ? 1 : undefined);
     }
