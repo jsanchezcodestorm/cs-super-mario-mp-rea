@@ -2,7 +2,7 @@ import { addRewardEffect } from './reward-effects.ts'
 import { collectCoin } from './resources.ts'
 import { addScore } from './rewards.ts'
 import { palFrame } from './pal-time.ts'
-import { AIR, changeTile } from './terrain.ts'
+import { changeTile } from './terrain.ts'
 import type { BlockBounce, LevelDefinition, PlayerState, World } from './types.ts'
 
 const ticksPerPalFrame = 60 / 50
@@ -17,8 +17,7 @@ export function startBlockBounce(world: World, room: LevelDefinition, col: numbe
     const timers = state.multicoinUntil ??= {}
     timers[room.id] ??= state.tick + Math.ceil(254 * ticksPerPalFrame)
   }
-  // The cooperative turn block opens as soon as it is hit, including during its OBJ bounce.
-  changeTile(world, room, col, row, tile === 0x11e ? AIR : 0x152)
+  changeTile(world, room, col, row, 0x152)
 }
 
 export function settleBlockBounces(world: World) {

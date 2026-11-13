@@ -1,7 +1,8 @@
+import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { Buttons, createGame, effectiveTile, stepGame, type CampaignDefinition, type GameState } from '@smw/core'
+import { Buttons, makeSave, effectiveTile, stepGame, type CampaignDefinition, type GameState } from '@smw/core'
 import type { ServerMessage } from '@smw/protocol'
 import { openTestRoom } from './coop/socket-room.ts'
 import { enterRoom } from '../packages/core/src/state.ts'
@@ -13,20 +14,19 @@ const campaign = { ...rom, start: room.id, initial: [room.id] }
 const tile = (state: GameState, col: number, row: number) => effectiveTile(state, room, room.width * row + col)
 
 function enter() {
-  const state = createGame(campaign)
+  const state = enterFirstCourse(campaign)
   function drive(mario: number, luigi: number, ticks = 1) {
     for (let i = 0; i < ticks; i++) stepGame(campaign, state, { mario, luigi })
   }
-  drive(Buttons.action, 0)
   return { state, drive }
 }
 
 test('only a powered spin can break the turn blocks underfoot in Star World 1', () => {
   const { state, drive } = enter()
   // Mario collects the mushroom on the entrance ledge. Luigi follows into the slot.
-  drive(Buttons.right, 0, 85)
+  drive(Buttons.right, 0, 93)
   drive(0, 0, 55)
-  drive(0, Buttons.right, 85)
+  drive(0, Buttons.right, 93)
   drive(0, 0, 55)
   const { mario, luigi } = state.players
   assert.deepEqual([mario.form, luigi.form], ['super', 'small'])
@@ -48,10 +48,12 @@ test('only a powered spin can break the turn blocks underfoot in Star World 1', 
 })
 
 test('a spin straddling a seam breaks one block per bounce, starting on the side of the player center', () => {
-  for (const [walkingTicks, first, second] of [[78, 15, 16], [80, 16, 15]]) {
+  for (const [right, left, first, second] of [[83, 0, 15, 16], [87, 10, 16, 15]]) {
     const { state, drive } = enter()
-    drive(Buttons.right, 0, walkingTicks)
+    drive(Buttons.right, 0, right)
     drive(0, 0, 55)
+    drive(Buttons.left, 0, left)
+    drive(0, 0, 40)
     const p = state.players.mario
     assert.equal(Math.floor((p.x + p.width / 2) / 16), first)
     const score = p.score
@@ -68,8 +70,10 @@ test('a spin straddling a seam breaks one block per bounce, starting on the side
 
 test('the edge of Mario’s body cannot stop a spin when both feet are in the open shaft', () => {
   const { state, drive } = enter()
-  drive(Buttons.right, 0, 76)
+  drive(Buttons.right, 0, 83)
   drive(0, 0, 55)
+  drive(Buttons.left, 0, 5)
+  drive(0, 0, 40)
   const p = state.players.mario
   // Center 251, E1 feet 248/254, right edge of the web body 257.
   assert.equal(Math.floor(p.x + p.width / 2), 251)
@@ -99,15 +103,14 @@ test('a second player spinning over an open block shaft descends past the right 
 })
 
 test('the concrete rim supports Mario while Luigi breaks the cover and enters the pipe in Yoshi’s Island 1', () => {
-  const state = createGame(rom)
-  state.players.mario.form = 'cape'
-  state.players.luigi.form = 'fire'
-  stepGame(rom, state, { mario: Buttons.action, luigi: 0 })
+  const state = enterFirstCourse(rom)
+  Object.assign(state.players.mario, { form: 'cape', height: 28 })
+  Object.assign(state.players.luigi, { form: 'fire', height: 28 })
   const level = rom.levels['105']
   // The pipe is capped by two turn blocks. Mario's inner foot overlaps the left cap.
   enterRoom({ state, campaign: rom }, state.players.mario, level.id, { x: 1912, y: 292 })
   enterRoom({ state, campaign: rom }, state.players.luigi, level.id, { x: 1930, y: 292 })
-  stepGame(rom, state, { mario: 0, luigi: 0 })
+  for (let i = 0; i < 3; i++) stepGame(rom, state, { mario: 0, luigi: 0 })
   stepGame(rom, state, { mario: Buttons.spin, luigi: Buttons.spin })
   for (let i = 0; i < 100; i++) stepGame(rom, state, { mario: 0, luigi: 0 })
   assert.equal(state.players.mario.score, 0)
@@ -120,7 +123,7 @@ test('the concrete rim supports Mario while Luigi breaks the cover and enters th
 })
 
 test('both clients see Luigi drill through nine rows with one spin, then land on rock', async t => {
-  const session = await openTestRoom(campaign)
+  const session = await openTestRoom(campaign, makeSave(enterFirstCourse(campaign)))
   t.after(() => session.close())
   const lastSnapshot: (GameState | undefined)[] = []
   const shatters = [0, 0]
@@ -131,13 +134,12 @@ test('both clients see Luigi drill through nine rows with one spin, then land on
       if (message.type === 'gameEvent' && message.event.type === 'shatter' && message.event.playerId === 'luigi') shatters[i]++
     })
   }
-  await session.drive(Buttons.action, 0)
-  await session.drive(0, Buttons.right, 85)
+  await session.drive(0, Buttons.right, 93)
   await session.drive(0, 0, 55)
   const score = session.state.players.luigi.score
   assert.equal(session.state.players.luigi.form, 'super')
   await session.drive(0, Buttons.spin)
-  await session.drive(0, 0, 240)
+  await session.drive(0, 0, 305)
   await Promise.all([session.mario.flush(), session.luigi.flush()])
   assert.deepEqual(shatters, [9, 9])
   for (const state of lastSnapshot) {
@@ -158,7 +160,7 @@ test('holding A changes the height of the rebound between breakable rows as in E
   // The PAL input trace measures 10 px released and 22 px held from impact to apex.
   for (const [hold, expectedRise] of [[0, 10], [Buttons.spin, 22]]) {
     const { state, drive } = enter()
-    drive(0, Buttons.right, 85)
+    drive(0, Buttons.right, 93)
     drive(0, 0, 55)
     drive(0, Buttons.spin)
     const p = state.players.luigi
@@ -181,7 +183,7 @@ test('holding A changes the height of the rebound between breakable rows as in E
 test('a broken turn block reloads only on a new visit with no teammate in the room', () => {
   const { state, drive } = enter()
   const world = { campaign, state }, { mario, luigi } = state.players
-  drive(0, Buttons.right, 85)
+  drive(0, Buttons.right, 93)
   drive(0, 0, 55)
   drive(0, Buttons.spin)
   drive(0, 0, 28)

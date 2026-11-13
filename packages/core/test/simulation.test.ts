@@ -14,6 +14,7 @@ import {
 import type { CampaignDefinition, LevelDefinition, Spawn } from '../src/index.ts'
 import { chocolateRoom } from '../src/chocolate-island.ts'
 import { blockReward } from '../src/block-rewards.ts'
+import { palFrame } from '../src/pal-time.ts'
 
 function room(id: string, sprites: Spawn[] = []): LevelDefinition {
   const width = 48,
@@ -200,6 +201,28 @@ test('palace progression, blue and silver P switches remap original Map16 tiles'
   assert.equal(effectiveTile(state, first, 3), 0x12f)
   state.silverSwitch = 10
   assert.equal(effectiveTile(state, first, 3), 0x2b)
+})
+
+test('stepping on either P-switch starts a countdown aligned to the PAL frame counter', () => {
+  for (const [timer, x] of [['pSwitch', 32], ['silverSwitch', 48]] as const) {
+    for (let phase = 0; phase < 4; phase++) {
+      const { campaign } = fixture([{ spriteId: 0x3e, x, y: 144 }])
+      const state = enterFirstCourse(campaign)
+      state.tick = phase
+      Object.assign(state.players.luigi, { x, y: 133, vy: 1 })
+      tick(campaign, state)
+      assert.ok(state.events.some(e => e.type === 'switch' && e.playerId === 'luigi'))
+      const startFrame = palFrame(state.tick)
+      assert.equal(startFrame % 4, phase)
+      const lastFrame = startFrame + 704 - phase
+      while (palFrame(state.tick + 1) < lastFrame) {
+        tick(campaign, state)
+        assert.ok(state[timer] > 0)
+      }
+      tick(campaign, state)
+      assert.equal(state[timer], 0)
+    }
+  }
 })
 
 test('item blocks preserve positional rewards and Mario power-dependent upgrades', () => {

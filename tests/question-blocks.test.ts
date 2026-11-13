@@ -1,7 +1,8 @@
+import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { Buttons, createGame, effectiveTile, stepGame, type CampaignDefinition } from '@smw/core';
+import { Buttons, createGame, effectiveTile, palFrame, stepGame, type CampaignDefinition } from '@smw/core';
 import { spinningBlocks } from '../apps/web/src/game/tile-plane.ts';
 import { bump } from '../packages/core/src/blocks.ts';
 import { settleBlockBounces } from '../packages/core/src/block-bounce.ts';
@@ -17,8 +18,7 @@ function start(tile: number, flying?: number, col = 4) {
     sprites: flying ? [{spriteId: flying, x: 16 * col, y: 112}] : [],
   };
   const campaign: CampaignDefinition = { start: stage.id, levels: { level: stage }, routes: { level: {} } };
-  const state = createGame(campaign);
-  stepGame(campaign, state, { mario: Buttons.action, luigi: 0 });
+  const state = enterFirstCourse(campaign);
   const tick = (n: number, buttons = idle) => {
     for (let i = 0; i < n; i++) stepGame(campaign, state, buttons);
   };
@@ -140,17 +140,19 @@ test('the cooperative turn block renders its bounce and spin throughout the shar
   for (let i = 0; i < 15 && !state.turning.length; i++) tick(1, jump);
   assert.equal(state.turning.length, 1);
   assert.equal(state.bouncingBlocks?.length, 1);
-  const hit = state.tick, firstFrame = Math.floor(hit*5/6);
-  assert.equal(effectiveTile(state, stage, index), 0x25);
-  while (Math.floor(state.tick*5/6) - firstFrame < 5) tick(1);
+  const firstFrame = palFrame(state.tick);
+  assert.equal(effectiveTile(state, stage, index), 0x152);
+  while (palFrame(state.tick) - firstFrame < 5) tick(1);
   assert.equal(spinningBlocks(stage,state).has(index), false);
-  while (Math.floor(state.tick*5/6) - firstFrame < 6) tick(1);
+  assert.equal(effectiveTile(state, stage, index), 0x152);
+  while (palFrame(state.tick) - firstFrame < 6) tick(1);
   assert.equal(state.bouncingBlocks?.length, 0);
   assert.equal(spinningBlocks(stage,state).has(index), true);
-  tick(hit + 154 - state.tick);
-  assert.equal(effectiveTile(state, stage, index), 0x25);
+  assert.equal(effectiveTile(state, stage, index), 0x48);
+  while (palFrame(state.tick) - firstFrame < 254) tick(1);
+  assert.equal(effectiveTile(state, stage, index), 0x48);
   assert.equal(spinningBlocks(stage,state).has(index), true);
-  tick(1);
+  while (palFrame(state.tick) - firstFrame < 255) tick(1);
   assert.equal(effectiveTile(state, stage, index), 0x11e);
   assert.equal(spinningBlocks(stage,state).has(index), false);
 });

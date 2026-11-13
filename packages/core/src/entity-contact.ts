@@ -1,7 +1,7 @@
 import { carryRopePlayer } from './rope-motor.ts'
 import { isNetKoopaTurning, netKoopaBox } from './net-koopa.ts'
 import { takeFishingPrize } from './lakitu.ts'
-import { palFrame } from './pal-time.ts'
+import { palFrame, switchDurationTicks } from './pal-time.ts'
 import { keyholeAnchor } from './keyhole.ts'
 import { residentContact } from './level-npcs.ts'
 import { beginOrbFinish } from './orb-finish.ts'
@@ -247,9 +247,10 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   if (e.kind === 'switch') {
     if (landed) {
       e.active = false
-      if (Math.floor(e.origin.x / 16) % 2 === 0) world.state.pSwitch = 600
+      const duration = switchDurationTicks(world.state.tick)
+      if (Math.floor(e.origin.x / 16) % 2 === 0) world.state.pSwitch = duration
       else {
-        world.state.silverSwitch = 600
+        world.state.silverSwitch = duration
         for (const enemy of world.state.entities)
           if (enemy.roomId === e.roomId && edible.has(enemy.kind)) enemy.kind = 'coin'
       }
