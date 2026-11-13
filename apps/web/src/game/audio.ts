@@ -13,6 +13,7 @@ const effects = {
   yoshiStomp: 'yoshi-stomp',
   yoshiGrow: 'yoshi-grow',
   shot: 'fireball',
+  shatter: 'shatter',
   pipe: 'pipe',
   checkpoint: 'checkpoint',
   switch: 'switch',
@@ -22,26 +23,41 @@ export class GameAudio {
   private buffers = new Map<string, Promise<AudioBuffer>>();
   private track?: AudioBufferSourceNode;
   private trackName = '';
+  private request = 0;
   unlock() {
     this.context ??= new AudioContext();
     void this.context.resume();
   }
-  async music(name: string) {
+  async music(name: string, elapsed?: number) {
     if (!this.context || this.trackName === name) return;
     this.stop();
     this.trackName = name;
-    const source = await this.source(name, 0.46);
-    if (!source || this.trackName !== name) return;
+    const request = this.request, requestedAt = this.context.currentTime;
+    const source = await this.source(name, elapsed === undefined ? 0.46 : 0.7);
+    if (!source || request !== this.request) return;
+    const offset = elapsed === undefined ? 0 : elapsed + this.context.currentTime - requestedAt;
+    if (offset >= source.buffer!.duration) return;
     this.track = source;
-    source.loop = true;
-    source.start();
+    source.loop = elapsed === undefined;
+    source.start(0, offset);
   }
   async play(event: GameEvent) {
-    if (!(event.type in effects)) return;
-    const source = await this.source(effects[event.type as keyof typeof effects], 0.7);
+    if (event.courseClear) return;
+    let name: string;
+    if (event.type === 'exit' && event.keyhole) name = 'keyhole-end';
+    else if (event.type === 'shellHit') {
+      if (event.award === '1up') name = 'one-up';
+      else if (!event.chain) name = 'kick';
+      else name = event.chain === 1 ? 'stomp' : 'stomp-' + Math.min(7, event.chain);
+    } else {
+      if (!(event.type in effects)) return;
+      name = effects[event.type as keyof typeof effects];
+    }
+    const source = await this.source(name, 0.7);
     source?.start();
   }
   stop() {
+    this.request++;
     this.trackName = '';
     this.track?.stop();
     this.track = undefined;

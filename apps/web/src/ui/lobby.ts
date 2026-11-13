@@ -1,9 +1,11 @@
 import type { CampaignSave, PlayerId } from '@smw/core';
 import type { ServerMessage } from '@smw/protocol';
+import { TitleDemo } from './title-demo';
 type RoomInfo = Extract<ServerMessage, { type: 'roomState' }>;
 export const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 export class Lobby {
+  private demo = new TitleDemo(el<HTMLVideoElement>('title-demo'));
   private mode: 'create' | 'join' | 'solo' = 'create';
   constructor(handlers: {
     enter: (code: string | null, resume: boolean) => void;
@@ -67,6 +69,7 @@ export class Lobby {
   idle(message = '') {
     el('play').hidden = true;
     el('lobby').hidden = false;
+    this.demo.show(true);
     el('room-view').hidden = true;
     el('start-view').hidden = false;
     el<HTMLButtonElement>('submit').disabled = false;
@@ -95,6 +98,7 @@ export class Lobby {
     button.firstElementChild!.textContent = button.disabled ? 'Pronto' : 'Sono pronto';
   }
   play() {
+    this.demo.show(false);
     el('lobby').hidden = true;
     el('play').hidden = false;
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();

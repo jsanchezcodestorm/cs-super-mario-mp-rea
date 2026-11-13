@@ -1,3 +1,4 @@
+import { hudNumber } from './hud-number';
 import type Phaser from 'phaser';
 import type { GameState, PlayerState } from '@smw/core';
 
@@ -31,11 +32,16 @@ export class StatusBar {
     ) as Record<Asset, HTMLImageElement>;
   }
   hide() {
-    if (this.image.visible) {
+    if (this.previous) {
       this.canvas.setAttribute('aria-label', 'Schermo di gioco');
       this.previous = '';
     }
     this.image.setVisible(false);
+  }
+  paint(ctx: CanvasRenderingContext2D, player: PlayerState, state: GameState) {
+    this.draw(player, state);
+    this.image.setVisible(false);
+    ctx.drawImage(this.texture.canvas, 0, 0);
   }
   draw(player: PlayerState, state: GameState) {
     this.image.setVisible(true);
@@ -77,21 +83,6 @@ export class StatusBar {
     this.texture.refresh();
   }
   private number(value: number, x: number, y: number, places: number, sourceY: 0 | 8 | 16) {
-    const digits = String(Math.min(Math.max(0, Math.trunc(value)), 10 ** places - 1));
-    const start = x + (places - digits.length) * cell,
-      height = sourceY === 16 ? 16 : 8;
-    for (let i = 0; i < digits.length; i++) {
-      this.texture.context.drawImage(
-        this.sheets.digits,
-        Number(digits[i]) * cell,
-        sourceY,
-        cell,
-        height,
-        start + i * cell,
-        y,
-        cell,
-        height,
-      );
-    }
+    hudNumber(this.texture.context, this.sheets.digits, value, x, y, places, sourceY);
   }
 }

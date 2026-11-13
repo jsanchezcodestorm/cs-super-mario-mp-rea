@@ -1,8 +1,9 @@
 import type Phaser from 'phaser';
-import { Buttons, mapPosition, overworldTarget, type CampaignDefinition, type GameState, type OverworldNode, type OverworldStop } from '@smw/core';
-import { pathPosition } from './overworld-path';
-import { drawMapEvents } from './map-events';
-import { drawMapPlayer } from './map-player';
+import { Buttons, palFrame, pathPosition, mapPosition, overworldTarget, type CampaignDefinition, type GameState, type OverworldNode, type OverworldStop } from '@smw/core';
+import { mapPresentation, drawReveal, type RevealData } from './map-reveal';
+import { mapDecorations, drawMapDecorations } from './map-decorations';
+import { drawMapTiles, type MapAnimation } from './map-events';
+import { drawMapPlayers, mapPlayerFrame } from './map-player';
 import { HEIGHT, WIDTH } from './terrain-view';
 
 export type WorldNodes = Record<string, OverworldNode>;
@@ -69,8 +70,8 @@ export class OverworldView {
 
   draw(state: GameState) {
     const progress = state.progress;
-    const travel = state.mapTravel;
-    const id = travel?.to ?? state.mapStop ?? progress.unlocked[progress.selection];
+    const reveals = this.scene.cache.json.get('map-reveals') as RevealData;
+    const { id, travel, reveal, arrival } = mapPresentation(state, reveals);
     const paths = this.campaign.overworldPaths;
     if (!paths) throw Error('Percorsi della ROM assenti.');
     const stop = paths[id];
@@ -79,11 +80,16 @@ export class OverworldView {
     if (travel) {
       const edge = paths[travel.from].directions[travel.command];
       if (!edge) throw Error('Tratto assente nella mappa della ROM: ' + travel.from + '/' + travel.command);
-      position = pathPosition(edge, travel.elapsed);
+      position = pathPosition(edge, travel.elapsed, travel.command);
     }
+    const frame = palFrame(state.tick);
+    const animation = (this.scene.cache.json.get('map-animation') as MapAnimation[])[position.region];
+    const phase = animation.phases[frame % animation.phases.length];
+    const actor = mapPlayerFrame(this.scene.cache.json.get('map-poses'), id, travel, frame);
     const key = [
-      state.phase, id, !!travel, position.region, Math.round(position.x), Math.round(position.y),
-      progress.completed.length, progress.unlocked.length,
+      state.phase, frame, id, !!travel, reveal?.age, position.region, Math.round(position.x), Math.round(position.y),
+      progress.completed.join(','), progress.unlocked.join(','), phase, actor.pose, actor.phase, state.mode,
+      ...Object.values(state.players).map(p => p.mounted ? p.yoshiColor : 'foot'),
     ].join(':');
     if (this.currentKey === key) return;
     this.currentKey = key;
@@ -99,18 +105,34 @@ export class OverworldView {
       const xOffset = -cameraX;
       const yOffset = top - cameraY;
       ctx.drawImage(img, xOffset, yOffset);
-      drawMapEvents(this.scene, ctx, position.region, progress.completed, xOffset, yOffset);
+      drawMapTiles(this.scene, ctx, position.region, progress.completed, xOffset, yOffset, animation, phase, reveal);
 
-      const selectedNode = !travel && !state.mapStop ? this.nodes[id] : undefined;
+      const decorations = mapDecorations(this.scene, state, position.region, frame, { x: cameraX, y: cameraY }, travel, arrival, reveal);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, top, WIDTH, Math.min(180, img.height));
+      ctx.clip();
+      if (reveal) drawReveal(this.scene, ctx, reveals, reveal, xOffset, yOffset);
+      drawMapDecorations(this.scene, ctx, decorations, xOffset, yOffset, false);
+      const selectedNode = !travel && !reveal && !state.mapStop ? this.nodes[id] : undefined;
       if (selectedNode?.region === position.region) {
         drawCourseMarker(ctx, Math.round(selectedNode.x - cameraX), Math.round(selectedNode.y + yOffset));
       }
-      drawMapPlayer(ctx, Math.round(position.x - cameraX), Math.round(position.y + yOffset));
+      drawMapPlayers(
+        this.scene,
+        ctx,
+        state,
+        Math.round(position.x - cameraX),
+        Math.round(position.y + yOffset),
+        actor.pose, actor.phase,
+      );
+      drawMapDecorations(this.scene, ctx, decorations, xOffset, yOffset, true);
+      ctx.restore();
     }
     this.terrain.refresh();
     if (state.phase === 'map') {
       const title = stopLabel(this.campaign, id, stop);
-      this.phaseLabel.setVisible(true).setText(travel ? title : [title, mapCommands(this.campaign, state, id, stop)]);
+      this.phaseLabel.setVisible(true).setText(travel || reveal ? title : [title, mapCommands(this.campaign, state, id, stop)]);
     } else this.phaseLabel.setVisible(true).setText(state.phase === 'ending' ? 'FINE' : 'GAME OVER');
   }
 }

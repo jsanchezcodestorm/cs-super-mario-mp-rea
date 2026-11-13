@@ -1,4 +1,4 @@
-import { copyState, stepGame, type CampaignDefinition, type GameState, type PlayerId } from '@smw/core';
+import { copyState, goalWalkFrame, keyholeFrame, orbFinishFrame, stepGame, type CampaignDefinition, type GameState, type PlayerId } from '@smw/core';
 
 export interface GameSession {
   readonly playerId: PlayerId;
@@ -53,9 +53,16 @@ export class Playback implements GameSession {
   }
 
   private predict(buttons: number) {
-    if (!this.predicted || !['playing', 'map'].includes(this.predicted.phase)) return;
-    const p = this.predicted.players;
-    stepGame(this.campaign, this.predicted, {
+    const state = this.predicted;
+    if (!state || !['playing', 'map'].includes(state.phase)) return;
+    // These endings already run in the map phase. Hold their last frame until
+    // an authoritative snapshot opens the overworld or the earned bonus room.
+    const next = state.tick + 1;
+    if ((state.goalWalk && goalWalkFrame(state.goalWalk, next).finished) ||
+        (state.keyholeFinish && keyholeFrame(state.keyholeFinish.tick, next).finished) ||
+        (state.orbFinish && orbFinishFrame(state.orbFinish, next).finished)) return;
+    const p = state.players;
+    stepGame(this.campaign, state, {
       mario: this.playerId === 'mario' ? buttons : p.mario.lastInput,
       luigi: this.playerId === 'luigi' ? buttons : p.luigi.lastInput,
     });

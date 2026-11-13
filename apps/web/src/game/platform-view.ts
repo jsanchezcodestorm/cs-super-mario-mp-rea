@@ -22,11 +22,14 @@ export function drawPlatform(e: EntityState, x: number, y: number, tileset: numb
   }
   if (e.spriteId === 0xa3) {
     const cx = e.origin.x + 8, cy = e.origin.y + 8;
-    for (let i = 0; i < 3; i++) {
-      part('link', i, cx + (x + 24 - cx) * i / 3, cy + (y + 8 - cy) * i / 3 + 4);
+    // $02:D848 emits the deck right to left followed by a link at the
+    // deck centre, then the links at two thirds and one third of its radius.
+    for (let slot = 0; slot < 3; slot++) {
+      part('gray-platform/' + slot, slot, x + 40 - 16 * slot, y + 16);
+      const ratio = (3 - slot) / 3;
+      part('gray-platform/' + (slot + 3), slot + 3,
+        cx + (x + 24 - cx) * ratio, cy + (y + 8 - cy) * ratio + 8);
     }
-    for (const [i, name] of ['deck-left', 'deck-center', 'deck-right'].entries())
-      part(name, i + 3, x + 8 + 16 * i, y + 16);
     return true;
   }
   if (e.spriteId !== 0x5f) return false;
@@ -34,9 +37,9 @@ export function drawPlatform(e: EntityState, x: number, y: number, tileset: numb
     oy = e.origin.y + 104;
   for (let i = 0; i < 5; i++) {
     const t = i / 5;
-    part('link', i, ox + (x + 32 - ox) * t, oy + (y + 8 - oy) * t + 8);
+    part('brown-platform/' + i, i, ox + (x + 32 - ox) * t, oy + (y + 8 - oy) * t + 8);
   }
-  for (const [i, name] of ['deck-left', 'deck-center', 'deck-center', 'deck-right'].entries())
-    part(name, 5 + i, x + 8 + 16 * i, y + 16);
+  for (let slot = 5; slot < 9; slot++)
+    part('brown-platform/' + slot, slot, x + 56 - 16 * (slot - 5), y + 16);
   return true;
 }

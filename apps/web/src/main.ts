@@ -1,5 +1,6 @@
 import './style.css';
 import { CutsceneView } from './game/cutscene-view';
+import { goalWalkFrame } from '@smw/core';
 import type { CampaignSave, GameEvent, GameState, PlayerId } from '@smw/core';
 import type { ServerMessage } from '@smw/protocol';
 import { RoomConnection } from './session/connection';
@@ -98,7 +99,8 @@ function showHud(s: GameState) {
   if (!me || !content) return;
   const p = s.players[me],
     stage = content.levels[p.roomId];
-  el('stage-name').textContent = content.names?.[s.progress.course] ?? s.progress.course;
+  el('stage-name').textContent =
+    s.phase === 'map' && !s.goalWalk && !s.keyholeFinish && !s.orbFinish ? 'Mappa del mondo' : content.names?.[s.progress.course] ?? s.progress.course;
   const canReturn = !s.cutscene && (s.phase === 'ending' || s.phase === 'gameOver');
   el('hud').textContent = canReturn ? 'Invio · Torna alla mappa' : audioNotice;
   const phase = s.phase;
@@ -112,7 +114,13 @@ function showHud(s: GameState) {
           : p.star > 0
             ? 'star'
             : music[stage.music];
-  if (cutscenes.update(s, paused)) audio.stop();
+  if (cutscenes.update(s, paused) || s.keyholeFinish || paused) audio.stop();
+  else if (s.orbFinish) void audio.music('boss-clear', (s.tick - s.orbFinish.tick) / 60).catch(audioError);
+  else if (s.goalWalk) {
+    const { age, irisAt } = goalWalkFrame(s.goalWalk, s.tick);
+    const spotlight = age >= irisAt - 1;
+    void audio.music(spotlight ? 'spotlight' : 'exit', (spotlight ? age - irisAt + 1 : age) / 50).catch(audioError);
+  }
   else void audio.music(bgm).catch(audioError);
   if (paused) lobby.overlay('Partita in pausa\nIn attesa della riconnessione…');
   else if (p.status === 'spectator' && phase === 'playing')
@@ -179,7 +187,7 @@ function message(m: ServerMessage) {
         return;
       }
       paused = m.status === 'paused';
-      if (latest?.state.cutscene) cutscenes.update(latest.state, paused);
+      if (latest) showHud(latest.state);
       playback?.pause(paused);
       lobby.overlay(paused ? 'Partita in pausa\nIn attesa della riconnessione…' : '');
       void startPlay();
@@ -211,6 +219,7 @@ const connection = new RoomConnection({
     }
     playback?.pause(true);
     paused = true;
+    audio.stop();
     if (stopped) lobby.overlay('Riconnessione in corso…');
     else lobby.notice('Riconnessione in corso…');
   },

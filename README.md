@@ -25,6 +25,8 @@ Per giocare da soli seleziona **Gioca da solo**. La simulazione gira nel browser
 | Lascia cadere il potenziamento in riserva | C o Select sul gamepad |
 | Entra nel corso selezionato, salta il filmato o torna alla mappa dopo il finale o il Game Over | Invio |
 
+Su un gamepad standard, i pulsanti frontali **sinistro e superiore** corrispondono a Y e X del pad SNES. In sella, premi e rilascia uno dei due per ogni colpo di lingua. Il pulsante inferiore salta, quello destro fa il salto avvitato o scende da Yoshi e Start conferma.
+
 Il client accetta anche un gamepad con mappatura standard del browser. In cooperativa la nuova campagna si apre sulla mappa dopo che entrambi sono pronti: Mario percorre i collegamenti disponibili con le frecce e il primo giocatore che conferma su un corso avvia la partita per entrambi. Il checkpoint e l’uscita raggiunta da uno valgono per entrambi. Ogni personaggio ha le proprie vite, i propri potenziamenti e un oggetto in riserva. La barra SNES mostra le risorse del giocatore locale. Colpire il nastro al traguardo assegna stelle secondo l’altezza e a 100 stelle si entra nel minigioco bonus. Chi esaurisce le vite segue il compagno e rientra al corso successivo con una vita.
 
 Il server congela la simulazione quando uno dei due si disconnette. La stessa scheda può rientrare entro 60 secondi. Ogni browser conserva la campagna in IndexedDB ai checkpoint e ai cambi di fase. Per continuare dopo la chiusura della stanza, crea una stanza scegliendo **Riprendi campagna salvata**. Le stanze attive vivono nella memoria del processo.
@@ -47,7 +49,7 @@ Con una sola ROM nella radice basta `npm run extract`. Il primo avvio dell’est
 - `tools/rom` verifica SHA-256 e checksum, converte gli indirizzi LoROM e segue le tre tabelle dei puntatori alle stanze. Esegue il caricatore originale sul processore 65C816 di LakeSnes per ricavare Map16, sfondi, palette, animazioni e punti di ingresso. Il confronto indipendente con Snes9x ha verificato cella per cella 211 griglie di primo piano, 14 griglie di collisione del secondo piano e 185 sfondi. [Disassemblato SMWDisX e simboli E1](https://github.com/IsoFrieze/SMWDisX) · [CPU LakeSnes](https://github.com/elzo-d/LakeSnes)
 - `apps/web/tools` esegue routine della cartuccia per acquisire le pose dei personaggi e i comandi OAM degli sprite. Il rapporto locale `generated/creature-coverage.json` riporta le combinazioni di sprite e tileset per cui il campionamento ha prodotto immagini.
 - `tools/reference` usa Snes9x offline per il titolo, l’audio, le mappe e i filmati. Per ricostruire i cambiamenti della mappa esegue il caricatore originale con i flag evento delle singole uscite e confronta le tilemap in VRAM. Il browser carica i risultati dall’host. I sette filmati dei castelli e i titoli di coda seguono il tempo della stanza. Nei sette ambienti a scorrimento automatico il server e il client usano lo stesso percorso della telecamera, campionato dal gioco PAL. [Core libretro Snes9x](https://github.com/libretro/snes9x)
-- REA ha analizzato il bundle JavaScript e verificato in Chromium l’accesso al modulo per entrare con un codice. La lettura della CPU, della VRAM e dell’audio SNES usa gli strumenti specifici sopra descritti.
+- REA e Snes9x hanno verificato sulla cartuccia PAL le animazioni di personaggi, nemici, oggetti, livelli e mappa. La review riporta le sequenze confrontate nel browser e le differenze di durata adottate per la cooperativa. [Verifica delle animazioni](tools/rom/animazioni.md)
 
 ## Runtime e verifica
 

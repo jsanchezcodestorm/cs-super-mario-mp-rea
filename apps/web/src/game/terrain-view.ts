@@ -1,4 +1,7 @@
-import { effectiveTile, tideSurface, type GameState } from '@smw/core';
+import type { ObjectPlanes } from './object-planes';
+import { drawTilePlane } from './tile-plane';
+import { drawNetBackground, movingDoors } from './net-door-view';
+import { tideSurface, type GameState } from '@smw/core';
 import type { Stage } from './content';
 export const WIDTH = 256,
   HEIGHT = 224;
@@ -22,57 +25,47 @@ export function drawRoom(
   atlas: CanvasImageSource,
   camera: Camera,
   state: GameState,
+  masks: number[],
+  objects: ObjectPlanes,
+  screens: { main: number; sub: number },
+  tideImage?: CanvasImageSource,
+  openNet?: CanvasImageSource,
+  backdrop = stage.backgroundColor,
 ) {
-  ctx.fillStyle = stage.backgroundColor;
+  ctx.fillStyle = backdrop;
   ctx.fillRect(0, 0, WIDTH, HEIGHT);
-  function layer(
-    tiles: number[],
-    w: number,
-    h: number,
-    sx: number,
-    sy: number,
-    repeat: boolean,
-    foreground = false,
-  ) {
-    for (let row = sy >> 4; row <= (sy + HEIGHT) >> 4; row++)
-      for (let col = sx >> 4; col <= (sx + WIDTH) >> 4; col++) {
-        if (!repeat && (row < 0 || col < 0 || col >= w || row >= h)) continue;
-        const idx = (((row % h) + h) % h) * w + (((col % w) + w) % w);
-        const tile = foreground ? effectiveTile(state, stage, idx) : tiles[idx];
-        const id = stage.animatedTiles?.[tile]?.[(state.tick >> 3) & 3] ?? tile;
-        ctx.drawImage(
-          atlas,
-          (id % 32) * 16,
-          Math.floor(id / 32) * 16,
-          16,
-          16,
-          col * 16 - sx,
-          row * 16 - sy,
-          16,
-          16,
-        );
-      }
-  }
   const bg = stage.background;
-  if (bg) {
-    const layerOffset = state.layerOffsets[stage.id];
-    const x = bg.repeat ? Math.floor(camera.x * bg.scroll!.x) : Math.round(camera.x - (layerOffset?.x ?? 0));
-    const y = bg.repeat
-      ? Math.floor(camera.y * bg.scroll!.y) + bg.scroll!.offsetY
-      : Math.round(camera.y - (layerOffset?.y ?? 0));
-    layer(bg.tiles, bg.width, bg.height, x, y, bg.repeat);
-  }
-  layer(stage.tiles, stage.width, stage.height, camera.x, camera.y, false, true);
-  const tide = tideSurface(stage, state);
-  if (tide !== null && tide - camera.y < HEIGHT) {
-    const y = tide - camera.y, frame = (state.tick >> 3) & 3;
-    ctx.save();
-    ctx.globalAlpha = 0.52;
-    for (let row = y; row < HEIGHT; row += 16) {
-      const tile = row === y ? (stage.animatedTiles?.[0]?.[frame] ?? 0) : 1;
-      for (let x = -((camera.x + frame) % 16); x < WIDTH; x += 16)
-        ctx.drawImage(atlas, (tile % 32) * 16, (tile >> 5) * 16, 16, 16, x, row, 16, 16);
+  const doors = movingDoors(state, stage.id);
+  const offset = state.layerOffsets[stage.id];
+  const bgX = bg?.repeat ? Math.floor(camera.x * bg.scroll!.x) : Math.round(camera.x - (offset?.x ?? 0));
+  const bgY = bg?.repeat ? Math.floor(camera.y * bg.scroll!.y) + bg.scroll!.offsetY : Math.round(camera.y - (offset?.y ?? 0));
+  function screen(mask: number) {
+    if (mask & 16) objects.paint(ctx, 0);
+    if (mask & 16) objects.paint(ctx, 1);
+    for (const high of [false, true]) {
+      if (bg && (mask & 2)) drawTilePlane(ctx, stage, atlas, masks, high, bgX, bgY, state, false);
+      if (mask & 1) {
+        const draw = () => drawTilePlane(ctx, stage, atlas, masks, high, camera.x, camera.y, state, true);
+        if (doors?.length) drawNetBackground(ctx, draw, doors, camera, openNet!, high);
+        else draw();
+      }
+      if (mask & 16) objects.paint(ctx, high ? 3 : 2);
     }
-    ctx.restore();
+    if ((mask & 4) && stage.tide) drawTide(ctx, stage, tideImage!, camera, state);
+  }
+  screen(screens.sub);
+  screen(screens.main);
+}
+
+function drawTide(ctx: CanvasRenderingContext2D, stage: Stage, atlas: CanvasImageSource, camera: Camera, state: GameState) {
+  const tide = tideSurface(stage, state);
+  if (tide === null) return;
+  const surface = Math.round(tide - 8 - camera.y);
+  const frame = Math.floor((state.layerOffsets[stage.id]?.age ?? 0) * 5 / 6);
+  const startX = -((camera.x + frame) & 15);
+  for (let y = surface + Math.max(0, Math.floor(-surface / 8)) * 8; y < HEIGHT; y += 8) {
+    for (let x = startX; x < WIDTH; x += 16) {
+      ctx.drawImage(atlas, 0, y === surface ? 0 : 8, 16, 8, x, y, 16, 8);
+    }
   }
 }

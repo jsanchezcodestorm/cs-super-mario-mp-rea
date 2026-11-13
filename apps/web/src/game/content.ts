@@ -2,6 +2,7 @@ import type { CampaignDefinition, LevelDefinition } from '@smw/core';
 
 export interface Stage extends LevelDefinition {
   atlas: string;
+  mode: number;
   spriteTileset: number;
   animatedTiles?: Record<number, number[]>;
   backgroundColor: string;

@@ -49,10 +49,11 @@ export class Controls {
     if (!pad) return buttons;
     for (const [index, bit] of [
       [0, Buttons.jump],
-      [1, Buttons.run],
-      [2, Buttons.spin],
-      [3, Buttons.action],
+      [1, Buttons.spin],
+      [2, Buttons.run],
+      [3, Buttons.run],
       [8, Buttons.reserve],
+      [9, Buttons.action],
       [12, Buttons.up],
       [13, Buttons.down],
       [14, Buttons.left],
