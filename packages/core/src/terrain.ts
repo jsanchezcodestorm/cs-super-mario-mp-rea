@@ -1,5 +1,5 @@
 import { slopeHeight, slopeProfile, slopeSample } from './slopes.ts'
-import { alignToPassage } from './narrow-passage.ts'
+import { alignSpinDrop, alignToPassage } from './narrow-passage.ts'
 import type { Body, LevelDefinition, World, GameState } from './types.ts'
 
 export const TILE = 16
@@ -109,6 +109,8 @@ function sweepTiles(world: World, room: LevelDefinition, body: Body, layer2 = fa
   if (contacts.length) body.vx = 0
   const oldY = body.y,
     oldBottom = oldY + body.height
+  if (!layer2 && !external && !wasGrounded && body.vy > 0 && 'spin' in body && body.spin)
+    alignSpinDrop(world, room, body)
   body.y += body.vy
   body.grounded = false
   if (body.vy >= 0) {

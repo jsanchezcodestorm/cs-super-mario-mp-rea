@@ -1,3 +1,4 @@
+import { changePlayerForm } from './player-size.ts'
 import { releaseReserve } from './rewards.ts'
 import { clearMouth, releaseMouth } from './yoshi-tongue.ts'
 import type { World, PlayerState } from './types.ts'
@@ -7,11 +8,18 @@ export function die(world: World, p: PlayerState) {
   if (p.status !== 'alive') return
   p.lives = Math.max(0, p.lives - 1)
   p.status = p.lives === 0 ? 'spectator' : 'dead'
-  p.timer = 76
+  delete p.netTurn
+  delete p.netClinging
+  delete p.netPunchTick
+  delete p.behindNet
+  p.timer = world.state.mode === 'solo' ? 228 : 76
+  p.death = { y: p.y + p.height - 16, tick: world.state.tick, duration: p.timer }
   p.reserve = null
+  delete p.formChange
   p.form = 'small'
   p.height = 16
   p.growthPending = false
+  delete p.ducking
   p.mounted = false
   clearMouth(p)
   p.carrying = null
@@ -37,7 +45,7 @@ export function hurt(world: World, p: PlayerState) {
     releaseReserve(world, p)
     p.y += p.height - 16
     p.height = 16
-    p.form = 'small'
+    changePlayerForm(world, p, 'small')
     p.growthPending = false
   } else {
     die(world, p)

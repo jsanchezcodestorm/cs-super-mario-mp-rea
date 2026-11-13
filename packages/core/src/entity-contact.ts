@@ -1,11 +1,18 @@
+import { keyholeAnchor } from './keyhole.ts'
+import { beginOrbFinish } from './orb-finish.ts'
+import { plantContactBox } from './pipe-plant.ts'
+import { playerAnimation } from './player-animation.ts'
+import { touchFlyingQuestion } from './flying-question.ts'
+import { shellKickSpeed } from './shell-motion.ts'
+import { collectCloudCoin } from './coin-game-cloud.ts'
 import { isWallSpring, wallBounce } from './wall-spring.ts'
 import { withdrawWizard } from './magikoopa.ts'
 import { isPipeBoss } from './pipe-boss.ts'
 import { hammerRider } from './flying-platforms.ts'
 import { standOnDeck } from './platform-rider.ts'
-import { expandPlayer } from './player-size.ts'
-import { collectedBonusLife } from './bonus-game.ts'
-import { goalReward, addScore, storePowerup } from './rewards.ts'
+import { playerContactBody } from './player-size.ts'
+import { takeItem } from './item-pickup.ts'
+import { goalReward, addScore, showHitAward } from './rewards.ts'
 import { taste } from './yoshi-tongue.ts'
 import { shellColor, koopaShell } from './yoshi-colors.ts'
 import { isTiltingArena } from './arena.ts'
@@ -13,8 +20,9 @@ import { Buttons } from './types.ts'
 import type { World, PlayerState, EntityState } from './types.ts'
 import { overlaps, clipDisplacement } from './terrain.ts'
 import { emit, spawnEntity } from './state.ts'
-import { collectCoin, hurt } from './resources.ts'
+import { hurt } from './resources.ts'
 import { finishCourse } from './campaign.ts'
+import { settleGoalCoins } from './goal-coins.ts'
 
 export const weaponTargets = new Set([
   'lakitu',
@@ -31,26 +39,6 @@ export const weaponTargets = new Set([
   'endingBoss',
 ])
 const edible = new Set(['walker', 'koopa', 'rex', 'spiny', 'jumper', 'fish', 'flyer', 'plant'])
-const pickups = new Set(['mushroom', 'flower', 'star', 'feather', 'oneUp', 'coin'])
-function pickup(world: World, e: EntityState, p: PlayerState) {
-  e.active = false
-  if (e.bonusPrize) collectedBonusLife(world)
-  if (e.kind === 'coin') {
-    collectCoin(world, p)
-    return
-  }
-  if (e.kind === 'oneUp') p.lives = Math.min(99, p.lives + 1)
-  else if (e.kind === 'star') p.star = 600
-  else {
-    if (e.kind === 'mushroom' || e.kind === 'feather' || e.kind === 'flower') storePowerup(p, e.kind)
-    if (e.kind === 'mushroom' && p.form === 'small') p.form = 'super'
-    if (e.kind === 'flower') p.form = 'fire'
-    if (e.kind === 'feather') p.form = 'cape'
-    expandPlayer(world, p)
-  }
-  if (e.kind !== 'oneUp' && !e.reserveDrop) addScore(p, 1000)
-  emit(world, 'item', p)
-}
 export function strike(world: World, e: EntityState, p: PlayerState) {
   if (e.kind === 'magikoopa') {
     if (e.height) {
@@ -74,6 +62,7 @@ export function strike(world: World, e: EntityState, p: PlayerState) {
   }
   addScore(p, 100)
   e.hp--
+  if (e.kind === 'endingBoss') e.hurtAt = e.age
   if (e.hp > 0) {
     if (e.kind === 'rex') {
       e.y += e.height - 16
@@ -100,7 +89,7 @@ export function strike(world: World, e: EntityState, p: PlayerState) {
     e.owner = null
   } else {
     e.active = false
-    if (e.kind === 'endingBoss') finishCourse(world, p, 'normal', true)
+    if (e.kind === 'endingBoss') finishCourse(world, p, 'normal', { ending: true })
     if (
       e.kind === 'boss' &&
       !world.state.entities.some(
@@ -112,13 +101,25 @@ export function strike(world: World, e: EntityState, p: PlayerState) {
 }
 export function contact(world: World, e: EntityState, p: PlayerState, input: number, previousBottom: number) {
   if (!e.active || !e.height || p.status !== 'alive' || e.roomId !== p.roomId) return
+  // Ordinary level sprites occupy the front plane. The PAL standard contact
+  // handler compares their scenery-side bit with the player's before clipping.
+  if (p.behindNet && e.kind !== 'exitSide') return
+  if (e.kind === 'coinGameCloud') return
+  if (e.kind === 'cloudCoin') {
+    collectCloudCoin(world, e, p)
+    return
+  }
   if (isPipeBoss(e) && (!e.height || (e.stunnedUntil ?? 0) > e.age)) return
   if (e.kind === 'exitSide') {
     const end = world.campaign.levels[e.roomId].width * 16 - p.width - 1
-    if (p.x >= end || (p.x <= 0 && input & Buttons.left)) finishCourse(world, p, 'normal', false, false)
+    if (p.x >= end || (p.x <= 0 && input & Buttons.left)) finishCourse(world, p, 'normal', { countsAsExit: false })
     return
   }
   if (e.owner && world.state.players[e.owner].carrying === e.id) return
+  if (e.kind === 'flyingQuestion') {
+    touchFlyingQuestion(world, e, p, previousBottom)
+    return
+  }
   if (e.kind === 'vine' || e.kind === 'blockSnake' || e.kind === 'directionalCoins') return
   if (e.spriteId === 0x64) {
     if (
@@ -139,14 +140,21 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   }
   if (e.kind === 'goal') {
     if (p.x + p.width >= e.x - 8 && p.x < e.x + 8 && p.y <= e.origin.y + 16) {
+      const scoreBefore = p.score, starsBefore = p.bonusStars
       goalReward(world, p, e)
-      finishCourse(world, p, e.secret ? 'secret' : 'normal')
+      const stars = p.bonusStars - starsBefore
+      const coins = settleGoalCoins(world, p, e, stars > 0)
+      e.active = false
+      finishCourse(world, p, e.secret ? 'secret' : 'normal', { tape: { scoreBefore, stars, coins } })
     }
     return
   }
-  if (taste(world, p, e)) return
+  if (e.kind === 'plant' && e.pipePlant?.hidden) return
+  if (taste(world, p, e, input)) return
   if (e.kind === 'yoshiEgg') return
-  if (!overlaps(p, e)) return
+  const surface = e.kind === 'platform' || e.kind === 'spring'
+  const body = e.kind === 'plant' && e.pipePlant ? plantContactBox(e) : e
+  if (!overlaps(surface ? p : playerContactBody(p), body)) return
   if (e.kind === 'balloon') {
     e.active = false
     p.balloon = 600
@@ -163,12 +171,10 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     hurt(world, p)
     return
   }
-  if (pickups.has(e.kind)) {
-    if (e.pickupDelay) return
-    pickup(world, e, p)
-    return
-  }
+  if (e.pickupDelay || takeItem(world, e, p)) return
   if (e.kind === 'orb') {
+    e.active = false
+    beginOrbFinish(world, p)
     finishCourse(world, p)
     return
   }
@@ -184,8 +190,14 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   }
   if (e.kind === 'keyhole') {
     const held = world.state.entities.find((item) => item.id === p.carrying)
-    if (held?.kind === 'key' || (p.mounted && p.mouth?.kind === 'key' && p.mouth.ticks > 0))
+    if (held?.kind === 'key' || (p.mounted && p.mouth?.kind === 'key' && p.mouth.ticks > 0)) {
       finishCourse(world, p, 'secret')
+      const { state } = world
+      const exit = state.events.find(event => event.type === 'exit' && event.playerId === p.id)
+      if (exit) exit.keyhole = true
+      if (state.phase === 'map' && !state.cutscene)
+        state.keyholeFinish = { tick: state.tick, finisher: p.id, ...keyholeAnchor(e) }
+    }
     return
   }
   const landed = previousBottom <= e.y + 6 && p.vy >= 0
@@ -238,29 +250,39 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     }
     return
   }
+  if (e.kind === 'shell' && e.owner === p.id && p.cooldown > 0) return
   if (
     e.kind === 'babyYoshi' ||
     e.kind === 'key' ||
     e.kind === 'throwBlock' ||
     e.kind === 'mechaShell' ||
-    (e.kind === 'shell' && e.vx === 0)
+    (e.kind === 'shell' && (e.tossed || e.vx === 0))
   ) {
     if (!p.mounted && p.carrying === null && input & Buttons.run) {
       p.carrying = e.id
       e.owner = p.id
-    } else if (e.kind === 'shell' && !e.owner && !p.cooldown) {
-      e.vx = p.facing * 3.5
+      playerAnimation(p).pickup = 8
+      if (e.kind === 'shell') {
+        delete e.tossed
+        e.vx = 0
+        e.vy = 0
+        delete e.shellChain
+        delete e.bracedBy
+      }
+    } else if (e.kind === 'shell' && !p.cooldown) {
+      showHitAward(world.state, p, e, 200)
+      const direction = p.x + p.width / 2 <= e.x + e.width / 2 ? 1 : -1
+      e.vx = direction * shellKickSpeed
+      delete e.tossed
+      delete e.bracedBy
+      delete e.shellChain
       p.cooldown = 12
+      playerAnimation(p).kick = 12
       e.owner = p.id
     }
     return
   }
-  if (
-    e.kind === 'fireball' ||
-    e.kind === 'yoshiFire' ||
-    (e.kind === 'shell' && e.owner === p.id && p.cooldown > 0)
-  )
-    return
+  if (e.kind === 'fireball' || e.kind === 'yoshiFire') return
   if (p.sliding && weaponTargets.has(e.kind) && e.kind !== 'boss' && e.kind !== 'endingBoss' &&
       world.campaign.slideTargets?.includes(e.spriteId)) {
     e.active = false
@@ -292,6 +314,9 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
       e.kind = 'walker'
       addScore(p, 100)
     } else if (e.kind === 'shell') {
+      delete e.shellChain
+      delete e.tossed
+      delete e.bracedBy
       e.vx = 0
       e.owner = null
     } else if (

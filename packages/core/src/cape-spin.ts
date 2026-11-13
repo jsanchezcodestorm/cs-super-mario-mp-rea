@@ -2,10 +2,13 @@ import type { PlayerState, World, LevelDefinition } from './types.ts'
 import { bump } from './blocks.ts'
 import { strike, weaponTargets } from './entity-contact.ts'
 import { overlaps, tileAt } from './terrain.ts'
+import { playerAnimation } from './player-animation.ts'
+import { palFrame } from './pal-time.ts'
 
 export function spinCape(world: World, room: LevelDefinition, player: PlayerState) {
   if ((player.capeReady ?? 0) > world.state.tick || player.flight || player.carrying) return
   player.capeReady = world.state.tick + 12
+  playerAnimation(player).spinUntil = palFrame(world.state.tick) + 18
   const y = player.y + player.height - 12
   const row = Math.floor(y / 16)
   // A grounded cape swings to either side (E1 00:D034 and 02:950B).

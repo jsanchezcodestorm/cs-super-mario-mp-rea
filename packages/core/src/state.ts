@@ -1,4 +1,6 @@
-import { pipeEntry } from './pipe-entry.ts'
+import { leaveQuestionBonus } from './question-bonus.ts'
+import { reloadTurnBlocks } from './turn-block.ts'
+import { pipeEndpoint } from './pipe-entry.ts'
 import { chainPhases, positionChainDeck } from './flying-platforms.ts'
 import { startScrollAt } from './autoscroll.ts'
 import type {
@@ -8,7 +10,7 @@ import type {
   PlayerId,
   World,
   EntityKind,
-  Point,
+  EntryPoint,
   Spawn,
   GameEvent,
 } from './types.ts'
@@ -16,23 +18,33 @@ import { arenaEntry, prepareArena } from './arena.ts'
 import { entityFromSpawn } from './species.ts'
 
 export function emit(world: World, type: GameEvent['type'], player?: PlayerState, exit?: GameEvent['exit']) {
-  world.state.events.push({
+  const event: GameEvent = {
     type,
     tick: world.state.tick,
     playerId: player?.id,
     roomId: player?.roomId,
     exit,
-  })
+  }
+  world.state.events.push(event)
+  return event
 }
 export function spawnEntity(world: World, roomId: string, spawn: Spawn, kind?: EntityKind) {
   const entity = entityFromSpawn(roomId, spawn, String(world.state.nextEntity++), kind)
   if (entity) world.state.entities.push(entity)
   return entity
 }
-export function enterRoom(world: World, p: PlayerState, id: string, position?: Point) {
+export function spawnBlockReward(world: World, roomId: string, spawn: Spawn) {
+  const e = spawnEntity(world, roomId, spawn)
+  // PowerUpRt selects OBJ1 during $1540 only on stationary Map16 blocks.
+  if (e && [0x74, 0x75, 0x76, 0x78].includes(e.spriteId)) e.blockReleaseTick = world.state.tick
+  return e
+}
+export function enterRoom(world: World, p: PlayerState, id: string, position?: EntryPoint) {
   const room = world.campaign.levels[id]
   if (!room) throw new Error('Unknown destination room ' + id)
-  if (!world.state.loadedRooms.includes(id)) {
+  if (world.state.loadedRooms.includes(id)) {
+    reloadTurnBlocks(world, room, p)
+  } else {
     world.state.loadedRooms.push(id)
     if (room.specialMode7) prepareArena(world, room)
     for (const spawn of room.sprites) {
@@ -61,11 +73,34 @@ export function enterRoom(world: World, p: PlayerState, id: string, position?: P
       }
     }
   }
+  if (p.ducking) {
+    delete p.ducking
+    p.height = p.form === 'small' ? 16 : 28
+  }
+  delete p.death
+  delete p.starTrail
+  delete p.formChange
   delete p.sliding
+  delete p.blockRebound
   delete p.wallRun
+  delete p.animation
+  delete p.netTurn
+  delete p.netClinging
+  delete p.netPunchTick
+  delete p.behindNet
+  leaveQuestionBonus(world, p, id)
   p.roomId = id
   delete p.cloud
-  const point = room.specialMode7 ? arenaEntry(room) : pipeEntry(room, position ?? room.spawn, p)
+  const entry = position ?? room.spawn
+  const mouth = room.specialMode7 ? null : pipeEndpoint(room, entry, p)
+  const point = room.specialMode7 ? arenaEntry(room) : mouth ?? entry
+  delete p.pipeExit
+  if (entry.pipe && mouth) {
+    const horizontal = entry.pipe === 'left' || entry.pipe === 'right'
+    const frames = horizontal ? 28 : entry.pipe === 'up' ? 30 : p.form === 'small' ? 15 : 28
+    const mountedFrames = p.mounted ? (horizontal ? 26 : 10) : 0
+    p.pipeExit = { ...mouth, direction: entry.pipe, tick: world.state.tick, frames: frames + mountedFrames }
+  }
   p.scrollClock = startScrollAt(room, point.x)
   Object.assign(p, {
     x: point.x,

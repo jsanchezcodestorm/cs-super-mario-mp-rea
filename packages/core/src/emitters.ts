@@ -1,5 +1,5 @@
-import { scrollingCamera } from './autoscroll.ts'
-import { limit, moveBody } from './terrain.ts'
+import { playerViewport } from './autoscroll.ts'
+import { moveBody } from './terrain.ts'
 import { spawnEntity } from './state.ts'
 import type { EntityState, World, LevelDefinition, PlayerState, Point } from './types.ts'
 
@@ -17,15 +17,6 @@ export type EmitterCatalog = Record<number, { period: number; events: Emission[]
 
 const bulletX = [2, -2, 0, 0, 1.5, 1.5, -1.5, -1.5]
 const bulletY = [0, 0, -2, 2, -1.5, 1.5, 1.5, -1.5]
-
-function viewport(room: LevelDefinition, p: PlayerState) {
-  return (
-    scrollingCamera(room, p.scrollClock ?? 0) ?? {
-      x: limit(Math.round(p.x + p.width / 2 - 128), 0, Math.max(0, room.width * 16 - 256)),
-      y: limit(Math.round(p.y + p.height / 2 - 123), 0, Math.max(0, room.height * 16 - 224)),
-    }
-  )
-}
 
 function createEmission(world: World, room: LevelDefinition, row: Emission, view: Point) {
   const [, sprite, x, y, speedX, speedY, c2, facing] = row
@@ -48,7 +39,7 @@ function fireCannons(world: World, room: LevelDefinition, players: PlayerState[]
     if (world.state.tick % (torpedo ? 160 : 192) !== 0) continue
     const target = players
       .filter((p) => {
-        const v = viewport(room, p)
+        const v = playerViewport(room, p)
         return cannon.x >= v.x + 16 && cannon.x < v.x + 240 && cannon.y >= v.y && cannon.y < v.y + 224
       })
       .sort((a, b) => Math.abs(a.x - cannon.x) - Math.abs(b.x - cannon.x))[0]
@@ -67,7 +58,7 @@ export function stepEmitters(world: World, room: LevelDefinition, players: Playe
   fireCannons(world, room, players)
   const views: Point[] = []
   for (const p of players) {
-    const v = viewport(room, p)
+    const v = playerViewport(room, p)
     if (views.some((used) => Math.abs(used.x - v.x) < 256 && Math.abs(used.y - v.y) < 224)) continue
     views.push(v)
     const end = room.vertical ? v.y + 224 : v.x + 256

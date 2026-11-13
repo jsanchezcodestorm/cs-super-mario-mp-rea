@@ -3,6 +3,18 @@ import type { CampaignDefinition, InputFrame, OverworldCommand, OverworldStop, W
 
 const movement = ['left', 'right', 'up', 'down'] as const
 const commands: OverworldCommand[] = [...movement, 'action']
+const directions = Buttons.left | Buttons.right | Buttons.up | Buttons.down
+
+export function finishMapTransition(state: World['state'], inputs: InputFrame) {
+  if (state.mapReveal) state.mapReveal.start = state.tick
+  const mario = inputs.mario & directions, luigi = inputs.luigi & directions
+  if (mario || luigi) state.heldAtExit = { mario, luigi }
+}
+
+export function freshMapCommand(state: World['state'], inputs: InputFrame) {
+  const mask = Buttons.left | Buttons.right | Buttons.up | Buttons.down | Buttons.action | Buttons.jump | Buttons.spin
+  return activePlayerIds(state).some(id => inputs[id] & ~state.players[id].lastInput & mask)
+}
 
 /** A pipe, star or junction can be used when its path leads to an unlocked course. */
 function leadsToCourse(c: CampaignDefinition, unlocked: string[], from: string, to: string) {
@@ -53,6 +65,18 @@ export function beginOverworldTravel(world: World, from: string, next: string, k
 export function navigateOverworld(world: World, inputs: InputFrame) {
   const { state } = world
   const progress = state.progress
+  const held = state.heldAtExit
+  if (held) {
+    held.mario &= inputs.mario
+    held.luigi &= inputs.luigi
+    if (!held.mario && !held.luigi) delete state.heldAtExit
+  }
+  if (state.mapReveal) {
+    // A reveal is cosmetic. The first fresh navigation input returns the view
+    // immediately to the authoritative position, even during the automatic walk.
+    if (freshMapCommand(state, inputs)) delete state.mapReveal
+    else if (!state.goalWalk && !state.keyholeFinish) state.mapReveal.start ??= state.tick
+  }
   const trip = state.mapTravel
   if (trip) {
     if (++trip.elapsed >= trip.duration) {
@@ -62,6 +86,9 @@ export function navigateOverworld(world: World, inputs: InputFrame) {
         progress.selection = index
         delete state.mapStop
       }
+      const last = state.mapArrival
+      const previous = last && { from: last.from, command: last.command, departed: last.departed }
+      state.mapArrival = { from: trip.from, command: trip.command, departed: state.tick - trip.elapsed, previous }
       delete state.mapTravel
     }
     return null
@@ -70,7 +97,7 @@ export function navigateOverworld(world: World, inputs: InputFrame) {
   if (!from) return null
   for (const id of activePlayerIds(state)) {
     for (const command of movement)
-      if (inputs[id] & Buttons[command] && travel(world, from, command)) return null
+      if (inputs[id] & ~(held?.[id] ?? 0) & Buttons[command] && travel(world, from, command)) return null
     const pressed = inputs[id] & ~state.players[id].lastInput
     if (!(pressed & (Buttons.jump | Buttons.action | Buttons.spin))) continue
     if (!state.mapStop) return from

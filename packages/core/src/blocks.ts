@@ -1,8 +1,11 @@
+import { hitBonusQuestion } from './question-bonus.ts'
+import { giveBlockCoin, startBlockBounce } from './block-bounce.ts'
+import { startTurnBlock } from './turn-block.ts'
 import { blockReward } from './block-rewards.ts'
 import { chocolateRoom } from './chocolate-island.ts'
 import { Buttons } from './types.ts'
 import type { World, PlayerState, LevelDefinition } from './types.ts'
-import { emit, enterRoom, spawnEntity } from './state.ts'
+import { emit, enterRoom, spawnBlockReward, spawnEntity } from './state.ts'
 import { collectCoin, die, hurt } from './resources.ts'
 import { bodyCells, tileAt, changeTile, isDanger, AIR, USED } from './terrain.ts'
 import type { Contact } from './terrain.ts'
@@ -40,14 +43,19 @@ function exitThrough(world: World, p: PlayerState, room: LevelDefinition) {
 }
 export function bump(world: World, p: PlayerState, room: LevelDefinition, c: Pick<Contact, 'col' | 'row' | 'tile'>, headBump = true) {
   const { tile, col, row } = c
+  if (tileAt(world, room, col, row) !== tile) return
+  if (tile === 0x124 && room.tileset === 4) {
+    hitBonusQuestion(world, p, room, col, row)
+    emit(world, 'block', p)
+    return
+  }
   if (tile === 0x112) {
     world.state.onOff = !world.state.onOff
     emit(world, 'switch', p)
     return
   }
   if (tile === 0x11e) {
-    changeTile(world, room, col, row, AIR)
-    world.state.turning.push({ roomId: room.id, col, row, until: world.state.tick + 155 })
+    startTurnBlock(world, room, col, row)
     emit(world, 'block', p)
     return
   }
@@ -62,10 +70,12 @@ export function bump(world: World, p: PlayerState, room: LevelDefinition, c: Pic
   if (tile >= 0x111 && tile <= 0x116 && tile !== 0x114) {
     if (headBump) p.vy = 3
   }
-  else changeTile(world, room, col, row, USED)
-  if (reward === 'coin') collectCoin(world, p)
+  else if ((tile >= 0x11f && tile <= 0x128) || tile === 0x11b || (tile >= 0x21 && tile <= 0x22)) {
+    startBlockBounce(world, room, col, row, tile)
+  } else changeTile(world, room, col, row, USED)
+  if (reward === 'coin') giveBlockCoin(world, p, room, col, row)
   else if (reward !== null) {
-    const obtained = spawnEntity(world, room.id, {
+    const obtained = spawnBlockReward(world, room.id, {
       x: col * 16,
       y: (reward === 0x45 ? row : row - 1) * 16,
       spriteId: reward === 0x2c && p.mounted ? 0x78 : reward,
@@ -86,16 +96,19 @@ export function interactTiles(
   pressed: number,
   contacts: Contact[],
 ) {
+  const headCol = Math.floor((p.x + p.width / 2) / 16)
+  const questionAtCenter = contacts.some(c => c.side === 'top' && !c.layer2 && c.col === headCol &&
+      c.tile >= 0x11f && c.tile <= 0x128)
   for (const c of contacts) {
     if (c.side === 'bottom' && c.tile === USED) {
       for (const e of world.state.entities) if (e.roomId === room.id && e.snake) e.snake.started = true
     }
     if (isDanger(c.tile, room.tileset)) hurt(world, p)
     if (c.layer2) continue
-    if (c.side === 'top') bump(world, p, room, c)
+    // A single PAL head probe chooses one block when two ? blocks share an edge.
+    if (c.side === 'top' && (!questionAtCenter || c.col === headCol || c.tile < 0x11f || c.tile > 0x128))
+      bump(world, p, room, c)
     if (c.side === 'bottom' && c.tile >= 0x111 && c.tile <= 0x116 && c.tile !== 0x114) p.vy = input & Buttons.jump ? -7 : -4
-    if (c.side === 'bottom' && c.tile === 0x11e && p.spin && p.form !== 'small')
-      changeTile(world, room, c.col, c.row, AIR)
     if (c.side === 'bottom' && c.tile >= 0xec && c.tile <= 0xfb && (c.tile - 0xec) % 4 < 2)
       finishCourse(world, p)
     if (c.tile === 0x12e && pressed & Buttons.run && !p.mounted && !p.carrying) {

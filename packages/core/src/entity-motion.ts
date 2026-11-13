@@ -1,8 +1,13 @@
-import { bump } from './blocks.ts'
+import { moveFlyingQuestion } from './flying-question.ts'
+import { moveCoinGameCloud, moveCloudCoin } from './coin-game-cloud.ts'
+import { blockItemPosition } from './emergence.ts'
+import { braceShell } from './shell-defense.ts'
+import { moveShell } from './shell-motion.ts'
 import { moveSkull } from './skull-raft.ts'
 import { positionChainDeck, stepForestDeck, stepHammerDeck } from './flying-platforms.ts'
 import { isWallSpring } from './wall-spring.ts'
 import { movePipeBoss } from './pipe-boss.ts'
+import { isPipePlant, movePipePlant } from './pipe-plant.ts'
 import { castMagic, moveMagic } from './magikoopa.ts'
 import { moveTape } from './rewards.ts'
 import { moveCloud, moveLakitu } from './lakitu.ts'
@@ -70,8 +75,10 @@ function bossMotion(world: World, e: EntityState, target: PlayerState, room: Lev
   }
 }
 export function moveEntity(world: World, e: EntityState, target: PlayerState) {
+  if (e.blockReleaseTick !== undefined && !blockItemPosition(e, world.state.tick)) delete e.blockReleaseTick
   const room = world.campaign.levels[e.roomId]
   e.age++
+  if (e.shellDefense && braceShell(world, room, e)) return
   if (movePipeBoss(world, room, e)) return
   if (e.reserveDrop) {
     e.y += 1
@@ -89,6 +96,15 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
     return
   }
   switch (e.kind) {
+    case 'coinGameCloud':
+      moveCoinGameCloud(world, e)
+      break
+    case 'cloudCoin':
+      moveCloudCoin(world, room, e)
+      break
+    case 'flyingQuestion':
+      moveFlyingQuestion(world, e, target)
+      break
     case 'lakitu':
       moveLakitu(world, e, target)
       break
@@ -176,19 +192,7 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       }
       break
     case 'shell':
-      if (e.tossed && e.owner) {
-        e.vy = Math.min(4, e.vy + 0.23)
-        const hits = moveBody(world, room, e)
-        for (const hit of hits)
-          if (hit.side === 'top' && !hit.layer2) bump(world, world.state.players[e.owner], room, hit, false)
-        if (e.grounded) {
-          e.vx = 0
-          delete e.tossed
-        }
-        break
-      }
-      if (e.rainbow) e.vx += limit(target.x - e.x, -0.12, 0.12)
-      walk(world, room, e, e.rainbow ? 2.6 : Math.abs(e.vx) > 1 ? 3.5 : 0)
+      moveShell(world, room, e, target)
       break
     case 'yoshi':
     case 'key':
@@ -210,7 +214,8 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       e.y = e.origin.y + wave(e.age, e.kind === 'fish' ? 140 : 105) * 16
       break
     case 'plant':
-      e.y = e.origin.y + Math.max(0, wave(e.age, 170)) * 23
+      if (isPipePlant(e.spriteId)) movePipePlant(world, room, e, target)
+      else e.y = e.origin.y + Math.max(0, wave(e.age, 170)) * 23
       break
     case 'boo': {
       const dir = e.x > target.x ? 1 : -1

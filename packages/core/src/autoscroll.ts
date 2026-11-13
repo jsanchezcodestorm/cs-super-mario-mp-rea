@@ -1,5 +1,5 @@
 import type { LevelDefinition, PlayerState, World } from './types.ts'
-import { clipDisplacement } from './terrain.ts'
+import { clipDisplacement, limit } from './terrain.ts'
 import { die } from './resources.ts'
 
 /** The reference PAL viewport is sampled every four video frames. */
@@ -12,6 +12,15 @@ export function scrollingCamera(room: LevelDefinition, clock: number) {
   const [ax, ay] = points[i],
     [bx, by] = points[Math.min(points.length - 1, i + 1)]
   return { x: Math.round(ax + (bx - ax) * blend), y: Math.round(ay + (by - ay) * blend) }
+}
+
+export function playerViewport(room: LevelDefinition, p: PlayerState) {
+  return (
+    scrollingCamera(room, p.scrollClock ?? 0) ?? {
+      x: limit(Math.round(p.x + p.width / 2 - 128), 0, Math.max(0, room.width * 16 - 256)),
+      y: limit(Math.round(p.y + p.height / 2 - 123), 0, Math.max(0, room.height * 16 - 224)),
+    }
+  )
 }
 
 export function startScrollAt(room: LevelDefinition, spawnX: number) {

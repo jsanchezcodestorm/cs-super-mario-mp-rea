@@ -1,4 +1,5 @@
 import { beginBonus, resumeBonus, validBonus } from './bonus-game.ts'
+import { beginGoalWalk, type GoalAward } from './goal-walk.ts'
 import { activePlayerIds, Buttons, playerIds } from './types.ts'
 import { beginOverworldTravel, navigateOverworld } from './overworld.ts'
 import type {
@@ -18,9 +19,16 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   const { state } = world
   if (!state.progress.unlocked.includes(course)) throw new Error('Course is locked')
   state.phase = 'playing'
+  delete state.mapClouds
+  delete state.mapArrival
   delete state.mapStop
   delete state.mapTravel
+  delete state.heldAtExit
+  delete state.mapReveal
   delete state.bonus
+  delete state.goalWalk
+  delete state.orbFinish
+  delete state.keyholeFinish
   state.progress.course = course
   state.progress.selection = state.progress.unlocked.indexOf(course)
   if (!resumeCheckpoint) state.progress.checkpoint = null
@@ -34,6 +42,12 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   state.onOff = false
   state.silverSwitch = 0
   state.turning = []
+  delete state.bouncingBlocks
+  delete state.shatteredBlocks
+  delete state.questionBonus
+  delete state.multicoinUntil
+  delete state.rewardRecycle
+  delete state.rewardEffects
   state.loadedRooms = []
   state.entities = []
   state.tileChanges = {}
@@ -58,6 +72,9 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
     p.mouth = null
     p.tongue = 0
     p.tongueFrame = 0
+    delete p.berryBite
+    delete p.berryEgg
+    delete p.berries
     p.wingTicks = 0
     p.carrying = null
     p.growthPending = false
@@ -130,8 +147,7 @@ export function finishCourse(
   world: World,
   player: PlayerState,
   kind: ExitKind = 'normal',
-  ending = false,
-  countsAsExit = true,
+  { ending = false, countsAsExit = true, tape }: { ending?: boolean; countsAsExit?: boolean; tape?: GoalAward } = {},
 ) {
   const { state, campaign } = world
   if (state.phase !== 'playing' || state.bonus) return
@@ -146,10 +162,15 @@ export function finishCourse(
   for (const path of paths) if (campaign.levels[path] && !p.unlocked.includes(path)) p.unlocked.push(path)
   const next = paths.find((id) => p.unlocked.includes(id))
   const transitioned = !ending && next ? beginOverworldTravel(world, p.course, next, kind) : false
+  if (firstClear && countsAsExit && !ending) {
+    state.mapReveal = { exit: exitId, course: p.course, travel: transitioned ? { ...state.mapTravel! } : undefined }
+  }
   if (!transitioned) p.selection = next ? p.unlocked.indexOf(next) : p.unlocked.indexOf(p.course)
   p.checkpoint = null
   state.phase = ending ? 'ending' : 'map'
-  emit(world, ending ? 'ending' : 'exit', player, kind)
+  if (tape) beginGoalWalk(world, player, tape)
+  const event = emit(world, ending ? 'ending' : 'exit', player, kind)
+  if (state.goalWalk || state.orbFinish) event.courseClear = true
   if (!ending && countsAsExit && player.bonusStars >= 100) beginBonus(world, player)
 }
 export function navigate(world: World, inputs: InputFrame) {
@@ -169,6 +190,7 @@ export function returnToMap(state: GameState, inputs: InputFrame) {
   state.phase = 'map'
 }
 export function makeSave(state: GameState): CampaignSave {
+  const bonus = state.bonus ?? state.goalWalk?.bonus ?? state.orbFinish?.bonus
   const resources = (id: PlayerId) => {
     const { form, lives, coins, mounted, yoshiColor, reserve, score, bonusStars } = state.players[id]
     return { form, lives, coins, mounted, yoshiColor, reserve, score, bonusStars }
@@ -176,8 +198,8 @@ export function makeSave(state: GameState): CampaignSave {
   return {
     version: 1,
     ...(state.mapStop ? { mapStop: state.mapStop } : {}),
-    ...(state.bonus ? { bonus: structuredClone(state.bonus) } : {}),
-    phase: state.phase,
+    ...(bonus ? { bonus: structuredClone(bonus) } : {}),
+    phase: bonus ? 'playing' : state.phase,
     progress: structuredClone(state.progress),
     resources: { mario: resources('mario'), luigi: resources('luigi') },
   }

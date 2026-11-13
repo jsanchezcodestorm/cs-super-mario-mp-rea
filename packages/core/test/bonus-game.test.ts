@@ -23,6 +23,9 @@ function enterViaTape(id: string) {
   const tape = state.entities.find((e) => e.kind === 'goal')!
   Object.assign(state.players.mario, { x: tape.x, y: tape.origin.y, bonusStars: 99 })
   stepGame(campaign, state, { mario: 0, luigi: 0 })
+  assert.ok(state.goalWalk)
+  for (let t = 0; state.goalWalk && t < 700; t++) stepGame(campaign, state, { mario: 0, luigi: 0 })
+  assert.ok(state.bonus)
   return { state, campaign }
 }
 test('the course timer cannot kill the team inside the post-goal bonus game', extracted, () => {

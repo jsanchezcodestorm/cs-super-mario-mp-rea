@@ -1,4 +1,5 @@
-import type { World, PlayerState, EntityState, ReserveItem } from './types.ts'
+import { addRewardEffect } from './reward-effects.ts'
+import type { World, PlayerState, EntityState, ReserveItem, HitAward, GameState } from './types.ts'
 import { spawnEntity } from './state.ts'
 import { scrollingCamera } from './autoscroll.ts'
 import { limit } from './terrain.ts'
@@ -8,6 +9,12 @@ const spriteForReserve = { mushroom: 0x74, flower: 0x75, feather: 0x77 } as cons
 
 export function addScore(p: PlayerState, amount: number) {
   p.score = Math.min(9999990, p.score + amount)
+}
+
+export function showHitAward(state: GameState, player: PlayerState, target: Pick<EntityState, 'roomId' | 'x' | 'y'>, amount: HitAward) {
+  if (amount === '1up') player.lives = Math.min(99, player.lives + 1)
+  else addScore(player, amount)
+  addRewardEffect(state, { tick: state.tick, roomId: target.roomId, x: target.x, y: target.y - 8, award: amount })
 }
 
 /** E1 ItemBoxSprite indexes the newly touched item and the previous form. */

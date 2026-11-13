@@ -14,14 +14,13 @@ function horizontalMouth(room: LevelDefinition, col: number, top: number, body: 
   return null
 }
 
-/** Place the collision box at the endpoint of the cartridge's scripted pipe exit. */
-export function pipeEntry(room: LevelDefinition, point: Point, body: Pick<Body, 'width' | 'height'>): Point {
+export function pipeEndpoint(room: LevelDefinition, point: Point, body: Pick<Body, 'width' | 'height'>): Point | null {
   const col = Math.floor(point.x / 16)
   const row = Math.floor(point.y / 16)
   const tile = room.tiles[row * room.width + col]
   if (tile === 0x13b || tile === 0x13c || tile === 0x13f)
-    return horizontalMouth(room, col, tile === 0x13b ? row : row - 1, body) ?? point
-  if (tile !== 0x135 && tile !== 0x136 && tile !== 0x133 && tile !== 0x134) return point
+    return horizontalMouth(room, col, tile === 0x13b ? row : row - 1, body)
+  if (tile !== 0x135 && tile !== 0x136 && tile !== 0x133 && tile !== 0x134) return null
   const left = tile === 0x135 || tile === 0x133 ? col : col - 1
   for (let y = row; y < room.height; y++) {
     const index = y * room.width + left
@@ -32,5 +31,10 @@ export function pipeEntry(room: LevelDefinition, point: Point, body: Pick<Body, 
     }
     if (room.tiles[index] !== 0x135 || room.tiles[index + 1] !== 0x136) break
   }
-  return point
+  return null
+}
+
+/** Place the collision box at the endpoint of the cartridge's scripted pipe exit. */
+export function pipeEntry(room: LevelDefinition, point: Point, body: Pick<Body, 'width' | 'height'>): Point {
+  return pipeEndpoint(room, point, body) ?? point
 }

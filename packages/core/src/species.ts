@@ -1,4 +1,5 @@
 import { isWallSpring } from './wall-spring.ts'
+import { initPipePlant, isPipePlant } from './pipe-plant.ts'
 import { eggColor, shellColor, koopaShell } from './yoshi-colors.ts'
 import type { EntityKind, EntityState, Spawn } from './types.ts'
 
@@ -15,6 +16,7 @@ assign(
     0xbd, 0xbf,
   ],
 )
+assign('flyingQuestion', [0x83, 0x84])
 assign('magikoopa', [0x1f])
 assign('magic', [0x20])
 assign('chuck', [0x46, 0x91, 0x92, 0x93, 0x94, 0x95, 0x97, 0x98])
@@ -41,6 +43,7 @@ assign(
   ],
 )
 assign('coin', [0x21, 0x7e])
+assign('coinGameCloud', [0x6a])
 assign('directionalCoins', [0x45])
 assign('yoshi', [0x35])
 assign('babyYoshi', [0x2d])
@@ -81,7 +84,7 @@ export function entityFromSpawn(
     kind === 'blockSnake'
       ? { eater: !!(spawn.x & 16), started: false, command: 0, remaining: 0, direction: 0 }
       : undefined
-  return {
+  const entity: EntityState = {
     id,
     shellColor: shellColor(spriteId),
     yoshiColor:
@@ -117,4 +120,6 @@ export function entityFromSpawn(
               ? 2
               : 1,
   }
+  if (kind === 'plant' && isPipePlant(spriteId)) initPipePlant(entity)
+  return entity
 }

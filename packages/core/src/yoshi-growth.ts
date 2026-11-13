@@ -1,12 +1,22 @@
 import { spawnEntity, emit } from './state.ts'
 import type { World, EntityState, PlayerState } from './types.ts'
-import { overlaps } from './terrain.ts'
+import { moveBody, overlaps } from './terrain.ts'
 import { collectCoin } from './resources.ts'
 
 export function hatch(world: World, e: EntityState, target: PlayerState) {
-  if (!e.hatchAt && (e.adultEgg || Math.abs(target.x - e.x) < 32)) e.hatchAt = e.age + 32
+  if (e.eggPrize && !e.hatchAt) {
+    // A laid egg flies backwards in status 09. Contact with the ground
+    // starts the 32-frame hatch timer at 01:F74C.
+    moveBody(world, world.campaign.levels[e.roomId], e)
+    e.vy = Math.min(4 * 5 / 6, e.vy + 3 / 16 * (5 / 6) ** 2)
+    if (e.grounded) e.hatchAt = e.age + Math.ceil(32 * 6 / 5)
+  } else if (!e.hatchAt && (e.adultEgg || Math.abs(target.x - e.x) < 32)) e.hatchAt = e.age + 32
   if (e.hatchAt !== e.age) return
   e.active = false
+  if (e.eggPrize) {
+    spawnEntity(world, e.roomId, { x: e.x, y: e.y, spriteId: e.eggPrize })
+    return
+  }
   const raised = spawnEntity(world, e.roomId, { x: e.x, y: e.y, spriteId: e.adultEgg ? 0x35 : 0x2d })!
   raised.yoshiColor = e.yoshiColor
 }
@@ -19,7 +29,7 @@ export function feedBaby(world: World, baby: EntityState, target: PlayerState) {
       e.active &&
       e.roomId === baby.roomId &&
       e.spriteId < 0xc9 &&
-      !['fireball', 'yoshiFire', 'chuckShot'].includes(e.kind) &&
+      !['cloudCoin', 'fireball', 'yoshiFire', 'chuckShot'].includes(e.kind) &&
       world.campaign.yoshiTraits &&
       !(world.campaign.yoshiTraits[e.spriteId] & 1) &&
       overlaps(e, baby),

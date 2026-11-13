@@ -60,6 +60,7 @@ function movePlayers(world: World, bonus: BonusGame) {
   world.state.entities = []
   world.state.tileChanges = {}
   world.state.turning = []
+  delete world.state.shatteredBlocks
   const activePlayers = activePlayerIds(world.state)
   for (const id of playerIds) {
     const p = world.state.players[id]
@@ -88,7 +89,7 @@ export function beginBonus(world: World, p: PlayerState) {
     const frame = stopped ? 1 + 3 * Math.floor(((seed ^ (seed >> 5)) & 7) / 3) : (seed + i + 1) & 7
     return { ...slotPosition(i, 0), frame, symbol: Math.floor(frame / 3), stopped, winning: false }
   })
-  movePlayers(world, {
+  const bonus: BonusGame = {
     roomId,
     owner: p.id,
     age: 0,
@@ -98,7 +99,10 @@ export function beginBonus(world: World, p: PlayerState) {
     remaining: 0,
     waitingToDrop: 0,
     exitTimer: 0,
-  })
+  }
+  const closing = world.state.goalWalk ?? world.state.orbFinish
+  if (closing) closing.bonus = bonus
+  else movePlayers(world, bonus)
 }
 function stopSlot(world: World, p: PlayerState, previousY: number, slots: BonusSlot[]) {
   if (p.status !== 'alive' || p.vy >= 0) return

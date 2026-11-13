@@ -1,9 +1,17 @@
+import type { StarTrail } from './star-trail.ts'
 import type { BonusGame } from './bonus-game.ts'
 import type { EmitterCatalog } from './emitters.ts'
+import type { GoalWalk } from './goal-walk.ts'
+import type { OrbFinish } from './orb-finish.ts'
+import type { PlayerAnimation } from './player-animation.ts'
+import type { PipePlant } from './pipe-plant.ts'
 /** Simulation positions and speeds are expressed in pixels and pixels per 60 Hz tick. */
 export interface Point {
   x: number
   y: number
+}
+export interface EntryPoint extends Point {
+  pipe?: 'left' | 'right' | 'up' | 'down'
 }
 export interface LayerOffset extends Point {
   scrollSpeed?: number
@@ -27,7 +35,7 @@ export interface Spawn extends Point {
 export interface Exit {
   screen: number
   target: string
-  spawn?: Point
+  spawn?: EntryPoint
 }
 export interface LevelDefinition {
   layerOscillation?: { axis: 'x' | 'y'; start: number; samples: number[] }
@@ -37,7 +45,7 @@ export interface LevelDefinition {
   width: number
   height: number
   tiles: number[]
-  spawn: Point
+  spawn: EntryPoint
   sprites: Spawn[]
   exits: Exit[]
   checkpoint?: Point
@@ -91,6 +99,7 @@ export interface OverworldStop {
   directions: Partial<Record<OverworldCommand, OverworldEdge>>
   exitDirections: Record<ExitKind, Exclude<OverworldCommand, 'action'>>
 }
+export interface MapDeparture { from: string; command: OverworldCommand; departed: number }
 export interface OverworldTravel {
   command: OverworldCommand
   from: string
@@ -117,16 +126,33 @@ export type InputFrame = Record<PlayerId, ButtonMask>
 export type ReserveItem = 'mushroom' | 'flower' | 'feather'
 export type PowerForm = 'small' | 'super' | 'cape' | 'fire'
 export type YoshiColor = 'green' | 'red' | 'yellow' | 'blue'
+export type BerryTile = 0x45 | 0x46 | 0x47
 export interface YoshiMouth {
-  kind: EntityKind
+  kind: EntityKind | 'berry'
   spriteId: number
+  entityId?: string
+  berry?: BerryTile
+  caughtFrame?: number
   shellColor?: YoshiColor
   rainbow?: boolean
   ticks: number
 }
 export interface PlayerState extends Body {
+  netClinging?: boolean
+  behindNet?: boolean
+  netPunchTick?: number
+  netTurn?: Point & { tick: number; roomId: string; offsetX: number; fromBehind: boolean }
+  death?: { y: number; tick: number; duration: number }
+  starTrail?: StarTrail
+  formChange?: { from: PowerForm; to: PowerForm; tick: number }
+  animation?: PlayerAnimation
+  berryBite?: { roomId: string; col: number; row: number; tile: BerryTile; tick: number }
+  berries?: { red: number; pink: number }
+  berryEgg?: { spriteId: 0x74 | 0x6a; tick: number }
+  pipeExit?: Point & { direction: NonNullable<EntryPoint['pipe']>; tick: number; frames: number }
   capeReady?: number
   cloud?: string
+  ducking?: boolean
   growthPending?: boolean
   wallRun?: -1 | 1
   sliding?: { speed: number; sixths: number }
@@ -151,6 +177,7 @@ export interface PlayerState extends Body {
   invincible: number
   star: number
   spin: boolean
+  blockRebound?: true
   timer: number
   lastInput: number
   carrying: string | null
@@ -160,6 +187,7 @@ export interface PlayerState extends Body {
   balloon: number
 }
 export type EntityKind =
+  | 'flyingQuestion'
   | 'lakitu'
   | 'cloud'
   | 'koopa'
@@ -194,6 +222,8 @@ export type EntityKind =
   | 'yoshiFire'
   | 'yoshi'
   | 'coin'
+  | 'coinGameCloud'
+  | 'cloudCoin'
   | 'fireball'
   | 'boss'
   | 'endingBoss'
@@ -209,8 +239,20 @@ export type EntityKind =
   | 'switchPalace'
   | 'exitSide'
 export interface EntityState extends Body {
+  pipePlant?: PipePlant
+  coinGame?: { attempts: number; collected: number }
+  sourceCloud?: string
+  coinBounced?: boolean
+  eggPrize?: 0x74 | 0x6a
+  blockReleaseTick?: number
+  questionFlight?: { xSpeed: number; ySpeed: number; ax: number; ay: number; hold: number }
+  questionHit?: { tick: number; playerId: PlayerId | null; paid: boolean }
+  shellChain?: number
   coinDirection?: number
   coinTurn?: number
+  shellKnockedOut?: boolean
+  bracedBy?: string
+  shellDefense?: { id: string; facing: 1 | -1; wait: number }
   tossed?: boolean
   eerieAcceleration?: number
   raftX?: number
@@ -237,6 +279,7 @@ export interface EntityState extends Body {
   age: number
   hp: number
   owner: PlayerId | null
+  hurtAt?: number
   stunnedUntil?: number
   split?: boolean
   projectile?: 'rock' | 'football' | 'baseball'
@@ -271,7 +314,26 @@ export interface CampaignSave {
   >
   phase: 'playing' | 'map' | 'ending' | 'gameOver'
 }
+export type HitAward = 10 | 100 | 200 | 400 | 800 | 1000 | 2000 | 4000 | 8000 | '1up'
+export interface RewardEffect extends Point {
+  roomId: string
+  tick: number
+  award: HitAward
+  coinSlot?: number
+  scoreSlot?: number
+  fromBlock?: boolean
+}
+export interface BlockBounce {
+  replacement?: number
+  roomId: string
+  col: number
+  row: number
+  tile: number
+  tick: number
+}
 export interface GameEvent {
+  award?: HitAward
+  chain?: number
   type:
     | 'tongue'
     | 'spit'
@@ -281,6 +343,7 @@ export interface GameEvent {
     | 'jump'
     | 'coin'
     | 'item'
+    | 'shellHit'
     | 'stomp'
     | 'hurt'
     | 'death'
@@ -289,6 +352,7 @@ export interface GameEvent {
     | 'pipe'
     | 'start'
     | 'block'
+    | 'shatter'
     | 'switch'
     | 'shot'
     | 'ending'
@@ -297,13 +361,25 @@ export interface GameEvent {
   playerId?: PlayerId
   roomId?: string
   exit?: ExitKind
+  keyhole?: true
+  courseClear?: true
 }
+export interface NetDoor extends Point { roomId: string; tick: number; players: PlayerId[] }
 export interface GameState {
+  heldAtExit?: InputFrame
+  goalWalk?: GoalWalk
+  orbFinish?: OrbFinish
+  keyholeFinish?: { tick: number; finisher: PlayerId; x: number; y: number }
+  netDoors?: NetDoor[]
+  questionBonus?: { roomId: string; closed: boolean }
   mode?: GameMode
   bonus?: BonusGame
   cutscene?: { key: string; start: number; duration: number }
   mapStop?: string
+  mapClouds?: ({ x: number; y: number; z: number } | null)[]
+  mapArrival?: MapDeparture & { previous?: MapDeparture }
   mapTravel?: OverworldTravel
+  mapReveal?: { exit: string; course: string; start?: number; travel?: OverworldTravel }
   tick: number
   phase: CampaignSave['phase']
   players: Record<PlayerId, PlayerState>
@@ -321,6 +397,11 @@ export interface GameState {
   courseCoins: number
   entrance: { frame: number; mounted: Record<PlayerId, boolean> } | null
   timeLeft: number
+  rewardEffects?: RewardEffect[]
+  rewardRecycle?: Record<string, Partial<Record<'coinSlot' | 'scoreSlot', number>>>
+  bouncingBlocks?: BlockBounce[]
+  shatteredBlocks?: (Point & { roomId: string; tick: number; firstSlot: number })[]
+  multicoinUntil?: Record<string, number>
 }
 const soloPlayerIds = ['mario'] as const
 export function activePlayerIds(state: Pick<GameState, 'mode'>): readonly PlayerId[] {
