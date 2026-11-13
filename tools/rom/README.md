@@ -81,23 +81,24 @@ Nella lista degli sprite, `E0` crea tre piattaforme `A3` con angoli iniziali dif
 
 ## Misure della fisica PAL
 
-I comandi seguenti riproducono le misure su Snes9x con la ROM E1. Il primo scrive le posizioni, le velocità e i flag della WRAM. Il secondo misura i salti dal primo livello e isola il punto di contatto della testa con diversi profili Map16.
+I comandi seguenti riproducono le misure su Snes9x con la ROM E1. Il primo scrive le posizioni, le velocità e i flag della WRAM. Il secondo misura i salti dal primo livello e isola il punto di contatto della testa con diversi profili Map16. Il terzo ripete accelerazione, frenata e salti con ciascun controller su un tratto piano di Yoshi’s Island 1.
 
 ```sh
 python3 tools/rom/player_motion_capture.py "/percorso/snes9x_libretro.dylib" "/percorso/gioco.smc" /tmp/smw-movimento.json
 python3 tools/rom/probe_player_contacts.py "/percorso/snes9x_libretro.dylib" "/percorso/gioco.smc"
+python3 tools/rom/probe_land_motion.py "/percorso/snes9x_libretro.dylib" "/percorso/gioco.smc"
 ```
 
 | Prova | Cartuccia a 50 Hz | Simulazione web a 60 Hz |
 | --- | ---: | ---: |
 | Mondo, distanza dopo 0,8 s di scivolata | 29 px | 29,39 px |
 | Mondo, distanza dopo 1,6 s di scivolata | 121 px | 121,25 px |
-| Salto da fermo con B mantenuto, altezza e tempo di volo | 64 px, 0,94 s | 64,19 px, 0,80 s |
-| Salto avvitato da fermo con A mantenuto | 54 px, 0,86 s | 57,81 px, 0,75 s |
+| Salto da fermo con B mantenuto, altezza e tempo di volo | 64 px, 0,94 s | 66 px, 0,94 s |
+| Salto avvitato da fermo con A mantenuto | 54 px, 0,86 s | 56 px, 0,88 s |
 
 A Mondo la prova parte da fermo, tiene premuto Giù per 0,2 secondi e poi rilascia il comando. Il motore usa le accelerazioni e le velocità limite delle tabelle PAL, compreso il cambio di segno sulla pendenza speculare. Sotto i soffitti inclinati la testa saggia il centro del personaggio. Sul tile `1C4`, con la sommità della cella a Y=224, il bordo inferiore del soffitto è a Y=226 per X locale 2 e a Y=233 per X locale 9. Il profilo speculare `1C5` dà rispettivamente 237 e 230. [Tabelle e routine del giocatore nel banco 00](https://github.com/IsoFrieze/SMWDisX/blob/30643c7595a7d097d731de69476f8059c7cf98c3/bank_00.asm)
 
-Il confronto lascia aperte differenze nella gravità in discesa e nella frenata. Dopo una corsa piena l’inversione di direzione richiede circa 0,20 s sulla cartuccia e 0,35 s sul web. Rilasciando la direzione in aria la cartuccia conserva la velocità orizzontale nella prova di 0,30 s, mentre il web decelera.
+I test del motore confrontano la parte intera delle posizioni con la WRAM. Camminando per 55 frame PAL e poi rilasciando la direzione, entrambi i giocatori percorrono 73 px al rilascio e si fermano a 89 px. In corsa, invertendo dopo 105 frame, toccano 285 px al cambio, 304 px dieci frame dopo e 277 px dopo trenta. I salti da fermo misurati con 1, 5, 10 e 120 frame di pressione conservano uno scarto massimo di 2 px in altezza e un frame PAL all’atterraggio. La prova riguarda la locomozione su piano asciutto.
 
 Nella cooperativa il blocco rotante riacquista solidità al primo tick libero dopo la scadenza del timer, quando entrambi i personaggi sono usciti dal suo volume. Le uscite dei tubi orizzontali collocano il corpo al bordo esterno della bocca quando il giocatore riceve il controllo. Sulla cartuccia l’uscita include anche 28 fotogrammi di animazione.
 
@@ -107,7 +108,7 @@ Per la navigazione tra i corsi, `tools/reference/map_paths.py` imposta gli event
 
 Le tessere delle sette mappe e dei percorsi sbloccati riproducono i trasferimenti di caratteri e palette osservati nel core. Il ciclo dura 128 fotogrammi PAL. Nella Valle di Bowser il ciclo misurato dei lampi e delle tessere dura 1.024 fotogrammi.
 
-Il blocco rotante `11E` occupa la cella solida invisibile `152` durante i sei fotogrammi del rimbalzo OBJ. Dal sesto fotogramma PAL la mappa mostra il tile attraversabile `048`. Sulla cartuccia al fotogramma 255 il blocco torna solido. La versione cooperativa consente il passaggio dal colpo per 155 tick di simulazione e rimanda la chiusura finché un giocatore occupa la cella. Il disegno torna fermo al momento della chiusura effettiva.
+Il blocco rotante `11E` occupa la cella solida invisibile `152` durante i sei fotogrammi del rimbalzo OBJ. Nella ROM e nel port la mappa mostra il tile attraversabile `048` dal fotogramma PAL 6 e ripristina quello solido al fotogramma 255. In cooperativa, se Mario o Luigi occupano ancora la cella alla scadenza, il blocco continua a ruotare fino al primo tick libero.
 
 ## Gusci e stanze con tre blocchi per fila
 
@@ -195,3 +196,5 @@ La rivelazione dei percorsi viene campionata da `../reference/map_reveals.py` do
 
 
 La sonda `probe_goal_coins.py` attraversa le ultime schermate di 105 caricando il Chuck e il nastro dalle rispettive posizioni originali. Passando sotto al nastro, i due sprite diventano monete e assegnano 500 punti complessivi. Il test separa i bersagli visibili, quelli da cancellare, Yoshi e il Koopa fuori schermo. Con otto o dieci bersagli verifica il riuso dei sei cartellini e gli accrediti non comuni della ROM PAL. In Chromium il Chuck rimane alla stessa X di schermo durante il fumo e la moneta raggiunge un’altezza di 38 pixel prima del cartellino. Traccia REA `ev_7ae20e2f183d8be2af1371bb292ca0a1c3628f678901ffdfb92ceb2d3ddb8c5c`.
+
+Nella stanza 1DD di Valley Ghost House, premendo il P-switch sulla ROM E1 il timer blu passa a $B0. La sonda `probe_switch_timer.py` preme lo stesso interruttore in ciascuna delle quattro fasi di $14. Il timer scende di uno ogni quattro fotogrammi PAL e scade dopo 701–704 fotogrammi, in base alla fase di pressione. Evidenza REA `ev_4a1c77e0c28d0a6ec7287efc6042f5e3dbca07138b5b416a17cd61dc022a2ac3`.

@@ -47,6 +47,22 @@ def traverse(core, entrance, form):
     print('form', form, 'horizontal 75 right, 40 idle, 30 left: y=257; A holds, B releases')
 
 
+def jump_from_rest(core, entrance, seat):
+    place(core, entrance, 120, 260, 0)
+    ram = core.ram
+    ram[0xda0], ram[0xdb3] = 0x82, seat
+    core.input_port = seat
+    core.run(3, UP)
+    core.run(6)
+    _, y = position(ram)
+    heights = []
+    for _ in range(11):
+        core.run(1, B)
+        heights.append(position(ram)[1] - y)
+    assert heights == [0, -6, -11, -17, -22, -26, -31, -35, -39, -43, -47]
+    print(('Mario', 'Luigi')[seat], 'B from stationary fence, Y displacements', heights)
+
+
 def edges(core, entrance, form):
     ram = core.ram
     for x, keys, n, expected_x, expected_y, mask in (
@@ -99,6 +115,8 @@ if __name__ == '__main__':
         for powerup in (0, 1):
             traverse(machine, entrance, powerup)
             edges(machine, entrance, powerup)
+        for seat in range(2):
+            jump_from_rest(machine, entrance, seat)
     finally:
         machine.lib.retro_unload_game()
         machine.lib.retro_deinit()
