@@ -20,6 +20,7 @@ import { drawCourseClear } from './course-clear';
 import { drawOrbFinish } from './orb-finish-view';
 import { GoalFade } from './goal-fade';
 import { drawGoalIris } from './goal-iris';
+import { SceneTransition } from './scene-transition';
 import type { Content } from './content';
 import type { GameSession } from './playback';
 
@@ -31,8 +32,10 @@ export class WorldScene extends Phaser.Scene {
   private rewards!: RewardView;
   private statusBar!: StatusBar;
   private goalFade!: GoalFade;
+  private transition!: SceneTransition;
   private map!: OverworldView;
   private inputClock = 0;
+  private displayedScene?: string;
 
   constructor(
     private content: Content,
@@ -88,6 +91,7 @@ export class WorldScene extends Phaser.Scene {
       creatures: this.cache.json.get('creatures-registration'),
     });
     this.map = new OverworldView(this, this.terrain, this.nodes, this.content);
+    this.transition = new SceneTransition(this, WIDTH, HEIGHT);
   }
 
   update(_: number, dt: number) {
@@ -101,7 +105,13 @@ export class WorldScene extends Phaser.Scene {
     const finalDeath = state.phase === 'gameOver' && Object.values(state.players).some(p => departing(p, state.tick));
     const hole = state.keyholeFinish;
     const orb = state.orbFinish;
-    if (state.phase !== 'playing' && !finalDeath && !state.goalWalk && !hole && !orb) {
+    const mapVisible = state.phase !== 'playing' && !finalDeath && !state.goalWalk && !hole && !orb;
+    const sceneKey = mapVisible ? 'map' : `course:${state.progress.course}`;
+    const sceneChanged = this.displayedScene !== undefined && this.displayedScene !== sceneKey;
+    if (sceneChanged) this.transition.capture(this.game.canvas);
+    this.displayedScene = sceneKey;
+    this.transition.update(sceneChanged ? 0 : dt);
+    if (mapVisible) {
       this.statusBar.hide();
       this.map.draw(state);
       return;
