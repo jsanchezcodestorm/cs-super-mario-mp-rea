@@ -518,9 +518,7 @@ body:has(#play:not([hidden])) main {
   z-index: 3;
 }
 
-#play:fullscreen,
-#play:-webkit-full-screen,
-#play.is-fullscreen {
+#play:where(:fullscreen, :-webkit-full-screen, .is-fullscreen) {
   position: fixed;
   inset: 0;
   z-index: 999;
@@ -536,22 +534,16 @@ body:has(#play:not([hidden])) main {
     max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   background: #0c171c;
 }
-#play:fullscreen .play-head,
-#play:-webkit-full-screen .play-head,
-#play.is-fullscreen .play-head {
+#play:where(:fullscreen, :-webkit-full-screen, .is-fullscreen) .play-head {
   flex: 0 0 auto;
   margin: 0;
 }
-#play:fullscreen .play-body,
-#play:-webkit-full-screen .play-body,
-#play.is-fullscreen .play-body {
+#play:where(:fullscreen, :-webkit-full-screen, .is-fullscreen) .play-body {
   flex: 1 1 auto;
   min-height: 0;
   justify-content: center;
 }
-#play:fullscreen #screen,
-#play:-webkit-full-screen #screen,
-#play.is-fullscreen #screen {
+#play:where(:fullscreen, :-webkit-full-screen, .is-fullscreen) #screen {
   flex: 0 1 auto;
   width: min(100%, calc((100vh - 72px) * 256 / 224));
   width: min(100%, calc((100dvh - 72px) * 256 / 224));
@@ -559,107 +551,4 @@ body:has(#play:not([hidden])) main {
   max-height: calc(100dvh - 72px);
   border: 0;
   box-shadow: none;
-}
-
-@media (any-pointer: coarse) {
-  #touch-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    width: 100%;
-    max-width: 440px;
-    min-height: 144px;
-    padding: 4px 0 8px;
-    color: var(--cream);
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-touch-callout: none;
-    touch-action: none;
-  }
-  .touch-directions {
-    display: grid;
-    flex: 0 0 auto;
-    grid-template: repeat(3, 44px) / repeat(3, 44px);
-  }
-  .touch-actions {
-    display: grid;
-    flex: 0 0 auto;
-    grid-template: repeat(2, 44px) / repeat(3, 44px);
-    gap: 4px;
-  }
-  #touch-controls button {
-    display: grid;
-    place-content: center;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-    color: var(--cream);
-    background: #23444b;
-    border: 1px solid #779093;
-    border-bottom-width: 3px;
-    border-radius: 12px;
-    font: 700 21px/1 ui-monospace, Menlo, monospace;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  #touch-controls button:active,
-  #touch-controls button.is-pressed {
-    transform: translateY(2px);
-    color: var(--ink);
-    background: var(--accent);
-    border-bottom-width: 1px;
-  }
-  #touch-controls .touch-actions button {
-    gap: 2px;
-    border-radius: 50%;
-    font-size: 14px;
-  }
-  .touch-actions small {
-    font: 700 7px/1 ui-monospace, Menlo, monospace;
-  }
-  #play:fullscreen .play-body,
-  #play:-webkit-full-screen .play-body,
-  #play.is-fullscreen .play-body {
-    gap: 8px;
-  }
-  #play:fullscreen #screen,
-  #play:-webkit-full-screen #screen,
-  #play.is-fullscreen #screen {
-    width: min(100%, calc((100vh - 220px) * 256 / 224));
-    width: min(100%, calc((100dvh - 220px) * 256 / 224));
-    max-height: calc(100vh - 220px);
-    max-height: calc(100dvh - 220px);
-  }
-  #play:fullscreen #touch-controls,
-  #play:-webkit-full-screen #touch-controls,
-  #play.is-fullscreen #touch-controls {
-    flex: 0 0 144px;
-  }
-}
-
-@media (orientation: landscape) and (any-pointer: coarse) {
-  #play:fullscreen .play-body,
-  #play:-webkit-full-screen .play-body,
-  #play.is-fullscreen .play-body {
-    flex-direction: row;
-    gap: clamp(12px, 3vw, 28px);
-  }
-  #play:fullscreen #screen,
-  #play:-webkit-full-screen #screen,
-  #play.is-fullscreen #screen {
-    width: min(calc(100vh * 256 / 224), calc(100vw - 350px));
-    width: min(calc(100dvh * 256 / 224), calc(100vw - 350px));
-    max-height: calc(100vh - 72px);
-    max-height: calc(100dvh - 72px);
-  }
-  #play:fullscreen #touch-controls,
-  #play:-webkit-full-screen #touch-controls,
-  #play.is-fullscreen #touch-controls {
-    flex: 0 0 min(54vw, 320px);
-    width: min(54vw, 320px);
-    max-width: none;
-    padding: 0;
-  }
 }

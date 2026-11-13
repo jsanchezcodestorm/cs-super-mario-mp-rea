@@ -1,0 +1,227 @@
+/* The viewport belongs to the game only while a touch player is in a session. */
+@media (any-pointer: coarse) {
+  body:has(#play:not([hidden])) .topbar,
+  body:has(#play:not([hidden])) .controls {
+    display: none;
+  }
+
+  body:has(#play:not([hidden])) main {
+    padding: 0;
+    max-width: none;
+  }
+
+  #play {
+    --pad-size: clamp(104px, 26vmin, 124px);
+    --pad-ink: #e1ede8;
+    --pad-rim: rgb(201 226 217 / 36%);
+    --pad-fill: rgb(24 49 56 / 76%);
+    --edge: clamp(10px, 3vmin, 20px);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    padding: max(4px, env(safe-area-inset-top)) max(4px, env(safe-area-inset-right))
+      max(6px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left));
+    gap: 0;
+    background: #101f24;
+  }
+
+  #play .play-head {
+    flex: none;
+    width: 100%;
+    gap: 8px;
+    padding-inline: var(--edge);
+    margin: 0;
+    color: #c0d0c9;
+    font-size: 11px;
+  }
+
+  #stage-name { margin-right: auto; }
+  #hud:empty { display: none; }
+
+  #fullscreen, #play-leave {
+    min-height: 44px;
+    min-width: 44px;
+    border: 0;
+    background: transparent;
+    text-decoration: none;
+  }
+
+  #fullscreen-help { padding-inline: var(--edge); }
+
+  #play .play-body {
+    position: relative;
+    container-type: size;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) var(--pad-size);
+    justify-items: center;
+    align-items: center;
+    padding-bottom: clamp(8px, 5dvh, 48px);
+    row-gap: 12px;
+  }
+
+  #play #screen {
+    /* Fit the 8:7 image in the actual space left by the toolbar and controller. */
+    width: min(100cqw, calc((100cqh - var(--pad-size) - 24px) * 8 / 7));
+    height: auto;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  #touch-controls {
+    width: min(100%, 560px);
+    height: var(--pad-size);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline: var(--edge);
+    color: var(--pad-ink);
+    pointer-events: none;
+  }
+
+  #play, #play * {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #play .play-body {
+    touch-action: none;
+  }
+
+  .touch-directions, .touch-actions button {
+    pointer-events: auto;
+  }
+
+  .touch-directions {
+    width: var(--pad-size);
+    height: var(--pad-size);
+    position: relative;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(177 207 194 / 28%) 0 10%, transparent 11%), var(--pad-fill);
+    border: 1px solid var(--pad-rim);
+  }
+
+  .touch-directions button {
+    position: absolute;
+    display: grid;
+    place-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    border: none;
+    border-radius: 50%;
+  }
+  .touch-directions button::after {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border: solid currentColor;
+    border-width: 2px 2px 0 0;
+    transform: rotate(var(--angle));
+  }
+  [data-control="up"] { top: 0; left: calc(50% - 22px); --angle: -45deg; }
+  [data-control="down"] { bottom: 0; left: calc(50% - 22px); --angle: 135deg; }
+  [data-control="left"] { left: 0; top: calc(50% - 22px); --angle: -135deg; }
+  [data-control="right"] { right: 0; top: calc(50% - 22px); --angle: 45deg; }
+
+  .touch-actions {
+    display: grid;
+    grid-template: 44px 64px / 54px 64px;
+    align-items: center;
+    justify-items: center;
+    gap: 2px 5px;
+  }
+  .touch-actions button {
+    display: grid;
+    place-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--pad-rim);
+    background: var(--pad-fill);
+    color: inherit;
+    font: 700 11px/1.15 'Trebuchet MS', sans-serif;
+  }
+  .touch-actions button span {
+    font: bold 23px/1 ui-monospace, monospace;
+    pointer-events: none;
+  }
+  .touch-actions [data-control="jump"] {
+    grid-area: 2 / 2;
+    width: 64px;
+    height: 64px;
+    color: #e5f8d4;
+    border-color: rgb(192 229 157 / 64%);
+    background: rgb(53 85 61 / 82%);
+    align-self: start;
+  }
+  .touch-actions [data-control="run"] {
+    grid-area: 2 / 1;
+    width: 52px;
+    height: 52px;
+    align-self: end;
+  }
+  .touch-actions [data-control="spin"] {
+    grid-area: 1 / 1;
+    align-self: end;
+    font-size: 22px;
+  }
+  .touch-actions [data-control="reserve"] {
+    grid-area: 1 / 2;
+    border: 0;
+    background: transparent;
+    text-shadow: 0 1px 3px #102027;
+  }
+  .touch-actions [data-control="action"] {
+    grid-area: 1 / 1 / 3 / 3;
+    justify-self: end;
+    border-radius: 24px;
+    padding-inline: 17px;
+    font-size: 13px;
+  }
+  #touch-controls .is-pressed {
+    color: #102820;
+    background: var(--accent);
+  }
+
+  #touch-controls:not([data-mode="level"]) .touch-actions button:not([data-control="action"]),
+  #touch-controls:is([data-mode="level"], [data-mode="idle"]) [data-control="action"],
+  #touch-controls:not([data-has-reserve]) [data-control="reserve"],
+  #touch-controls:is([data-mode="continue"], [data-mode="idle"]) .touch-directions {
+    display: none;
+  }
+  #touch-controls[data-mode="continue"] { justify-content: flex-end; }
+}
+
+@media (any-pointer: coarse) and (orientation: landscape) {
+  #play .play-body {
+    display: grid;
+    place-items: center;
+    align-content: stretch;
+    grid-template-rows: minmax(0, 1fr);
+    padding-bottom: 0;
+    gap: 0;
+  }
+  #play #screen {
+    width: min(100cqw, calc(100cqh * 8 / 7));
+  }
+  #touch-controls {
+    position: absolute;
+    inset: auto 0 var(--edge);
+    width: 100%;
+    padding-inline: clamp(10px, 4vw, 46px);
+    z-index: 3;
+  }
+}

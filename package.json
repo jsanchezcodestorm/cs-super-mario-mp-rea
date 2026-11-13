@@ -17,7 +17,7 @@
     "check:server": "tsc --noEmit -p apps/server/tsconfig.json",
     "test": "tsx --test tests/*.test.ts && npm run test -w @smw/core",
     "test:campaign:online": "tsx tests/network-playthrough.ts",
-    "test:browser": "node tests/browser.mjs && tsx tests/browser-campaign.mjs && node tests/browser-priorities.mjs && node tests/browser-yoshi.mjs && node tests/browser-animation-media.mjs && node tests/browser-overworld-animation.mjs && node tests/browser-map-reveal.mjs && node tests/browser-keyhole.mjs && node tests/browser-pipe-plants.mjs && node tests/browser-goal-finish.mjs && node tests/browser-npc-facing.mjs",
+    "test:browser": "node tests/browser.mjs && tsx tests/browser-campaign.mjs && node tests/browser-priorities.mjs && node tests/browser-yoshi.mjs && node tests/browser-animation-media.mjs && node tests/browser-overworld-animation.mjs && node tests/browser-map-reveal.mjs && node tests/browser-keyhole.mjs && node tests/browser-pipe-plants.mjs && node tests/browser-goal-finish.mjs && node tests/browser-npc-facing.mjs && node tests/browser-mobile-selection.mjs",
     "extract": "node tools/extract.mjs"
   },
   "devDependencies": {

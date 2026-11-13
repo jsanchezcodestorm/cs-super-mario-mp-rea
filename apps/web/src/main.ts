@@ -1,4 +1,5 @@
 import './style.css';
+import './ui/mobile-play.css';
 import { CutsceneView } from './game/cutscene-view';
 import { goalWalkFrame } from '@smw/core';
 import type { CampaignSave, GameEvent, GameState, PlayerId } from '@smw/core';
@@ -10,6 +11,8 @@ import { loadContent, type Content } from './game/content';
 import { Playback, type GameSession } from './game/playback';
 import { GameAudio } from './game/audio';
 import { FullscreenToggle } from './ui/fullscreen';
+import { touchDevice, TouchHud } from './ui/touch-hud';
+import { bindPlaySurface } from './ui/play-surface';
 import { LocalGameSession } from './session/local-game';
 
 let localSave: CampaignSave | undefined, me: PlayerId | undefined, playback: GameSession | undefined;
@@ -27,6 +30,8 @@ const fullscreen = new FullscreenToggle(
   el('fullscreen-help'),
 );
 const cutscenes = new CutsceneView(el('screen'));
+const touchHud = new TouchHud(el('touch-controls'));
+bindPlaySurface(el('play'), touchDevice);
 window.addEventListener('keydown', () => audio.unlock(), { once: true });
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 const music = ['level', 'underground', 'athletic', 'castle', 'ghost', 'water', 'boss', 'bonus'];
@@ -81,6 +86,7 @@ const lobby = new Lobby({
   },
 });
 function end(message = '') {
+  touchHud.clear();
   void fullscreen.exitIfActive();
   cutscenes.close();
   session++;
@@ -99,10 +105,12 @@ function showHud(s: GameState) {
   if (!me || !content) return;
   const p = s.players[me],
     stage = content.levels[p.roomId];
+  if (paused || !stopped) touchHud.clear();
+  else touchHud.update(s, me);
   el('stage-name').textContent =
     s.phase === 'map' && !s.goalWalk && !s.keyholeFinish && !s.orbFinish ? 'Mappa del mondo' : content.names?.[s.progress.course] ?? s.progress.course;
   const canReturn = !s.cutscene && (s.phase === 'ending' || s.phase === 'gameOver');
-  el('hud').textContent = canReturn ? 'Invio · Torna alla mappa' : audioNotice;
+  el('hud').textContent = canReturn && !touchDevice.matches ? 'Invio · Torna alla mappa' : audioNotice;
   const phase = s.phase;
   const bgm =
     phase === 'map'
@@ -140,6 +148,7 @@ async function mountGame(makeSession: (content: Content) => GameSession, leaveRo
   if (loading || stopped) return;
   loading = true;
   const generation = session;
+  touchHud.clear();
   lobby.play();
   lobby.overlay('Caricamento della campagna…');
   try {
@@ -219,6 +228,7 @@ const connection = new RoomConnection({
     }
     playback?.pause(true);
     paused = true;
+    touchHud.clear();
     audio.stop();
     if (stopped) lobby.overlay('Riconnessione in corso…');
     else lobby.notice('Riconnessione in corso…');

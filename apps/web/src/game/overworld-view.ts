@@ -5,6 +5,7 @@ import { mapDecorations, drawMapDecorations } from './map-decorations';
 import { drawMapTiles, type MapAnimation } from './map-events';
 import { drawMapPlayers, mapPlayerFrame } from './map-player';
 import { HEIGHT, WIDTH } from './terrain-view';
+import { touchDevice } from '../ui/touch-hud';
 
 export type WorldNodes = Record<string, OverworldNode>;
 
@@ -24,6 +25,7 @@ function mapCommands(campaign: CampaignDefinition, state: GameState, id: string,
     .map(direction => directions[direction]);
   const commands: string[] = [];
   if (arrows.length) commands.push(arrows.join(' ') + ' Percorri');
+  if (touchDevice.matches) return commands.join(' · ');
   if (!state.mapStop) commands.push('Z/Invio Avvia');
   else if (open(Buttons.action)) commands.push(stop.tile === 0x82 ? 'Z/Invio Entra nel tubo' : 'Z/Invio Usa la stella');
   return commands.join(' · ');

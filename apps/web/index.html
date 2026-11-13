@@ -95,34 +95,23 @@
         </p>
         <div class="play-body">
           <div id="screen"><div id="play-notice" role="status" hidden></div></div>
-          <div id="touch-controls" role="group" aria-label="Comandi touch">
-            <div class="touch-directions" role="group" aria-label="Direzioni">
-              <span aria-hidden="true"></span>
-              <button type="button" data-control="up" aria-label="Su">↑</button>
-              <span aria-hidden="true"></span>
-              <button type="button" data-control="left" aria-label="Sinistra">←</button>
-              <span aria-hidden="true"></span>
-              <button type="button" data-control="right" aria-label="Destra">→</button>
-              <span aria-hidden="true"></span>
-              <button type="button" data-control="down" aria-label="Giù">↓</button>
-              <span aria-hidden="true"></span>
+          <div id="touch-controls" data-mode="idle" role="group" aria-label="Comandi touch">
+            <div class="touch-directions" role="group" aria-label="Movimento">
+              <button type="button" data-control="up" aria-label="Su"></button>
+              <button type="button" data-control="left" aria-label="Sinistra"></button>
+              <button type="button" data-control="right" aria-label="Destra"></button>
+              <button type="button" data-control="down" aria-label="Giù"></button>
             </div>
             <div class="touch-actions" role="group" aria-label="Azioni">
               <button type="button" data-control="jump" aria-label="Salto">
-                <span aria-hidden="true">Z</span><small>Salto</small>
+                <span aria-hidden="true">↑</span>Salto
               </button>
               <button type="button" data-control="run" aria-label="Corsa, fuoco o lingua">
-                <span aria-hidden="true">X</span><small>Corsa</small>
+                <span aria-hidden="true">»</span>Corsa
               </button>
-              <button type="button" data-control="spin" aria-label="Salto avvitato">
-                <span aria-hidden="true">A</span><small>Avvita</small>
-              </button>
-              <button type="button" data-control="action" aria-label="Azione">
-                <span aria-hidden="true">↵</span><small>Azione</small>
-              </button>
-              <button type="button" data-control="reserve" aria-label="Rilascia la riserva">
-                <span aria-hidden="true">C</span><small>Riserva</small>
-              </button>
+              <button type="button" data-control="spin" aria-label="Salto avvitato" title="Salto avvitato">⟳</button>
+              <button type="button" data-control="reserve" aria-label="Usa la riserva">Riserva</button>
+              <button type="button" data-control="action">Entra</button>
             </div>
           </div>
         </div>
