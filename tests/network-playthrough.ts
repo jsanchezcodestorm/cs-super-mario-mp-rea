@@ -26,6 +26,7 @@ function sharedSave(session: Session, expected: CampaignSave, label: string) {
 
 let session = await openTestRoom(campaign);
 let visits = 0, ticks = 0;
+const finishes = { mario: 0, luigi: 0 };
 try {
   for (const visit of generatePlaythrough(campaign)) {
     await playInputs(session, visit.entryInputs);
@@ -39,7 +40,10 @@ try {
     const goal = visit.id.split(':')[1];
     if (goal === 'normal' || goal === 'secret') {
       assert.equal(session.mario.exits.length, 1, visit.id);
-      assert.ok(session.mario.exits[0].endsWith(':' + goal), visit.id);
+      const [finisher, exit] = session.mario.exits[0].split(':');
+      assert.equal(exit, goal, visit.id);
+      assert.ok(finisher === 'mario' || finisher === 'luigi', visit.id);
+      finishes[finisher]++;
     }
     if (result.phase === 'ending') {
       assert.deepEqual(session.mario.endings, session.luigi.endings, visit.id);
@@ -52,6 +56,9 @@ try {
   }
   assert.equal(session.mario.save?.phase, 'ending', 'finish Bowser');
   assert.equal(new Set(session.mario.save.progress.completed).size, 96);
+  assert.equal(finishes.mario + finishes.luigi, 96);
+  assert.ok(finishes.mario > 0 && finishes.luigi > 0, 'each player must earn exits for the team');
+  console.log(`96 shared exits. Mario finished ${finishes.mario}, Luigi finished ${finishes.luigi}.`);
 } finally {
   await session.close();
 }

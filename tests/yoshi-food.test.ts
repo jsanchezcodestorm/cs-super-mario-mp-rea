@@ -29,12 +29,13 @@ function field() {
 
 for (const id of ['mario', 'luigi'] as const) {
   test(id + ' swallows each ROM food with the correct coins, score, power and lives', () => {
-    for (const [number, coins, score, lives, form] of [
-      [0x0f, 1, 0, 5, 'small'], [0x21, 1, 200, 5, 'small'], [0x74, 0, 1000, 5, 'super'],
-      [0x75, 0, 1000, 5, 'fire'], [0x76, 0, 1000, 5, 'small'], [0x77, 0, 1000, 5, 'cape'],
-      [0x78, 0, 0, 6, 'small'], [0x28, 0, 0, 5, 'small'],
+    for (const [number, coins, score, extraLives, form] of [
+      [0x0f, 1, 0, 0, 'small'], [0x21, 1, 200, 0, 'small'], [0x74, 0, 1000, 0, 'super'],
+      [0x75, 0, 1000, 0, 'fire'], [0x76, 0, 1000, 0, 'small'], [0x77, 0, 1000, 0, 'cape'],
+      [0x78, 0, 0, 1, 'small'], [0x28, 0, 0, 0, 'small'],
     ] as const) {
       const g = field(), p = g.state.players[id]
+      const startingLives = p.lives
       const other: PlayerId = id === 'mario' ? 'luigi' : 'mario'
       const press = () => g.drive(id === 'mario' ? Buttons.run : 0, id === 'luigi' ? Buttons.run : 0)
       while (p.tongueFrame < 10) press()
@@ -46,7 +47,7 @@ for (const id of ['mario', 'luigi'] as const) {
         assert.equal(p.score, 0)
       }
       for (let i = 0; i < 60; i++) press()
-      assert.deepEqual([p.coins, p.score, p.lives, p.form], [coins, score, lives, form], number.toString(16))
+      assert.deepEqual([p.coins, p.score, p.lives, p.form], [coins, score, startingLives + extraLives, form], number.toString(16))
       if (number === 0x76) assert.ok(p.star > 0)
       assert.equal(g.state.players[other].score, 0)
       assert.equal(p.mouth, null)

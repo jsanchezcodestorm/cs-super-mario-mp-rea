@@ -1,3 +1,4 @@
+import { choose } from './coop/inputs.ts';
 import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts'
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,7 +27,8 @@ for (const [course, commands] of Object.entries(replays)) {
     if (course === '10e') {
       assert.equal(state.phase, 'ending');
       assert.equal(state.cutscene?.key, 'ending');
-      assert.equal(state.players.mario.lives, 5);
+      assert.equal(state.players.mario.lives, state.sharedLives);
+      assert.equal(state.players.luigi.lives, state.sharedLives);
       const duration = state.cutscene!.duration;
       for (let frame = 0; frame < duration; frame++) stepGame(fixture, state, { mario: 0, luigi: 0 });
       assert.equal(state.phase, 'ending');
@@ -35,12 +37,11 @@ for (const [course, commands] of Object.entries(replays)) {
     }
     assert.equal(state.phase, 'map');
     assert.ok(state.progress.completed.includes(course + ':normal'));
-    const next = state.progress.unlocked[state.progress.selection];
-    assert.ok(campaign.routes[course].normal?.includes(next) || !campaign.routes[course].normal);
+    const next = campaign.routes[course].normal?.[0] ?? course;
+    assert.ok(state.progress.unlocked.includes(next));
     const save = makeSave(state);
     assert.ok(validateSave(fixture, save));
-    const restored = createGame(fixture, save);
-    stepGame(fixture, restored, { luigi: Buttons.action, mario: 0 });
+    const restored = choose(fixture, createGame(fixture, save), next);
     assert.equal(restored.phase, 'playing');
     assert.equal(restored.progress.course, next);
     assert.equal(restored.players.mario.roomId, restored.players.luigi.roomId);

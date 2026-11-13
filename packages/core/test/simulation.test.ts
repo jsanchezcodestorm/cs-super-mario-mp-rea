@@ -12,6 +12,7 @@ import {
   effectiveTile,
 } from '../src/index.ts'
 import type { CampaignDefinition, LevelDefinition, Spawn } from '../src/index.ts'
+import { setSharedLives } from '../src/lives.ts'
 import { chocolateRoom } from '../src/chocolate-island.ts'
 import { blockReward } from '../src/block-rewards.ts'
 import { palFrame } from '../src/pal-time.ts'
@@ -104,16 +105,21 @@ test('a checkpoint activated by Luigi restores Mario when he loses a life', () =
   assert.equal(state.players.luigi.form, 'super')
   state.players.mario.y = first.height * 16 + 20
   tick(campaign, state, 77)
-  assert.equal(state.players.mario.lives, 4)
+  assert.equal(state.players.mario.lives, 9)
   assert.equal(state.players.mario.x, 112)
   assert.equal(state.players.mario.status, 'alive')
-  assert.equal(state.players.luigi.lives, 5)
+  assert.equal(state.players.luigi.lives, 9)
 })
 
 test('an exhausted player spectates through reload and rejoins at the next course', () => {
   const { campaign, first } = fixture([{ spriteId: 0x7b, x: 280, y: 144 }])
+  campaign.overworldPaths = {
+    first: { tile: 0, position: [0, 0, 0], exitDirections: { normal: 'right', secret: 'right' },
+      directions: { right: { to: 'second', frames: 1, path: [[1, 0, 16, 0]] } } },
+    second: { tile: 0, position: [0, 16, 0], exitDirections: { normal: 'left', secret: 'left' }, directions: {} },
+  }
   const state = enterFirstCourse(campaign)
-  state.players.mario.lives = 1
+  setSharedLives(state, 1)
   state.players.mario.y = first.height * 16 + 20
   tick(campaign, state)
   assert.equal(state.players.mario.status, 'spectator')
@@ -128,20 +134,21 @@ test('an exhausted player spectates through reload and rejoins at the next cours
   assert.equal(restored.goalWalk?.finisher, 'luigi')
   for (let i = 0; i < 720 && restored.goalWalk; i++) tick(campaign, restored)
   assert.equal(restored.goalWalk, undefined)
+  tick(campaign, restored, 2)
+  assert.equal(restored.mapPlayers.luigi.stop, 'second')
   tick(campaign, restored, 1, 0, Buttons.jump)
+  tick(campaign, restored, 1, Buttons.action)
   assert.equal(restored.progress.course, 'second')
   assert.equal(restored.players.mario.status, 'alive')
   assert.equal(restored.players.mario.lives, 1)
-  assert.equal(restored.players.luigi.lives, 5)
+  assert.equal(restored.players.luigi.lives, 1)
 })
 
 test('both players running out of lives ends the game exactly once', () => {
   const { campaign } = fixture()
   const state = enterFirstCourse(campaign)
-  for (const player of Object.values(state.players)) {
-    player.y = 512
-    player.lives = 1
-  }
+  setSharedLives(state, 1)
+  for (const player of Object.values(state.players)) player.y = 512
   tick(campaign, state)
   assert.equal(state.phase, 'gameOver')
   assert.equal(state.events.filter((e) => e.type === 'gameOver').length, 1)
@@ -151,11 +158,12 @@ test('both players running out of lives ends the game exactly once', () => {
   tick(campaign, restored, 1, 0, Buttons.action)
   assert.equal(restored.phase, 'map')
   assert.deepEqual(restored.progress.completed, state.progress.completed)
-  assert.deepEqual(Object.values(restored.players).map((p) => p.lives), [5, 5])
+  assert.deepEqual(Object.values(restored.players).map((p) => p.lives), [10, 10])
   tick(campaign, restored, 1, 0, Buttons.action)
   assert.equal(restored.phase, 'map', 'holding Continue must not immediately enter a course')
   tick(campaign, restored)
   tick(campaign, restored, 1, Buttons.action)
+  tick(campaign, restored, 1, 0, Buttons.action)
   assert.equal(restored.phase, 'playing')
 })
 

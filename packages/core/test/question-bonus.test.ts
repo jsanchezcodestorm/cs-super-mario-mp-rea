@@ -51,7 +51,7 @@ test('Mario and Luigi complete all five rows in each of the nine PAL rooms', ext
       assert.ok(cols.every((col) => tileAt(world, room, col, row) === CORRECT))
     }
     assert.deepEqual([mario.coins, luigi.coins, mario.score, luigi.score], [5, 5, 50, 50])
-    assert.deepEqual([mario.lives, luigi.lives], [5, 5])
+    assert.deepEqual([mario.lives, luigi.lives], [10, 10])
     assert.equal(world.state.entities.filter((e) => e.kind === 'oneUp').length, 5)
   }
 })

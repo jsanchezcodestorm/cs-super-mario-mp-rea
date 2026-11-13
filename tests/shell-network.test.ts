@@ -28,12 +28,13 @@ test('Luigi throws the red shell through all eight red Koopas in Yoshi’s Islan
         awards[i].push(message.event.award);
     });
   }
+  const teamLives = session.state.players.luigi.lives;
   // Grab the first shell, jump toward the raised walkway and release it above the Koopas.
-  await session.drive(0, Buttons.right | Buttons.run, 110);
+  await session.drive(0, Buttons.right | Buttons.run, 112);
   assert.ok(session.state.players.luigi.carrying);
-  await session.drive(0, Buttons.right | Buttons.run | Buttons.jump, 12);
-  await session.drive(0, Buttons.right | Buttons.jump, 15);
-  await session.drive(0, 0, 120);
+  await session.drive(0, Buttons.right | Buttons.run | Buttons.jump, 9);
+  await session.drive(0, Buttons.right | Buttons.jump, 20);
+  await session.drive(0, 0, 160);
   await Promise.all([session.mario.flush(), session.luigi.flush()]);
   assert.deepEqual(awards[0], [200, 400, 800, 1000, 2000, 4000, 8000, '1up']);
   assert.deepEqual(awards[1], awards[0]);
@@ -41,8 +42,8 @@ test('Luigi throws the red shell through all eight red Koopas in Yoshi’s Islan
   for (const state of latest) {
     assert.ok(state);
     assert.equal(state.players.luigi.score, 16400);
-    assert.equal(state.players.luigi.lives, 6);
+    assert.equal(state.players.luigi.lives, teamLives + 1);
     assert.equal(state.players.mario.score, 0);
-    assert.equal(state.players.mario.lives, 5);
+    assert.equal(state.players.mario.lives, teamLives + 1);
   }
 });

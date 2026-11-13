@@ -1,3 +1,4 @@
+import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -65,8 +66,7 @@ test('both players can grab a hanging rope, climb, release and leave the motor r
   // Open space under this actual long motor allows a repeatable synchronized jump.
   for (let row = 20; row < room.height; row++) room.tiles.fill(0x25, row * room.width + 196, row * room.width + 213)
   const c = { ...campaign, start: room.id, initial: [room.id], levels: { [room.id]: room } }
-  const state = createGame(c), step = (mario = 0, luigi = 0) => stepGame(c,state,{mario,luigi})
-  step(Buttons.action)
+  const state = enterFirstCourse(c), step = (mario = 0, luigi = 0) => stepGame(c,state,{mario,luigi})
   delete state.entrance
   const [motor] = state.entities
   for (const p of Object.values(state.players)) Object.assign(p, room.spawn, { vx: 0, vy: 0 })

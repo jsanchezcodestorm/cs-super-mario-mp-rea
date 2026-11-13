@@ -94,7 +94,7 @@ test('105 loads the real Chuck and tape, converts both on a missed ribbon and re
   const state = createGame(campaign), world = { campaign, state }
   startCourse(world, '105')
   const tape = state.entities.find(e => e.kind === 'goal')!, chuck = state.entities.find(e => e.spriteId === 0x95 && e.x === 4768)!
-  const p = state.players.luigi
+  const p = state.players.luigi, initialLives = p.lives
   Object.assign(p, { x: tape.x, y: tape.y - 35, coins: 99, grounded: true })
   const mushroom = spawnEntity(world, '105', { x: 4800, y: tape.y, spriteId: 0x74 })!
   const yoshi = spawnEntity(world, '105', { x: 4780, y: tape.y, spriteId: 0x35 })!
@@ -105,7 +105,7 @@ test('105 loads the real Chuck and tape, converts both on a missed ribbon and re
   const bonus = state.goalWalk!.coins!
   assert.equal(state.goalWalk!.stars, 0)
   assert.deepEqual(bonus.popups.map(e => e.type).sort(), [5,7])
-  assert.deepEqual([bonus.sprites.length, bonus.scoreGain, p.coins, p.lives], [2,500,1,6])
+  assert.deepEqual([bonus.sprites.length, bonus.scoreGain, p.coins, p.lives], [2,500,1,initialLives + 1])
   assert.equal(goalCoinHud(bonus,55).coins,99)
   assert.equal(goalCoinHud(bonus,56).coins,0)
   assert.equal(p.score, 500 + state.timeLeft*50)
@@ -123,10 +123,11 @@ test('simultaneous goal coins recycle the same six native award slots', () => {
     state.entities = [tape]
     Object.assign(p, { x: tape.x, y: tape.y })
     for (let i=0;i<n;i++) spawnEntity(world,'105',{ x: tape.x-64+8*i, y: tape.y, spriteId: 4 })
+    const initialLives = p.lives
     const converted = settleGoalCoins(world,p,tape,true)!
     assert.equal(converted.sprites.length,n)
     assert.equal(converted.popups.length,Math.min(n,6))
-    assert.deepEqual([p.coins,p.score,p.lives-5],[coins,points,extraLives])
-    assert.deepEqual(goalCoinHud(converted,225),{coins,lives:5+extraLives})
+    assert.deepEqual([p.coins,p.score,p.lives-initialLives],[coins,points,extraLives])
+    assert.deepEqual(goalCoinHud(converted,225),{coins,lives:initialLives+extraLives})
   }
 })

@@ -1,17 +1,19 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { Buttons, goalWalkFrame, type CampaignDefinition, type GameState } from '@smw/core'
+import { Buttons, goalWalkFrame, makeSave, type CampaignDefinition, type GameState } from '@smw/core'
 import type { ServerMessage } from '@smw/protocol'
 import { Playback } from '../apps/web/src/game/playback.ts'
 import { LocalGameSession } from '../apps/web/src/session/local-game.ts'
+import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts'
 import { recordings } from './coop/inputs.ts'
 import { openTestRoom } from './coop/socket-room.ts'
 
 const campaign: CampaignDefinition = JSON.parse(readFileSync('generated/content.json', 'utf8'))
 
 test('solo and both WebSocket clients see the whole Yoshi’s Island 1 finish while either controller keeps playing', async t => {
-  const session = await openTestRoom(campaign)
+  const entry = makeSave(enterFirstCourse(campaign))
+  const session = await openTestRoom(campaign, entry)
   t.after(() => session.close())
   const peers = [session.mario, session.luigi]
   const latest: GameState[] = []
@@ -21,7 +23,7 @@ test('solo and both WebSocket clients see the whole Yoshi’s Island 1 finish wh
       if (message.type === 'snapshot') latest[i] = message.state
     })
   }
-  const solo = new LocalGameSession(campaign, undefined, { step() {}, save() {} })
+  const solo = new LocalGameSession(campaign, entry, { step() {}, save() {} })
   async function drive(mario: number, luigi: number, ticks: number) {
     await session.drive(mario, luigi, ticks)
     for (let i = 0; i < ticks; i++) solo.update(mario)
@@ -31,13 +33,14 @@ test('solo and both WebSocket clients see the whole Yoshi’s Island 1 finish wh
     assert.equal(latest.length, 2)
     return [...latest, solo.displayState]
   }
-  await drive(Buttons.action, 0, 1)
   const route = recordings()['105:normal']
   assert.ok(Array.isArray(route))
   for (const [mario, luigi, ticks] of route) await drive(mario, luigi, ticks)
-  const crossing = session.state.tick
+  const crossing = session.state.goalWalk?.tick
+  assert.ok(crossing !== undefined)
   for (const state of await screens()) {
     assert.equal(state.goalWalk?.finisher, 'mario')
+    assert.ok(Math.abs(state.tick - crossing) <= 1)
     assert.equal(state.goalWalk.tick, crossing)
   }
 
@@ -46,7 +49,7 @@ test('solo and both WebSocket clients see the whole Yoshi’s Island 1 finish wh
   await drive(Buttons.right | Buttons.run | Buttons.jump, Buttons.action | Buttons.spin, 8)
   for (const state of await screens()) {
     assert.equal(state.goalWalk?.tick, crossing)
-    assert.equal(state.mapTravel?.elapsed ?? 0, 0)
+    assert.equal(state.mapPlayers.mario.travel?.elapsed ?? 0, 0)
     assert.equal(state.mapReveal?.start, undefined)
   }
   const held = Buttons.down | Buttons.run
@@ -84,7 +87,7 @@ test('solo and both WebSocket clients see the whole Yoshi’s Island 1 finish wh
     assert.equal(state.goalWalk, undefined)
     assert.equal(state.phase, 'map')
     assert.equal(state.progress.unlocked[state.progress.selection], '014')
-    assert.equal(state.mapTravel, undefined)
+    assert.equal(state.mapPlayers.mario.travel, undefined)
     assert.deepEqual(state.progress.completed, ['105:normal'])
   }
   for (const [i, client] of clients.entries()) {
@@ -96,5 +99,5 @@ test('solo and both WebSocket clients see the whole Yoshi’s Island 1 finish wh
   assert.deepEqual(session.luigi.save, session.mario.save)
   await drive(0, 0, 2)
   await drive(Buttons.down, Buttons.down, 2)
-  for (const state of await screens()) assert.equal(state.mapTravel?.to, '105')
+  for (const state of await screens()) assert.equal(state.mapPlayers.mario.travel?.to, '105')
 })

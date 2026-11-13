@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { Buttons, createGame, makeSave, type CampaignDefinition, type GameState } from '@smw/core';
 import type { ServerMessage } from '@smw/protocol';
+import { startCourse } from '../packages/core/src/campaign.ts';
 import { openTestRoom } from './coop/socket-room.ts';
 
 test('two mounted players reaching for the same red berry share one capture and one reward', async t => {
@@ -10,10 +11,9 @@ test('two mounted players reaching for the same red berry share one capture and 
   const room = campaign.levels['106'];
   const berry = 22 * room.width + 11;
   assert.equal(room.tiles[berry], 0x45);
-  const save = makeSave(createGame(campaign));
-  save.phase = 'playing';
-  save.progress.course = room.id;
-  save.progress.selection = save.progress.unlocked.indexOf(room.id);
+  const state = createGame(campaign);
+  startCourse({ campaign, state }, room.id);
+  const save = makeSave(state);
   save.progress.checkpoint = { roomId: room.id, x: 131, y: 368 };
   save.resources.mario.mounted = save.resources.luigi.mounted = true;
   const session = await openTestRoom(campaign, save);

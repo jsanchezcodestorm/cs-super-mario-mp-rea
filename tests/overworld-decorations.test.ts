@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { Buttons, createGame, palFrame, stepGame, type CampaignDefinition, type GameState } from '@smw/core';
+import { Buttons, createGame, palFrame, stepGame, type CampaignDefinition, type MapCloud } from '@smw/core';
 import { advanceClouds } from '../packages/core/src/overworld-clouds.ts';
 import { decorationParts, type Decorations } from '../apps/web/src/game/map-decorations.ts';
 import { mapObjectMask } from '../apps/web/src/game/map-obj-mask.ts';
@@ -39,31 +39,32 @@ test('six native fish crossings retain the PAL arc, its splash and the single sl
     const edge = campaign.overworldPaths![from].directions[command]!;
     const catalog = { ...campaign, start:from, initial:[from,edge.to] };
     const state = createGame(catalog);
+    const luigi = state.mapPlayers.luigi;
     stepGame(catalog,state,{mario:0,luigi:Buttons[command]});
-    assert.ok(state.mapTravel);
+    assert.ok(luigi.travel);
     const seen = new Set<number>();
     let tail = 0;
     for (let i = 0; i < 220; i++) {
       stepGame(catalog,state,{mario:0,luigi:0});
-      const arrival = state.mapArrival;
+      const arrival = luigi.arrival;
       const last = arrival && { ...arrival, elapsed:state.tick-arrival.departed };
       const frame = palFrame(state.tick);
-      const parts = decorationParts(data,0,frame,false,state.mapClouds,camera,state.mapTravel,last);
+      const parts = decorationParts(data,0,frame,false,state.mapClouds?.luigi,camera,luigi.travel,last);
       const fish = parts.find(p => p[3] === 70);
       if (!fish) continue;
       assert.equal(data.priorities[fish[2]],1);
       seen.add(fish[1]);
-      if (!state.mapTravel) tail++;
+      if (!luigi.travel) tail++;
     }
     assert.equal(seen.size,29,key);
     assert.ok(tail >= 9,key);
     assert.equal(state.phase,'map');
-    assert.equal(state.progress.unlocked[state.progress.selection],edge.to);
+    assert.equal(luigi.stop,edge.to);
   }
 });
 
 test('cloud spawn, fractional drift, camera recycling and OBJ slots follow bank 04', () => {
-  const clouds: NonNullable<GameState['mapClouds']> = [null,null,null];
+  const clouds: (MapCloud | null)[] = [null,null,null];
   advanceClouds(clouds,0,80,32);
   assert.deepEqual(clouds[0], {x:64.125,y:143.9375,z:112});
   for (let i=1;i<17;i++) advanceClouds(clouds,i,80,32);

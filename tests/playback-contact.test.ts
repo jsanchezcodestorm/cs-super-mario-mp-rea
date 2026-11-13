@@ -1,14 +1,14 @@
+import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Buttons, copyState, createGame, stepGame, type CampaignDefinition } from '@smw/core';
+import { copyState, stepGame, type CampaignDefinition } from '@smw/core';
 import { Playback } from '../apps/web/src/game/playback.ts';
 
 test('both clients render riders and a rising platform at the same tick during input replay', () => {
   const room = { id: 'lift', width: 12, height: 12, spawn: { x: 32, y: 80 },
     tiles: Array<number>(144).fill(0x25), exits: [], sprites: [{ spriteId: 0xc1, x: 32, y: 96 }] };
   const campaign: CampaignDefinition = { start: room.id, levels: { lift: room }, routes: { lift: {} } };
-  const initial = createGame(campaign);
-  stepGame(campaign, initial, { mario: Buttons.action, luigi: 0 });
+  const initial = enterFirstCourse(campaign);
   const deck = initial.entities[0];
   for (const p of Object.values(initial.players))
     Object.assign(p, { x: deck.x, y: deck.y - p.height, grounded: true });

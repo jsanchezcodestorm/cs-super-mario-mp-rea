@@ -79,8 +79,11 @@ try {
   mkdirSync('test-results', { recursive: true });
   await guest.screenshot({ path: 'test-results/overworld.png' });
   await guest.keyboard.down('Enter');
-  await until((s) => s.phase === 'playing' && s.progress.course === '014', 'select the Yellow Switch Palace');
+  await until((s) => s.mapRequest?.course === '014', 'Luigi proposes the Yellow Switch Palace');
   await guest.keyboard.up('Enter');
+  await host.keyboard.down('Enter');
+  await until((s) => s.phase === 'playing' && s.progress.course === '014', 'Mario accepts the palace');
+  await host.keyboard.up('Enter');
   await guest.keyboard.down('KeyX');
   await guest.keyboard.down('ArrowRight');
   await until((s) => s.players.luigi.roomId === '0ca' && s.players.luigi.x >= 611, 'reach the switch');
@@ -129,8 +132,11 @@ try {
   await still.waitFor({ state: 'hidden' });
   assert.deepEqual(snapshot.progress.completed, ending.progress.completed);
   await host.keyboard.down('Enter');
-  await until((s) => s.phase === 'playing', 'Mario can enter a course after Bowser');
+  await until((s) => s.mapRequest?.requester === 'mario', 'Mario proposes a course after Bowser');
   await host.keyboard.up('Enter');
+  await guest.keyboard.down('Enter');
+  await until((s) => s.phase === 'playing', 'Luigi accepts the course after Bowser');
+  await guest.keyboard.up('Enter');
   assert.equal(snapshot.progress.completed.length, 96);
   assert.deepEqual(errors, []);
   console.log('Both browsers restored the 96-exit campaign, left the ending and re-entered a course.');

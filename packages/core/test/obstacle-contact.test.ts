@@ -43,7 +43,7 @@ test('a rising layer cannot push the player through a fixed ceiling; the other s
     stepPlayer(w, p, 0)
   }
   assert.equal(w.state.players.mario.status, 'dead')
-  assert.equal(w.state.players.mario.lives, 4)
+  assert.equal(w.state.sharedLives, 9)
   assert.equal(w.state.players.luigi.status, 'alive')
   assert.equal(w.state.players.luigi.y, 62)
 })

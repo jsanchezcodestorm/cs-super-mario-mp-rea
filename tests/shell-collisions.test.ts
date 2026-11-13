@@ -1,3 +1,4 @@
+import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
@@ -36,13 +37,6 @@ function chainCourse(direction: number) {
   ], x(48));
 }
 
-function start(campaign: CampaignDefinition) {
-  const state = createGame(campaign);
-  stepGame(campaign, state, { mario: Buttons.action, luigi: 0 });
-  assert.equal(state.phase, 'playing');
-  return state;
-}
-
 function readResources(state: GameState, id: PlayerId) {
   const { score, lives } = state.players[id];
   return [score, lives];
@@ -50,7 +44,7 @@ function readResources(state: GameState, id: PlayerId) {
 
 for (const [seat, direction] of [['mario', 1], ['luigi', -1]] as const) {
   test(seat + ' kicks through nine targets, earning the PAL chain in order', () => {
-    const campaign = chainCourse(direction), state = start(campaign);
+    const campaign = chainCourse(direction), state = enterFirstCourse(campaign);
     const shell = state.entities[0], key = state.entities[1], coin = state.entities[2];
     const firstTarget = state.entities[3], other = seat === 'mario' ? 'luigi' : 'mario';
     const deltas: number[][] = [];
@@ -75,7 +69,7 @@ for (const [seat, direction] of [['mario', 1], ['luigi', -1]] as const) {
     assert.deepEqual(deltas, [...points.map(p => [p, 0]), [0, 1], [0, 1]]);
     assert.ok(observedKnockback, 'first target flies up in the direction of impact');
     assert.ok(key.active && coin.active, 'the shell passes through the key and coin');
-    assert.deepEqual(readResources(state, other), [0, 5]);
+    assert.deepEqual(readResources(state, other), [0, state.sharedLives]);
     const save = makeSave(state);
     assert.ok(validateSave(campaign, save));
     assert.deepEqual(readResources(createGame(campaign, save), seat), previous);
@@ -88,12 +82,12 @@ test('a stomp stops Marioâ€™s chain and a new kick starts Luigi at 200', () => {
     { spriteId: 0x0f, x: 172, y: floorY },
     { spriteId: 0x0f, x: 405, y: floorY },
   ]);
-  const state = start(campaign), shell = state.entities[0], luigi = state.players.luigi;
+  const state = enterFirstCourse(campaign), shell = state.entities[0], luigi = state.players.luigi;
   luigi.x = 244;
   let kicked = false, jumped = false, stopped = false;
   for (let i = 0; i < 180 && luigi.score < 400; i++) {
     let button = 0;
-    if (kicked && !jumped && luigi.x - shell.x <= 64) {
+    if (kicked && !jumped && luigi.x - shell.x <= 65) {
       button = Buttons.jump;
       jumped = true;
     }
@@ -103,8 +97,8 @@ test('a stomp stops Marioâ€™s chain and a new kick starts Luigi at 200', () => {
   }
   assert.ok(stopped);
   assert.equal(shell.owner, 'luigi');
-  assert.deepEqual(readResources(state, 'mario'), [400, 5]);
-  assert.deepEqual(readResources(state, 'luigi'), [400, 5]);
+  assert.deepEqual(readResources(state, 'mario'), [400, state.sharedLives]);
+  assert.deepEqual(readResources(state, 'luigi'), [400, state.sharedLives]);
 });
 
 test('a shell keeps its combo after bouncing off a solid wall', () => {
@@ -116,7 +110,7 @@ test('a shell keeps its combo after bouncing off a solid wall', () => {
   ]);
   const level = campaign.levels.test;
   level.tiles[9 * level.width + 14] = 0x130;
-  const state = start(campaign), shell = state.entities[0];
+  const state = enterFirstCourse(campaign), shell = state.entities[0];
   const awards: { amount: number; direction: number }[] = [];
   let score = 0;
   for (let i = 0; i < 140 && awards.length < 2; i++) {
@@ -135,14 +129,14 @@ test('two kicked shells colliding knock one another out and pay one fixed 1000',
     { spriteId: 0xda, x: 94, y: floorY },
     { spriteId: 0xdb, x: 242, y: floorY },
   ]);
-  const state = start(campaign), [a, b] = state.entities;
+  const state = enterFirstCourse(campaign), [a, b] = state.entities;
   state.players.luigi.x = 290;
   for (let i = 0; i < 145 && (a.active || b.active); i++) {
     stepGame(campaign, state, { mario: a.owner ? 0 : Buttons.right, luigi: b.owner ? 0 : Buttons.left });
   }
   assert.ok(!a.active && !b.active && a.vy < 0 && b.vy < 0);
   assert.equal(state.players.mario.score + state.players.luigi.score, 200 + 200 + 1000);
-  assert.equal(state.players.mario.lives + state.players.luigi.lives, 10);
+  assert.equal(state.sharedLives, 10);
 });
 
 test('a carried shell collides with an approaching Koopa and clears the playerâ€™s hands', () => {
@@ -150,7 +144,7 @@ test('a carried shell collides with an approaching Koopa and clears the playerâ€
     { spriteId: 0xda, x: 94, y: floorY },
     { spriteId: 4, x: 200, y: floorY },
   ]);
-  const state = start(campaign), [shield, target] = state.entities;
+  const state = enterFirstCourse(campaign), [shield, target] = state.entities;
   let carried = false;
   for (let i = 0; i < 120 && target.active; i++) {
     stepGame(campaign, state, { mario: Buttons.right | Buttons.run, luigi: 0 });
@@ -158,7 +152,7 @@ test('a carried shell collides with an approaching Koopa and clears the playerâ€
   }
   assert.ok(carried && !shield.active && !target.active);
   assert.equal(state.players.mario.carrying, null);
-  assert.deepEqual(readResources(state, 'mario'), [1000, 5]);
+  assert.deepEqual(readResources(state, 'mario'), [1000, state.sharedLives]);
 });
 
 test('a blue shell-less Koopa catches a frontal shell, then kicks it back', () => {
@@ -167,7 +161,7 @@ test('a blue shell-less Koopa catches a frontal shell, then kicks it back', () =
     { spriteId: 0x0f, x: 155, y: floorY },
     { spriteId: 2, x: 225, y: floorY },
   ]);
-  const state = start(campaign), [shell, , koopa] = state.entities;
+  const state = enterFirstCourse(campaign), [shell, , koopa] = state.entities;
   let launched = false, braked = false, returned = false;
   for (let i = 0; i < 230 && !returned; i++) {
     stepGame(campaign, state, { mario: launched ? 0 : Buttons.right, luigi: 0 });
@@ -178,14 +172,14 @@ test('a blue shell-less Koopa catches a frontal shell, then kicks it back', () =
   assert.ok(returned && koopa.active);
   assert.equal(shell.owner, 'mario');
   assert.equal(shell.shellChain, 1);
-  assert.deepEqual(readResources(state, 'mario'), [400, 5]);
+  assert.deepEqual(readResources(state, 'mario'), [400, state.sharedLives]);
 });
 
 test('a kicked shell activates a visible coin block from the side and keeps its streak on the rebound', () => {
   const campaign = course([{ spriteId: 0xda, x: 90, y: floorY }])
   const room = campaign.levels.test
   room.tiles[9 * room.width + 10] = 0x124
-  const state = start(campaign), shell = state.entities[0]
+  const state = enterFirstCourse(campaign), shell = state.entities[0]
   for (let i = 0; i < 110 && !state.players.luigi.coins; i++)
     stepGame(campaign, state, { mario: 0, luigi: shell.owner ? 0 : Buttons.right })
   assert.equal(state.players.luigi.coins, 1)

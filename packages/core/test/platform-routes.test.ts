@@ -1,6 +1,7 @@
+import { enterFirstCourse } from './enter-first-course.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { tideSurface, createGame, stepGame, type CampaignDefinition, type LevelDefinition } from '../src/index.ts'
+import { tideSurface, createGame, type CampaignDefinition, type LevelDefinition } from '../src/index.ts'
 import { moveEntity } from '../src/entity-motion.ts'
 
 function level(): LevelDefinition {
@@ -33,8 +34,7 @@ test('a room loads the three chain decks, the four skulls and both linked Forest
     { x: 272, y: 224, spriteId: 0xc1 },
   ]
   const campaign: CampaignDefinition = { start: room.id, levels: { field: room }, routes: {} }
-  const state = createGame(campaign)
-  stepGame(campaign, state, {mario: 128, luigi: 0})
+  const state = enterFirstCourse(campaign)
   const chains = state.entities.filter(e => e.spriteId === 0xa3)
   assert.equal(chains.length, 3)
   assert.equal(new Set(chains.map(e => e.chainPhase)).size, 3)

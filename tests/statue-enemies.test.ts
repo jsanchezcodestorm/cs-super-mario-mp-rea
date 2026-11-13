@@ -1,6 +1,7 @@
+import { enterFirstCourse } from '../packages/core/test/enter-first-course.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { Buttons, createGame, palFrame, stepGame } from '@smw/core'
+import { palFrame } from '@smw/core'
 import { contact } from '../packages/core/src/entity-contact.ts'
 import { moveEntity } from '../packages/core/src/entity-motion.ts'
 
@@ -10,8 +11,7 @@ function scene(spriteId: number, variant: number) {
   tiles.fill(0x130, width * 20)
   const room = { id: 'test', width, height, tiles, exits: [], spawn: { x: 16, y: 304 }, sprites: [{ spriteId, x, y: 304 }] }
   const campaign = { start: 'test', levels: { test: room }, routes: { test: {} } }
-  const state = createGame(campaign)
-  stepGame(campaign, state, { mario: Buttons.action, luigi: 0 })
+  const state = enterFirstCourse(campaign)
   const e = state.entities[0], p = state.players.luigi, world = { campaign, state }
   function frame() {
     const before = palFrame(state.tick)

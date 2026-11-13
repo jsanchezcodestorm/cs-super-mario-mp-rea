@@ -34,7 +34,7 @@ test('the course timer cannot kill the team inside the post-goal bonus game', ex
   for (let frame = 0; frame < 82; frame++) stepGame(campaign, state, { mario: 0, luigi: 0 })
   assert.ok(state.bonus)
   assert.equal(state.timeLeft, 1)
-  assert.ok(Object.values(state.players).every((p) => p.status === 'alive' && p.lives === 5))
+  assert.ok(Object.values(state.players).every((p) => p.status === 'alive' && p.lives === 10))
   assert.ok(validateSave(campaign, makeSave(state)))
 })
 test(
@@ -91,7 +91,7 @@ test(
     assert.equal(stopped, 9)
     assert.notEqual(result, null)
     assert.equal(state.phase, 'map')
-    assert.equal(state.players.mario.lives + state.players.luigi.lives, 10 + wins)
+    assert.equal(state.sharedLives, 10 + wins)
     assert.ok(state.progress.unlocked.includes('014'))
   },
 )
@@ -119,6 +119,6 @@ test(
     for (let tick = 0; tick < 3500 && restored.bonus; tick++)
       stepGame(campaign, restored, { mario: 0, luigi: 0 })
     assert.equal(restored.phase, 'map')
-    assert.equal(restored.players.mario.lives + restored.players.luigi.lives, 18)
+    assert.equal(restored.sharedLives, 18)
   },
 )
