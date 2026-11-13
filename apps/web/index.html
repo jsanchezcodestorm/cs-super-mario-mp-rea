@@ -4,10 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#142b33" />
+    <meta
+      name="description"
+      content="Gioca a Super Mario World nel browser: campagna in singolo con salvataggio locale o co-op privata con un amico. Comandi touch, tastiera e gamepad."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:site_name" content="Super Mario World · Solo e Co-op" />
+    <meta property="og:title" content="Gioca a Super Mario World nel browser · Solo e Co-op" />
+    <meta
+      property="og:description"
+      content="Esplora Dinosaur Land da solo oppure condividi la campagna con un amico, direttamente nel browser."
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Gioca a Super Mario World nel browser · Solo e Co-op" />
+    <meta
+      name="twitter:description"
+      content="Esplora Dinosaur Land da solo oppure condividi la campagna con un amico, direttamente nel browser."
+    />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="SMW Solo e Co-op" />
-    <title>Super Mario World · Solo e Co-op</title>
-    <link rel="icon" href="data:," />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <title>Gioca a Super Mario World nel browser · Solo e Co-op</title>
   </head>
   <body>
     <header class="topbar">
@@ -71,8 +92,31 @@
             </button>
             <button class="subtle" id="leave" type="button">Esci dalla stanza</button>
           </div>
+          <button
+            id="install-app"
+            class="install-cta"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="install-guide"
+            hidden
+          >
+            <span class="install-cta-icon" aria-hidden="true">↥</span>
+            <span>Aggiungi alla schermata Home</span>
+          </button>
           <p class="notice" id="notice" role="status" aria-live="polite"></p>
         </div>
+      </section>
+      <section class="game-info" aria-labelledby="game-info-title">
+        <h2 id="game-info-title">Una campagna, da soli o in compagnia</h2>
+        <p>
+          Esplora Dinosaur Land nel browser. In singolo, la campagna gira sul dispositivo e i progressi vengono
+          salvati localmente. In co-op, crea una stanza privata, condividi il codice con un amico e attraversate
+          insieme i livelli.
+        </p>
+        <p>
+          Gioca con tastiera, gamepad o comandi touch. La co-op richiede una connessione al server della stanza;
+          il salvataggio singolo resta nel browser.
+        </p>
       </section>
       <section id="play" hidden aria-label="Partita">
         <div class="play-head">
@@ -127,6 +171,16 @@
         <div><kbd>↵</kbd> Azione</div>
       </aside>
     </main>
+    <dialog id="install-guide" class="install-guide" aria-labelledby="install-title">
+      <button id="install-guide-close" class="install-guide-close" type="button" aria-label="Chiudi guida">
+        ×
+      </button>
+      <p class="eyebrow"><span class="pixel square"></span>GIOCA DAL TELEFONO</p>
+      <h2 id="install-title">Aggiungi alla schermata Home<span>.</span></h2>
+      <p id="install-intro" class="install-intro"></p>
+      <ol id="install-steps" class="install-steps"></ol>
+      <button id="install-guide-done" class="primary install-guide-done" type="button">Ho capito</button>
+    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

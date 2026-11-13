@@ -1,0 +1,111 @@
+.install-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  margin: 18px 0 2px;
+  padding: 9px 12px;
+  color: #28453d;
+  background: #e2ebc7;
+  border: 1px solid #b7ca94;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.install-cta:hover {
+  background: #d7e4b3;
+}
+
+.install-cta-icon {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  color: #182f34;
+  background: #bfeb78;
+  border-radius: 4px;
+  font: 700 19px/1 ui-monospace, Menlo, monospace;
+}
+
+.install-guide {
+  position: relative;
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(90vh, 620px);
+  overflow: auto;
+  padding: 30px;
+  color: var(--ink);
+  background: var(--cream);
+  border: 2px solid #0d242a;
+  border-radius: 12px;
+  box-shadow: 7px 7px 0 #0b2026;
+}
+
+.install-guide::backdrop {
+  background: rgb(8 22 26 / 72%);
+}
+
+.install-guide .eyebrow {
+  color: #526751;
+}
+
+.install-guide h2 {
+  max-width: 340px;
+  margin: 12px 34px 10px 0;
+  font-size: clamp(23px, 6vw, 30px);
+  line-height: 1.1;
+}
+
+.install-guide h2 span {
+  color: #d88436;
+}
+
+.install-guide-close {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid #c3c8b7;
+  border-radius: 5px;
+  font-size: 27px;
+  line-height: 1;
+}
+
+.install-intro {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.install-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding-left: 22px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.install-guide-done {
+  min-height: 44px;
+  padding-inline: 18px;
+}
+
+@media (max-width: 560px) {
+  .install-guide {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    padding: 26px 22px calc(22px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 14px 14px 0 0;
+  }
+}

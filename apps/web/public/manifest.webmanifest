@@ -1,0 +1,28 @@
+{
+  "id": "/",
+  "name": "Super Mario World · Solo e Co-op",
+  "short_name": "SMW",
+  "description": "Gioca a Super Mario World nel browser da solo o in co-op.",
+  "lang": "it",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#142b33",
+  "theme_color": "#142b33",
+  "categories": ["games"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

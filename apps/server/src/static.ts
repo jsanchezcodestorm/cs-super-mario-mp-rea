@@ -14,6 +14,8 @@ const types: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.bin': 'application/octet-stream',
 };
 

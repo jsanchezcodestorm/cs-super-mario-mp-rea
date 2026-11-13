@@ -372,6 +372,28 @@ label {
 .controls div {
   white-space: nowrap;
 }
+.game-info {
+  max-width: 960px;
+  margin: 48px auto 8px;
+  padding: 28px clamp(0px, 3vw, 32px) 0;
+  border-top: 1px solid #50656a;
+  color: #d2d9cb;
+}
+.game-info h2 {
+  margin: 0 0 12px;
+  color: var(--cream);
+  font-size: clamp(21px, 3vw, 30px);
+  letter-spacing: -0.025em;
+}
+.game-info p {
+  max-width: 780px;
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+body:has(#play:not([hidden])) .game-info {
+  display: none;
+}
 kbd {
   display: inline-block;
   min-width: 20px;
@@ -483,6 +505,10 @@ body:has(#play:not([hidden])) main {
   }
   .controls {
     justify-content: flex-start;
+  }
+  .game-info {
+    margin-top: 30px;
+    padding-inline: 0;
   }
   .play-head {
     font-size: 11px;

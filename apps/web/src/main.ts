@@ -1,5 +1,6 @@
 import './style.css';
 import './ui/mobile-play.css';
+import './ui/install-prompt.css';
 import { CutsceneView } from './game/cutscene-view';
 import { goalWalkFrame } from '@smw/core';
 import type { CampaignSave, GameEvent, GameState, PlayerId } from '@smw/core';
@@ -14,6 +15,7 @@ import { FullscreenToggle } from './ui/fullscreen';
 import { touchDevice, TouchHud } from './ui/touch-hud';
 import { bindPlaySurface } from './ui/play-surface';
 import { LocalGameSession } from './session/local-game';
+import { InstallPrompt } from './ui/install-prompt';
 
 let localSave: CampaignSave | undefined, me: PlayerId | undefined, playback: GameSession | undefined;
 let stopped: (() => void) | undefined,
@@ -24,6 +26,7 @@ let latest: Extract<ServerMessage, { type: 'snapshot' }> | undefined;
 let content: Content | undefined,
   resources: Promise<[Content, Record<string, { region: number; x: number; y: number }>]> | undefined;
 const audio = new GameAudio();
+new InstallPrompt();
 const fullscreen = new FullscreenToggle(
   el<HTMLButtonElement>('fullscreen'),
   el('play'),
