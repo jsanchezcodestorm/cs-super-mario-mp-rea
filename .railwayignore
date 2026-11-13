@@ -1,0 +1,10 @@
+.cache/
+test-results/
+coverage/
+tests/
+tools/
+*.smc
+*.sfc
+*.spc
+*.srm
+__pycache__/
