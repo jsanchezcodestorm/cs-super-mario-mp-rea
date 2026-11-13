@@ -1,7 +1,7 @@
 import { nativeSpeed, palFrame, playerPipePosition, yoshiLunging, yoshiPowers, yoshiTongueBase, yoshiTongueTip, type GameState, type PlayerState } from '@smw/core';
 import type { ObjectPlanes } from './object-planes';
 import type { DrawActor } from './platform-view';
-import { frameForEntity } from './actors-view';
+import { frameForEntity, mirrorEntity } from './actors-view';
 import { playerFacingRight } from './player-animation';
 
 type Textures = { has: (frame: string) => boolean };
@@ -54,7 +54,7 @@ export function drawMount(p: PlayerState, x: number, y: number, tileset: number,
       if (!food) return;
       const frame = frameForEntity(food, state.tick, tileset, textures);
       if (frame) draw(food.id, frame.frame, dx + tip.x + 4, dy + tip.y + (food.height > 16 ? 6 : 10),
-        food.vx > 0, 1, frame.texture);
+        mirrorEntity(food), 1, frame.texture);
     });
   } else body();
   if (yoshiPowers(p).wings) {

@@ -1,4 +1,5 @@
 import { ObjectMask, paintPart } from './object-mask';
+import { ObjectColorMath } from './object-color-math';
 
 // The PPU picks one visible OBJ pixel by OAM order before comparing that pixel
 // with the background. Drawing four independently sorted sprite layers would
@@ -10,12 +11,15 @@ export interface ObjPart {
   flipX?: boolean; flipY?: boolean; alpha?: number;
   priority: number; oam: number;
   occluders?: readonly ObjPart[];
+  addSubscreen?: boolean;
 }
 export class ObjectPlanes {
   private parts: ObjPart[] = [];
   private mask = new ObjectMask();
+  private color: ObjectColorMath;
   private layers: CanvasRenderingContext2D[];
   constructor(width: number, height: number) {
+    this.color = new ObjectColorMath(width, height);
     this.layers = Array.from({ length: 4 }, () => {
       const surface = document.createElement('canvas');
       surface.width = width;
@@ -40,6 +44,7 @@ export class ObjectPlanes {
     const touched = new Set<number>();
     for (const ctx of this.layers) ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     this.parts.sort((a, b) => b.oam - a.oam);
+    this.color.compose(this.parts);
     for (const source of this.parts) {
       const part = this.mask.apply(source);
       const { priority } = part;
@@ -56,6 +61,7 @@ export class ObjectPlanes {
     this.parts.length = 0;
   }
   paint(ctx: CanvasRenderingContext2D, priority: number) {
-    ctx.drawImage(this.layers[priority].canvas, 0, 0);
+    this.color.paint(ctx, priority, this.layers[priority].canvas);
   }
+  captureSubscreen(canvas: HTMLCanvasElement) { this.color.captureSubscreen(canvas); }
 }

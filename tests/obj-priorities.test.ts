@@ -40,8 +40,9 @@ test('native boss art chooses BG1, the pipe boss and each independent OAM instan
       spriteId: roomId === '0d5' ? 0xa9 : 0x29 } as EntityState)!.registration;
   }
   for (const tick of [0, 10]) {
-    for (const room of ['0e5', '0cc', '0d9', '1c7'])
-      assert.deepEqual(frame(room, 'boss', tick), { plane: 'mode7' });
+    for (const room of ['0e5', '0cc', '0d9'])
+      assert.deepEqual(frame(room, 'boss', tick), { plane: 'mode7', facing: -1 });
+    assert.deepEqual(frame('1c7', 'boss', tick), { plane: 'mode7' });
     for (const [index, oam] of [118, 112, 106, 100].entries())
       assert.deepEqual(frame('0d5', 'boss', tick, (index + 1) * 16), { priority: 3, oam });
     for (const room of ['1f2', '0d3']) {

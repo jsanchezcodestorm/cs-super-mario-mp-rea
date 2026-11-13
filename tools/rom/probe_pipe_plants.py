@@ -44,6 +44,9 @@ def captures(core, switch, slot, inverted):
     parts = graphics_parts(r, x)
     assert len(parts) == (2 if inverted else 5), (slot, x, y, parts)
     assert all((r[0x203+4*i] >> 4 & 3) == 1 for i in parts)
+    # Mario's standing body occupies OAM 68 and 69. The native loader must
+    # keep every head and leaf behind both parts, even in memory setting 7.
+    assert min(parts) > 69, ('plant ahead of player', r[0x1692], slot, parts)
     cx, cy = read_word(r,0x1a), read_word(r,0x1c)
     # Include overscan above and below the 16px-wide head and leaves.
     visible, covered = 0, 0
@@ -125,7 +128,8 @@ def scene(core, switch, base, room, number, x, y):
             # The inverted stem still overlaps the bottom lip by two scanlines.
             assert shown > 0 and (masked > 0) == inverted, (room,phase,phases)
         else: assert shown > 0 and masked > 0, (room,phase,phases)
-    print(f'{room} ${number:02X} placed ({x},{y}), X={x+8}: (Y, OBJ visible, covered by BG1) {phases}')
+    print(f'{room} ${number:02X} placed ({x},{y}), slot {slot}, OAM {graphics_parts(ram,x+8)}: '
+          f'(Y, OBJ visible, covered by BG1) {phases}')
 
 
     if not inverted:

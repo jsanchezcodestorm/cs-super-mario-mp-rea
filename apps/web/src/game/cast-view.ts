@@ -1,11 +1,11 @@
 import type Phaser from 'phaser';
 import type { ObjectPlanes } from './object-planes';
-import { blockItemPosition, isClassicPipePlant, isPipeBoss, keyholeAnchor, netDoorPhase, playerPipePosition, type GameState } from '@smw/core';
+import { blockItemPosition, isClassicPipePlant, isPipeBoss, keyholeAnchor, netDoorPhase, palFrame, playerPipePosition, type GameState } from '@smw/core';
 import { movingDoors } from './net-door-view';
 import { drawMount, riderSeatOffset } from './mount-view';
 import { bossFrame } from './boss-view';
 import { drawPlatform, type DrawActor } from './platform-view';
-import { frameForEntity } from './actors-view';
+import { frameForEntity, mirrorEntity } from './actors-view';
 import { deathPosition, departing } from './death-animation';
 import { drawBlockBounces, queueEffectTile } from './effect-tiles';
 import { playerAppearance } from './player-effects';
@@ -74,6 +74,12 @@ export class CastView {
     for (const e of state.entities) {
       if ((!e.active && !e.shellKnockedOut) || !e.height || (e.stunnedUntil && e.kind === 'boss' && e.stunnedUntil > e.age) || e.roomId !== stage.id) continue;
       const { x, y } = e;
+      for (const part of e.booStream?.trail ?? []) {
+        if (part.until <= palFrame(state.tick)) continue;
+        const phase = 2 * (8 + part.slot) + Number(part.right);
+        draw(e.id + '-trail-' + part.slot, stage.spriteTileset + ':resident176/' + phase,
+          part.x + 8, part.y + 16, false, 1, 'creatures');
+      }
       const plant = e.kind === 'plant' ? e.pipePlant : undefined;
       if (plant?.hidden) continue;
       if (e.kind === 'flyingQuestion' && e.questionHit) {
@@ -84,7 +90,7 @@ export class CastView {
       }
       if (e.kind === 'platform' && drawPlatform(e, x, y, stage.spriteTileset, draw)) continue;
       if (e.kind === 'lakitu' && !e.shellKnockedOut) {
-        const cloud = frameForEntity({ ...e, spriteId: 0x87 }, state.tick, stage.spriteTileset, this.scene.textures.get('creatures'));
+        const cloud = frameForEntity({ ...e, kind: 'cloud', spriteId: 0x87 }, state.tick, stage.spriteTileset, this.scene.textures.get('creatures'));
         if (cloud) draw(e.id + '-cloud', cloud.frame, x + e.width / 2, y + 32, false, 1, cloud.texture);
       }
       if (e.kind === 'throwBlock' || e.kind === 'directionalCoins') {
@@ -104,7 +110,7 @@ export class CastView {
       const height = boss && isPipeBoss(e) ? 32 : e.height;
       const anchor = e.kind === 'keyhole' ? keyholeAnchor(e) :
         { x: (emerging?.x ?? x) + e.width / 2, y: (emerging?.y ?? plant?.drawY ?? y) + height };
-      draw(e.id, pose.frame, anchor.x, anchor.y, e.vx > 0, 1, pose.texture,
+      draw(e.id, pose.frame, anchor.x, anchor.y, boss ? boss.flipX : mirrorEntity(e), 1, pose.texture,
         e.shellKnockedOut, order, emerging ? 1 : undefined);
     }
     for (const p of [state.players.luigi, state.players.mario]) {

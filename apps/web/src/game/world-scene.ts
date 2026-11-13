@@ -13,6 +13,7 @@ import { RewardView } from './reward-view';
 import { CastView } from './cast-view';
 import { OverworldView, type WorldNodes } from './overworld-view';
 import { preloadBosses, drawBossArena, queueArenaScenery } from './boss-view';
+import { preloadBooGroups, queueBooGroups } from './boo-cluster-view';
 import type { Controls } from './input';
 import { cameraFor, drawRoom, HEIGHT, WIDTH } from './terrain-view';
 import { drawCourseClear } from './course-clear';
@@ -62,6 +63,7 @@ export class WorldScene extends Phaser.Scene {
     this.load.json('goal-palettes', '/assets/tiles/goal-palettes.json');
     this.load.spritesheet('reward-tiles', '/assets/hud/rewards.png', { frameWidth: 16, frameHeight: 16 });
     preloadBosses(this);
+    preloadBooGroups(this);
     for (const atlas of new Set(Object.values(this.content.levels).filter(hasNetDoor).map(s => s.atlas))) {
       const file = netDoorTexture(atlas);
       this.load.image(file, '/assets/' + file);
@@ -119,6 +121,7 @@ export class WorldScene extends Phaser.Scene {
     const frozen = hole ?? orb;
     const frameState = frozen ? { ...state, tick: frozen.tick } : state;
     this.cast.draw(stage, camera, frameState);
+    queueBooGroups(this, this.objects, stage.id, frameState, camera);
     this.rewards.draw(frameState, stage.id, camera);
     if (stage.specialMode7) queueArenaScenery(this, this.objects, stage.id);
     this.objects.compose();

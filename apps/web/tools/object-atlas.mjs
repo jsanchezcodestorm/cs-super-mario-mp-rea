@@ -4,18 +4,19 @@ import { join } from 'node:path';
 import { writePng } from '../../../tools/rom/png.mjs';
 import { tilePixel } from '../../../tools/rom/graphics.mjs';
 
-// Sprite slot zero as assigned by E1 01:80D2 for this room. Normal sprite
-// routines write into the second half of the 128-entry OAM buffer.
+// Standard parts use the first normal slot permitted by the room header.
+// LoadNormalSprite stops just before SpriteSlotStart ($FF allows slot 0).
 export function standardOamSlot(rom, state) {
-  const allocation = rom.byte(0x07f0b4 + state[0x1692]);
-  return 64 + (rom.byte(0x07f000 + allocation) >> 2);
+  const setting = state[0x1692];
+  const slot = (rom.byte(0x02a7ac + setting) + 1) & 255;
+  const allocation = rom.byte(0x07f0b4 + setting);
+  return 64 + (rom.byte(0x07f000 + allocation + slot) >> 2);
 }
 
 // Interpret the OAM emitted by the game's sprite drawing routines. 8x8 and
 // 16x16 entries use different subtile traversal, including the SNES X/Y flips.
-export function decode(oam, memory, palette, fixedSize = 0, splitAtSlot = 0) {
-  const size = 160,
-    origin = 16,
+export function decode(oam, memory, palette, fixedSize = 0, splitAtSlot = 0, size = 160) {
+  const origin = 16,
     pixels = Buffer.alloc(size * size * 4),
     owners = new Uint8Array(size * size);
   let minX = size,

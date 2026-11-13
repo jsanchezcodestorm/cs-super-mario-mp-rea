@@ -54,6 +54,7 @@ export function drawRoom(
     if ((mask & 4) && stage.tide) drawTide(ctx, stage, tideImage!, camera, state);
   }
   screen(screens.sub);
+  objects.captureSubscreen(ctx.canvas);
   screen(screens.main);
 }
 

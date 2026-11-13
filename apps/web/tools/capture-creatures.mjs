@@ -2,6 +2,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { captureNpcPoses, directionalNpcs } from './npc-poses.mjs';
+import { captureResidentPoses } from './resident-poses.mjs';
 import { decode, atlas } from './object-atlas.mjs';
 import { captureBonusSlots } from './bonus-slots.mjs';
 import { parts, capturePlayerFrames } from './actor-parts.mjs';
@@ -21,8 +23,9 @@ function roomSpriteIds(room, emitters) {
   }
   const children = {
     0x08: [4], 0x09: [4], 0x0a: [5], 0x0b: [5], 0x0c: [7],
-    0x1e: [0x87, 0x13], 0x1f: [0x20, 0x27, 0x07], 0x29: [0x34],
-    0x3f: [0x0f], 0x40: [0x0d], 0x46: [0x48], 0x73: [2],
+    0x1e: [0x87, 0x14, 0x13, 0x21], 0x1f: [0x20, 0x27, 0x07], 0x29: [0x34],
+    0x3f: [0x0f], 0x40: [0x0d], 0x46: [0x48], 0x4b: [0x14, 0x13, 0x21],
+    0x4c: [0x15, 0x0f, 0, 4], 0x73: [2], 0xbc: [0xb3],
     0x92: [0x91], 0x97: [0x1b], 0x9d: [0x0f, 0x0d, 0x15],
     0xa0: [0xa2], 0xa9: [0x34], 0xc5: [0x34],
   };
@@ -62,6 +65,12 @@ export function captureCreatures(root, rom) {
       const captureDoor = room.sprites.some(s => s.spriteId === 0x54) && !netAtlases.has(room.atlas);
       if (!captureDoor && !captureBonus && !sprites.some(s => !seen.has(s.key))) continue;
       const state = execFileSync(loader, [romFile, String(def.layer1), String(def.layer2)]);
+      // The graphics loader receives only the layer pointers; restore the
+      // sprite header from the native level entry before allocating OAM.
+      // Fishing Lakitu shares its eight line slots with the global OBJ plane.
+      const spriteHeader = rom.byte(def.sprites);
+      state[0x1692] = spriteHeader & 0x3f;
+      state[0x190e] = spriteHeader & 0xc0;
       writeFileSync(memFile, state);
       parts(room, state, frames, rom);
       if (captureDoor) {
@@ -73,8 +82,10 @@ export function captureCreatures(root, rom) {
       for (const { id: spriteId, stomped, key } of sprites) {
         if (seen.has(key)) continue;
         seen.add(key);
+        captureResidentPoses(runner, romFile, memFile, room, spriteId, frames);
+        if (captureNpcPoses(runner, romFile, memFile, room, spriteId, stomped, key, frames)) continue;
         const plantPoses = pipePlantPoses.get(spriteId);
-        const sampleCount = plantPoses ?? (spriteId === 0x35 ? 19 : 32);
+        const sampleCount = plantPoses ?? (spriteId === 0x35 ? 31 : 32);
         const run = spawnSync(runner, [romFile, memFile, String(spriteId), ...(stomped ? ['stomped'] : [])], {
           maxBuffer: 0x102a0 * sampleCount + 0x10000,
         });
@@ -88,13 +99,13 @@ export function captureCreatures(root, rom) {
           const pos = (0x2a0 + 0x10000) * f;
           // In a pipe the head moves to OAM 65 while the body stays behind
           // the player at 68. Preserve these independently ordered pixels.
-          const splitAtSlot = spriteId === 0x35 && f >= 16 ? 68 : 0;
+          const splitAtSlot = spriteId === 0x35 && f >= 16 && f <= 18 ? 68 : 0;
           const image = decode(
             run.stdout.subarray(pos, pos + 0x2a0),
             run.stdout.subarray(pos + 0x2a0, pos + 0x102a0),
             room.spritePalette,
             spriteId === 0x54 ? 48 : 0,
-            0, splitAtSlot,
+            splitAtSlot,
           );
           if (image) {
             if (plantPoses) image.anchor = { x: 8, y: 16 };
@@ -130,7 +141,7 @@ export function captureCreatures(root, rom) {
     atlas(output, frames, 'creatures');
     writeFileSync(
       join(output, 'creature-coverage.json'),
-      JSON.stringify({ spriteTilesetPairs: seen.size, frames: frames.size, unobserved }, null, 2),
+      JSON.stringify({ spriteTilesetPairs: seen.size, frames: frames.size, directionalNpcs: [...directionalNpcs], unobserved }, null, 2),
     );
     console.log(
       frames.size +

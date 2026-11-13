@@ -29,7 +29,12 @@ def poses(core, name):
         else:
             track, count = 'main', 4
         owner = {}
-        yield track, trim(oam(ram, memory, colors, range(first, first+count), owner, center=True)), owner
+        image = trim(oam(ram, memory, colors, range(first, first+count), owner, center=True))
+        if name in ('iggy', 'larry'):
+            # The throwing hand, face and body share their actual horizontal
+            # OAM flip, including the temporary reversal while turning.
+            owner['facing'] = 1 if ram[0x203+4*first] & 64 else -1
+        yield track, image, owner
 
 
 def period(frames):
@@ -46,6 +51,19 @@ def capture_animation(core, name, count, save):
               else ['main'])
     sequences = {track: [] for track in tracks}
     files, registration = {}, {}
+    wall_boss = name in ('morton', 'roy', 'ludwig')
+    if wall_boss:
+        slot = next(i for i in range(12) if core.ram[0x9e+i] == 0x29 and core.ram[0x14c8+i] == 8)
+    def advance():
+        if wall_boss:
+            # Keep the tilemap facing left. E1 builds the opposite 32x32
+            # image by reversing every tile and pixel; the web can reflect it.
+            core.ram[0x157c+slot] = 1
+            core.ram[0x15ac+slot] = 0
+        core.run()
+    if wall_boss:
+        advance()
+        advance()  # transfer the selected tilemap to the PPU
     for _ in range(count):
         frame = list(poses(core, name))
         if sorted(track for track, _, _ in frame) != sorted(tracks):
@@ -55,7 +73,9 @@ def capture_animation(core, name, count, save):
             if key not in files:
                 filename = save(f'{name}-{len(files)}.png', image)
                 files[key] = filename
+                if wall_boss:
+                    owner['facing'] = -1
                 registration[filename] = owner
             sequences[track].append(files[key])
-        core.run()
+        advance()
     return {'tracks': {t: period(f) for t, f in sequences.items()}, 'registration': registration}

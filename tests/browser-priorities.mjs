@@ -25,8 +25,8 @@ try {
     atlas.fillStyle = '#00ff00'; atlas.fillRect(16, 0, 16, 16);
     const red = surface(16, 16, '#ff0000'), blue = surface(16, 16, '#0000ff');
     const objects = new priorityTest.ObjectPlanes(256, 224);
-    function obj(ctx, priority, oam) {
-      objects.queue({ image: ctx.canvas, sx: 0, sy: 0, w: 16, h: 16, x: 0, y: 0, priority, oam });
+    function obj(ctx, priority, oam, addSubscreen = false) {
+      objects.queue({ image: ctx.canvas, sx: 0, sy: 0, w: 16, h: 16, x: 0, y: 0, priority, oam, addSubscreen });
     }
     function observe(mask, onBG2 = false, sub = false) {
       objects.compose();
@@ -48,9 +48,16 @@ try {
     obj(blue,3,25); obj(red,1,10); out.push(observe(0));
     obj(blue,2,10); out.push(observe(15,true));
     obj(blue,2,10); out.push(observe(15,true,true));
+    // A partly opaque red OBJ in front keeps its own colour. A blue fog OBJ
+    // showing through its holes adds only the green BG2 sub-screen pixel.
+    obj(blue,3,15,true); obj(red,3,10); observe(15,true,true);
+    out.push(...[1,9].map(x=>Array.from(target.getImageData(x,1,1,1).data).join(',')));
+    obj(blue,3,15); observe(15,true,true);
+    out.push(Array.from(target.getImageData(9,1,1,1).data).join(','));
     return out;
   });
-  assert.deepEqual(result, ['GGGG','GGGG','RGGR','RRRR','GGGG','GGBB','GGGG','BBBB']);
+  assert.deepEqual(result, ['GGGG','GGGG','RGGR','RRRR','GGGG','GGBB','GGGG','BBBB',
+    '255,0,0,255','0,255,255,255','0,0,255,255']);
   console.log('Chromium verified the four OBJ priorities, mixed Map16 quadrants, OAM holes, and main/sub BG2.');
 } finally {
   await browser.close();

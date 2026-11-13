@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { palFrame, tiltFloor, type EntityState, type GameState } from '@smw/core';
+import { palFrame, reznorPose, tiltFloor, type EntityState, type GameState } from '@smw/core';
 import type { Camera } from './terrain-view';
 import type { ObjectPlanes } from './object-planes';
 
@@ -9,7 +9,7 @@ interface BossArt {
   tracks: Record<string, string[]>;
   platform?: string;
   wheel?: string;
-  registration: Record<string, ObjRegistration | { plane: 'mode7'; dx?: number; dy?: number }>;
+  registration: Record<string, (ObjRegistration | { plane: 'mode7'; dx?: number; dy?: number }) & { facing?: -1 | 1 }>;
   bands?: { file: string; beforeObj: number }[];
   scenery?: ({ file: string } & ObjRegistration)[];
 }
@@ -49,7 +49,7 @@ export function queueArenaScenery(scene: Phaser.Scene, objects: ObjectPlanes, ro
 export function bossFrame(scene: Phaser.Scene, e: EntityState) {
   const arena = art(scene, e.roomId);
   if (!arena || !['boss', 'endingBoss', 'pipeDecoy'].includes(e.kind)) return null;
-  let track = e.spriteId === 0xa9 ? 'wheel' + (e.origin.x / 16 - 1)
+  let track = e.spriteId === 0xa9 ? 'wheel' + (e.origin.x / 16 - 1) + '-' + reznorPose(e) + (e.facing === 1 ? '-right' : '-left')
     : e.kind === 'pipeDecoy' ? 'decoy' + e.pipeOffset : 'main';
   let frame = palFrame(e.age);
   if (e.kind === 'endingBoss') {
@@ -64,10 +64,13 @@ export function bossFrame(scene: Phaser.Scene, e: EntityState) {
       track = 'throw';
       frame = 127 + Math.floor(sinceThrow * arena.tracks.throw.length / 150);
     }
+    if (e.facing === 1) track += '-right';
   }
   const frames = arena.tracks[track];
   const file = frames[frame % frames.length];
-  return { texture: prefix + file, frame: '__BASE', registration: arena.registration[file] };
+  const registration = arena.registration[file];
+  const flipX = registration.facing !== undefined && e.facing !== undefined && e.facing !== registration.facing;
+  return { texture: prefix + file, frame: '__BASE', registration, flipX };
 }
 
 function drawMode7Plane(scene: Phaser.Scene, ctx: CanvasRenderingContext2D, arena: BossArt, id: string,
@@ -96,7 +99,7 @@ function drawMode7Plane(scene: Phaser.Scene, ctx: CanvasRenderingContext2D, aren
     ctx.save();
     const anchorY = pose.registration.dy === undefined ? e.height : e.height / 2;
     ctx.translate(Math.round(e.x + e.width / 2 - camera.x), Math.round(e.y + anchorY - camera.y));
-    if (e.vx > 0) ctx.scale(-1, 1);
+    if (pose.flipX) ctx.scale(-1, 1);
     ctx.drawImage(img, pose.registration.dx ?? -Math.round(img.width / 2), pose.registration.dy ?? -img.height);
     ctx.restore();
   }

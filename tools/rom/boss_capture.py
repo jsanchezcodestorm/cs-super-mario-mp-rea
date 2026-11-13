@@ -8,6 +8,7 @@ from native_rooms import Core, cartridge_image, first_course, enter_room
 from map_tiles import PPU, vram
 from boss_pixels import mode7, png, rgba_palette, trim
 from boss_animation import capture_animation
+from boss_facing import reznor_tracks
 from bowser_feedback import capture_bowser_feedback
 from boss_scenery import capture_arena
 
@@ -102,7 +103,10 @@ def generate(core_file, image, generated):
             else:
                 raise ValueError('Ludwig did not reach his battle camera')
             core.run(12)
-        scene.update(capture_animation(core, name, 320 if name == 'ludwig' else 128, save))
+        if name == 'reznor':
+            scene.update(reznor_tracks(core, save))
+        else:
+            scene.update(capture_animation(core, name, 320 if name == 'ludwig' else 128, save))
         if name == 'bowser':
             tracks, registration = capture_bowser_feedback(core, layers, save)
             scene['tracks'].update(tracks)
@@ -115,10 +119,6 @@ def generate(core_file, image, generated):
         enter_room(core, base, key)
         core.run(208)
         rooms[key] = capture_animation(core, name, 32, save)
-        if name == 'bowser':
-            tracks, registration = capture_bowser_feedback(core, layers, save)
-            scene['tracks'].update(tracks)
-            scene['registration'].update(registration)
         print(name, {track: (len(frames), len(set(frames))) for track, frames in rooms[key]['tracks'].items()})
     (output/'index.json').write_text(json.dumps(rooms,separators=(',',':')))
     core.lib.retro_unload_game()

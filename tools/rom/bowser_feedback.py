@@ -39,15 +39,24 @@ def car_pixels(core, boss):
 def capture_bowser_feedback(core, layers, save):
     layers.show(30)
     ram = core.ram
-    for _ in range(2000):
+    arena_start = core.freeze()
+    for pre_attack_frames in range(2000):
         if ram[0x14b1] == 255:
             break
         ram[0x1497] = 127
         core.run()
     else:
         raise ValueError('Bowser did not begin his Mechakoopa attack')
-    files, registration, release = {}, {}, None
+    files, registration = {}, {}
     boss = next(i for i in range(12) if ram[0x9e+i] == 0xa0 and ram[0x14c8+i] == 8)
+    # Restoring WRAM does not restore the video callback's last framebuffer.
+    # Prime the PPU in the requested direction before recording frame zero.
+    core.restore(arena_start)
+    primer = min(pre_attack_frames, 4)
+    for _ in range(pre_attack_frames - primer):
+        ram[0x1497] = 127
+        core.run()
+    begin = core.freeze()
 
     def frame():
         image, origin = car_pixels(core, boss)
@@ -57,27 +66,39 @@ def capture_bowser_feedback(core, layers, save):
             registration[files[key]] = {'plane': 'mode7', 'dx': origin[0], 'dy': origin[1]}
         return files[key]
 
-    attack = []
-    for _ in range(255):
-        attack.append(frame())
-        if ram[0x14b1] == 128:
-            assert any(ram[0x9e+i] == 0xa2 and ram[0x14c8+i] == 8 for i in (0, 1))
-            release = core.freeze()
+    tracks = {}
+    for suffix, direction in [('', 0), ('-right', 128)]:
+        # Only Bowser's head turns. Preserve the car, propeller and rotated
+        # recoil by recording both directions in the actual Mode 7 framebuffer.
+        core.restore(begin)
+        for _ in range(primer):
+            ram[0x1497], ram[0x157c+boss] = 127, direction
+            core.run()
+        assert ram[0x14b1] == 255
+        attack, release = [], None
+        for _ in range(255):
+            attack.append(frame())
+            if ram[0x14b1] == 128:
+                assert any(ram[0x9e+i] == 0xa2 and ram[0x14c8+i] == 8 for i in (0, 1))
+                release = core.freeze()
+            ram[0x157c+boss] = direction
+            core.run()
+        if release is None:
+            raise ValueError('Bowser did not release a Mechakoopa')
+        core.restore(release)
+        x = ram[0xe4+boss] + 256*ram[0x14e0+boss]
+        y = ram[0xd8+boss] + 256*ram[0x14d4+boss]
+        ram[0x14c8] = 9  # stunned Mechakoopa, travelling upward into the head
+        ram[0xaa], ram[0x15a0] = 0xe0, 0
+        position(ram, 0, x-16, y-8)
+        ram[0x157c+boss] = direction
         core.run()
-    if release is None:
-        raise ValueError('Bowser did not release a Mechakoopa')
-    core.restore(release)
-    x = ram[0xe4+boss] + 256*ram[0x14e0+boss]
-    y = ram[0xd8+boss] + 256*ram[0x14d4+boss]
-    ram[0x14c8] = 9  # stunned Mechakoopa, travelling upward into the head
-    ram[0xaa], ram[0x15a0] = 0xe0, 0
-    position(ram, 0, x-16, y-8)
-    core.run()
-    if ram[0x14b5] != 0x4c:
-        raise ValueError('The Mechakoopa missed Bowser')
-    hurt = []
-    while ram[0x14b5]:
-        hurt.append(frame())
-        core.run()
-    print('Bowser throw / hit:', len(attack), len(hurt), 'PAL frames')
-    return {'throw': attack, 'hurt': hurt}, registration
+        if ram[0x14b5] != 0x4c:
+            raise ValueError('The Mechakoopa missed Bowser')
+        hurt = []
+        while ram[0x14b5]:
+            hurt.append(frame())
+            ram[0x157c+boss] = direction
+            core.run()
+        tracks['throw' + suffix], tracks['hurt' + suffix] = attack, hurt
+    return tracks, registration
