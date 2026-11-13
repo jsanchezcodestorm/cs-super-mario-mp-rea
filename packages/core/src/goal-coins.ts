@@ -1,6 +1,7 @@
 import type { EntityState, PlayerState, World } from './types.ts'
 import { playerViewport } from './autoscroll.ts'
 import { addScore } from './rewards.ts'
+import { awardLives } from './lives.ts'
 
 /** x is screen-relative while status 06 is active, y remains in level coordinates. */
 export interface GoalCoins {
@@ -63,7 +64,7 @@ export function settleGoalCoins(world: World, finisher: PlayerState, tape: Entit
   const coins = sprites.length + extraCoins
   world.state.courseCoins += coins
   finisher.coins = (coinsBefore + coins) % 100
-  finisher.lives = Math.min(99, livesBefore + extraLives + Math.floor((coinsBefore + coins) / 100))
+  awardLives(world.state, finisher, extraLives + Math.floor((coinsBefore + coins) / 100))
   addScore(finisher, scoreGain)
   return { sprites, popups, scoreGain, extraCoins, extraLives, coinsBefore, livesBefore }
 }

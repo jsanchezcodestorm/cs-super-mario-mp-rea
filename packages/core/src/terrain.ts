@@ -81,7 +81,9 @@ export interface Contact {
   tile: number
   side: 'top' | 'bottom' | 'left' | 'right'
 }
-function sweepTiles(world: World, room: LevelDefinition, body: Body, layer2 = false, external = false) {
+type HeadProbe = { inset: number; previousInset: number }
+
+function sweepTiles(world: World, room: LevelDefinition, body: Body, layer2 = false, external = false, head?: HeadProbe) {
   const readTile = layer2
     ? (_world: World, r: LevelDefinition, col: number, row: number) =>
         col >= 0 && row >= 0 && col < r.width && row < r.height ? r.layer2![row * r.width + col] : AIR
@@ -152,8 +154,11 @@ function sweepTiles(world: World, room: LevelDefinition, body: Body, layer2 = fa
         if (depth <= 0) continue
         ceiling = row * TILE + depth
       }
-      if (oldY < ceiling - 0.01 || body.y > ceiling) continue
-      body.y = Math.max(ceiling, body.y)
+      // Sweep from the previous head probe: releasing a grip can extend
+      // the head into the ceiling even before the airborne body moves.
+      const inset = head?.inset ?? 0
+      if (oldY + (head?.previousInset ?? 0) < ceiling - 0.01 || body.y + inset > ceiling) continue
+      body.y = Math.max(ceiling - inset, body.y)
       body.vy = 0
       contacts.push({ col, row, tile, side: 'top' })
     }
@@ -186,8 +191,8 @@ export function clipDisplacement(
 }
 
 /** Sweep both coordinate systems. Layer two can translate independently of level terrain. */
-export function moveBody(world: World, room: LevelDefinition, body: Body) {
-  if (!room.layer2?.length) return sweepTiles(world, room, body)
+export function moveBody(world: World, room: LevelDefinition, body: Body, head?: HeadProbe) {
+  if (!room.layer2?.length) return sweepTiles(world, room, body, false, false, head)
   const offset = world.state.layerOffsets[room.id]
   const dx = offset?.dx ?? 0,
     dy = offset?.dy ?? 0
@@ -199,7 +204,7 @@ export function moveBody(world: World, room: LevelDefinition, body: Body) {
     body.vx += dx
     body.vy += dy
   }
-  const contacts = sweepTiles(world, room, body)
+  const contacts = sweepTiles(world, room, body, false, false, head)
   if (riding) {
     body.vx -= dx
     if (!body.grounded) body.vy -= dy
@@ -212,7 +217,7 @@ export function moveBody(world: World, room: LevelDefinition, body: Body) {
     vy: body.y - y - dy,
     grounded: riding && grounded,
   }
-  const moving = sweepTiles(world, room, local, true)
+  const moving = sweepTiles(world, room, local, true, false, head)
   body.layer2Ground = local.grounded
   if (moving.some((hit) => hit.side === 'left' || hit.side === 'right')) {
     body.x = local.x + ox

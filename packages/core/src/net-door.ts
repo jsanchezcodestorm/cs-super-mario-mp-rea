@@ -1,5 +1,5 @@
 import { palFrame } from './pal-time.ts'
-import { Buttons, type GameState, type LevelDefinition, type NetDoor, type PlayerState, type World } from './types.ts'
+import { Buttons, type GameState, type LevelDefinition, type NetDoor, type PlayerState } from './types.ts'
 
 export function netDoorPhase(door: NetDoor, tick: number) {
   return palFrame(tick) - palFrame(door.tick) - 12
@@ -64,29 +64,16 @@ export function advanceNetDoors(state: GameState) {
   if (!state.netDoors.length) delete state.netDoors
 }
 
-export function stepNetClimb(world: World, room: LevelDefinition, p: PlayerState, net: boolean,
-  input: number, pressed: number) {
-  const age = p.netPunchTick === undefined ? -1 : palFrame(world.state.tick) - palFrame(p.netPunchTick)
-  if (age >= 8) delete p.netPunchTick
-  if (!net && !p.netTurn) delete p.behindNet
-  if (!p.netTurn && (!net || p.carrying || p.mounted || p.cloud || p.balloon || pressed & (Buttons.jump | Buttons.spin))) {
-    delete p.netClinging
-    delete p.netPunchTick
-    return false
-  }
-  if (net && input & (Buttons.up | Buttons.down)) p.netClinging = true
-  if (!p.netClinging) return false
-  if (age < 0 && !p.netTurn && !p.behindNet && !(pressed & Buttons.run) &&
-      input & (Buttons.up | Buttons.down | Buttons.left | Buttons.right)) return false
-  p.spin = false
-  p.flight = 0
-  p.grounded = false
-  p.vx = p.vy = 0
+export function stepNetPunch(state: GameState, room: LevelDefinition, p: PlayerState, pressed: number) {
   if (p.netTurn) return true
-  if (age === 7) latchDoor(world.state, p, room)
-  if (age > 0 && age < 8) return true
-  if (pressed & Buttons.run) { p.netPunchTick = world.state.tick; return true }
-  p.vx = (Number(!!(input & Buttons.right)) - Number(!!(input & Buttons.left))) * 5 / 6
-  p.vy = (Number(!!(input & Buttons.down)) - Number(!!(input & Buttons.up))) * 5 / 6
+  if (p.netPunchTick !== undefined) {
+    const age = palFrame(state.tick) - palFrame(p.netPunchTick)
+    if (age === 7) latchDoor(state, p, room)
+    if (age < 8) return true
+    delete p.netPunchTick
+  }
+  // B takes precedence over a simultaneous punch in the climbing handler.
+  if (!(pressed & Buttons.run) || pressed & Buttons.jump) return false
+  p.netPunchTick = state.tick
   return true
 }

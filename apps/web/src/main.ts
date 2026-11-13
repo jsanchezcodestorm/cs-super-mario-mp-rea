@@ -113,7 +113,12 @@ function showHud(s: GameState) {
   el('stage-name').textContent =
     s.phase === 'map' && !s.goalWalk && !s.keyholeFinish && !s.orbFinish ? 'Mappa del mondo' : content.names?.[s.progress.course] ?? s.progress.course;
   const canReturn = !s.cutscene && (s.phase === 'ending' || s.phase === 'gameOver');
-  el('hud').textContent = canReturn && !touchDevice.matches ? 'Invio · Torna alla mappa' : audioNotice;
+  const hudMessages = [
+    canReturn && !touchDevice.matches ? 'Invio · Torna alla mappa' : '',
+    s.mode === 'coop' && s.phase === 'playing' ? `${s.sharedLives ?? p.lives} vite condivise` : '',
+    audioNotice,
+  ].filter(Boolean);
+  el('hud').textContent = hudMessages.join(' · ');
   const phase = s.phase;
   const bgm =
     phase === 'map'
@@ -136,6 +141,15 @@ function showHud(s: GameState) {
   if (paused) lobby.overlay('Partita in pausa\nIn attesa della riconnessione…');
   else if (p.status === 'spectator' && phase === 'playing')
     lobby.overlay('Spettatore · Rientro al prossimo livello', true);
+  else if (s.mapRequest) {
+    const requester = s.mapRequest.requester === 'mario' ? 'Mario' : 'Luigi';
+    const other = s.mapRequest.requester === 'mario' ? 'Luigi' : 'Mario';
+    const course = content.names?.[s.mapRequest.course] ?? s.mapRequest.course;
+    const message = s.mapRequest.requester === me
+      ? `In attesa di ${other}: ${course}\n${touchDevice.matches ? 'Tocca Annulla' : 'Invio annulla la richiesta'}`
+      : `${requester} chiede di entrare in ${course}\n${touchDevice.matches ? 'Tocca Conferma o Rifiuta' : 'Invio conferma · X rifiuta'}`;
+    lobby.overlay(message, true);
+  }
   else lobby.overlay('');
 }
 function persistSave(save: CampaignSave) {

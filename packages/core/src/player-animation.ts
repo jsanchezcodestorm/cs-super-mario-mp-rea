@@ -67,12 +67,11 @@ function stepGlide(p: PlayerState, a: PlayerAnimation, input: number) {
 }
 
 export function stepPlayerAnimation(p: PlayerState, tick: number, input: number, pressed: number,
-  water: boolean, climb: boolean) {
+  water: boolean) {
   const a = playerAnimation(p)
   const frame = palFrame(tick)
   a.swimming = water && !p.cloud
-  const climbing = !!p.ropeId || !!p.netClinging || (!p.mounted && !p.carrying && !p.cloud && !p.balloon && climb && !p.grounded &&
-    !!(input & (Buttons.up | Buttons.down)) && !(pressed & (Buttons.jump | Buttons.spin)))
+  const climbing = !!(p.ropeId || p.netClinging || p.vineClinging)
   if (climbing && !a.climbing) { a.climbRight = p.facing === 1; a.climbTimer = 0 }
   a.climbing = climbing
   if (p.netPunchTick !== undefined) a.climbRight = !(Math.floor(p.x - 2) & 8)

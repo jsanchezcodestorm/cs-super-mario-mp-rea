@@ -11,6 +11,7 @@ import { bodyCells, tileAt, changeTile, isDanger, AIR, USED } from './terrain.ts
 import type { Contact } from './terrain.ts'
 import { finishCourse } from './campaign.ts'
 import { expandPlayer } from './player-size.ts'
+import { awardLives } from './lives.ts'
 
 export function setCheckpoint(world: World, p: PlayerState, x: number, y: number) {
   const cp = world.state.progress.checkpoint
@@ -142,9 +143,9 @@ export function interactTiles(
       changeTile(world, room, col, row, AIR)
       if (tile === 0x2d || tile === 0x2e) {
         changeTile(world, room, col, row + (tile === 0x2d ? 1 : -1), AIR)
-        if (++p.dragonCoins === 5) p.lives = Math.min(99, p.lives + 1)
+        if (++p.dragonCoins === 5) awardLives(world.state, p, 1)
       }
-      if (tile === 0x6e) p.lives = Math.min(99, p.lives + 3)
+      if (tile === 0x6e) awardLives(world.state, p, 3)
       else collectCoin(world, p)
     }
     if (

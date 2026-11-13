@@ -3,6 +3,7 @@ import type { EntityState, World } from './types.ts'
 import { awardShellClash, awardShellHit } from './shell-rewards.ts'
 import { freeCloud } from './lakitu.ts'
 import { catchIncomingShell } from './shell-defense.ts'
+import { palFrame } from './pal-time.ts'
 
 // E1 SubSprSprInteract uses a 32x24 window around each sprite origin.
 // A nonzero clipping nibble in Sprite1662Vals lowers the contact point by 8.
@@ -69,8 +70,16 @@ export function shellContact(world: World, shell: EntityState) {
 
 export function stepKnockedOut(world: World, e: EntityState) {
   const room = world.campaign.levels[e.roomId]
+  // A punched climber uses sprite status 02 starting on the next PAL frame.
+  const punched = e.netKoopa?.punched
+  if (e.netKoopa && punched) {
+    const tick = world.state.tick
+    if (palFrame(tick) === palFrame(tick - 1)) return
+    e.netKoopa.punched = 'falling'
+  }
+  const timeStep = punched ? 1 : 5 / 6
   e.x += e.vx
   e.y += e.vy
-  e.vy = Math.min(4 * 5 / 6, e.vy + (3 / 16) * (5 / 6) ** 2)
+  e.vy = Math.min(4 * timeStep, e.vy + (3 / 16) * timeStep ** 2)
   if (e.y > room.height * 16 + 16) delete e.shellKnockedOut
 }

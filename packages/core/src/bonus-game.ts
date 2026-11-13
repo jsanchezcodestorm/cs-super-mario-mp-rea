@@ -69,7 +69,7 @@ function movePlayers(world: World, bonus: BonusGame) {
       p.status = 'spectator'
       continue
     }
-    p.status = p.lives > 0 ? 'alive' : 'spectator'
+    p.status = p.lives > 0 || (world.state.mode === 'coop' && p.status !== 'spectator') ? 'alive' : 'spectator'
     p.height = p.form === 'small' ? 16 : 28
     p.carrying = null
     p.mouth = null

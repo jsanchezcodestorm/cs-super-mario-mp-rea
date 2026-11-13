@@ -32,8 +32,12 @@ export function beginGoalWalk(world: World, finisher: PlayerState, award: GoalAw
     delete p.sliding
     delete p.pipeExit
     delete p.wallRun
+    delete p.ropeId
+    delete p.ropeReleased
     delete p.netClinging
+    delete p.vineClinging
     delete p.netTurn
+    delete p.netPunchTick
     delete p.behindNet
     delete p.animation
   }
@@ -78,7 +82,7 @@ export function advanceGoalWalk(world: World) {
       carried.x = p.x + p.width
       carried.y = p.y + (p.height - carried.height) / 2
     }
-    stepPlayerAnimation(p, state.tick, Buttons.right, 0, false, false)
+    stepPlayerAnimation(p, state.tick, Buttons.right, 0, false)
   }
   if (walk.coins && phase.age >= 55 && walk.coins.popupCamera === undefined)
     walk.coins.popupCamera = playerViewport(room, state.players[walk.finisher]).x

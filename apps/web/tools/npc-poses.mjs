@@ -54,7 +54,7 @@ export function captureNpcPoses(runner, rom, memory, room, id, stomped, key, fra
   if (id >= 8 && id <= 0xc) track('ground', 4, prefix + 'wingGround' + id);
   if (id <= 0xc) track('turn', 4, prefix + 'turn' + id);
   if (id === 2) track('kick', 2, prefix + 'kick2');
-  if (id >= 0x22 && id <= 0x25) track('net', 20, prefix + 'net' + id);
+  if (id >= 0x22 && id <= 0x25) track('net', 24, prefix + 'net' + id);
   if (id === 0x28 || id === 0x37) track('boo', id === 0x28 ? 10 : 8, prefix + 'boo' + id);
   if (id === 0x1c) track('bill', 8, prefix + 'bill');
   if (id === 0x15) track('flop', 4, prefix + 'flop21');

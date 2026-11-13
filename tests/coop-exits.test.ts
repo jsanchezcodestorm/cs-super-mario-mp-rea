@@ -23,8 +23,8 @@ test('96 PAL exit contacts share and persist a single campaign over two WebSocke
     assert.notEqual(pick, -1, 'no selectable objective: ' + remaining.map((o) => o.id));
     const [objective] = remaining.splice(pick, 1);
     if (state.phase === 'map') {
-      for (const [button, frames] of mapInputs(campaign, state, objective.course))
-        await drive(0, button, frames);
+      for (const [luigi, frames, mario = 0] of mapInputs(campaign, state, objective.course, 'luigi'))
+        await drive(mario, luigi, frames);
     }
     if (state.entrance) await drive(Buttons.jump, 0);
     assert.equal(state.progress.course, objective.course);
@@ -47,6 +47,8 @@ test('96 PAL exit contacts share and persist a single campaign over two WebSocke
   t.after(resumed.close);
   assert.deepEqual(resumed.state.progress, state.progress);
   assert.equal(resumed.state.phase, 'map');
-  await resumed.drive(Buttons.action, 0);
+  const course = resumed.state.progress.course;
+  for (const [button, frames, partner = 0] of mapInputs(campaign, resumed.state, course, 'luigi'))
+    await resumed.drive(partner, button, frames);
   assert.equal(resumed.state.phase, 'playing');
 });

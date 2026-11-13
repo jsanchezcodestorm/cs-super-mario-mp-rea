@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { palFrame, type GameState } from '@smw/core';
+import { palFrame, type GameState, type PlayerId } from '@smw/core';
 
 interface Clip {
   duration: number;
@@ -23,7 +23,8 @@ export function preloadMapReveals(scene: Phaser.Scene) {
   scene.load.image('map-reveal-tiles', '/assets/world/reveal.png');
 }
 
-export function mapPresentation(state: GameState, data: RevealData) {
+export function mapPresentation(state: GameState, data: RevealData, playerId: PlayerId = 'mario') {
+  const actor = state.mapPlayers[playerId];
   const event = state.mapReveal;
   const clip = event && data.clips[event.exit];
   if (event && clip && state.phase === 'map') {
@@ -40,10 +41,10 @@ export function mapPresentation(state: GameState, data: RevealData) {
       arrival: { from: walk.from, command: walk.command, departed: state.tick - walkingTicks } };
   }
   return {
-    id: state.mapTravel?.to ?? state.mapStop ?? state.progress.unlocked[state.progress.selection],
-    travel: state.mapTravel,
+    id: actor.travel?.to ?? actor.stop,
+    travel: actor.travel,
     reveal: undefined,
-    arrival: state.mapArrival,
+    arrival: actor.arrival,
   };
 }
 

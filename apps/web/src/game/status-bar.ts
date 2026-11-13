@@ -45,9 +45,10 @@ export class StatusBar {
   }
   draw(player: PlayerState, state: GameState) {
     this.image.setVisible(true);
+    const lives = player.lives;
     const signature = [
       player.id,
-      player.lives,
+      lives,
       player.coins,
       player.score,
       player.bonusStars,
@@ -62,14 +63,14 @@ export class StatusBar {
       : 'vuota';
     this.canvas.setAttribute(
       'aria-label',
-      `${player.id === 'mario' ? 'Mario' : 'Luigi'}, ${player.lives} vite, ${player.coins} monete, ${
+      `${player.id === 'mario' ? 'Mario' : 'Luigi'}, ${lives} vite${state.mode === 'coop' ? ' condivise' : ''}, ${player.coins} monete, ${
         player.score
       } punti, ${player.bonusStars} stelle bonus, tempo ${state.timeLeft}, riserva ${reserve}.`,
     );
     const ctx = this.texture.context;
     ctx.clearRect(0, 0, 256, 32);
     ctx.drawImage(this.sheets[player.id === 'mario' ? 'base-mario' : 'base-luigi'], 0, 0);
-    this.number(player.lives, 32, 16, 2, 0);
+    this.number(lives, 32, 16, 2, 0);
     this.number(player.coins, 224, 8, 2, 0);
     this.number(player.score, 184, 16, 7, 0);
     this.number(player.bonusStars, 96, 8, 2, 16);

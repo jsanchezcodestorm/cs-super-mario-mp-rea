@@ -10,8 +10,8 @@ test('Luigi throws the red shell through all eight red Koopas in Yoshi’s Islan
   const campaign: CampaignDefinition = JSON.parse(readFileSync('generated/content.json', 'utf8'));
   const session = await openTestRoom(campaign);
   t.after(() => session.close());
-  for (const [buttons, frames] of mapInputs(campaign, session.state, '106')) {
-    await session.drive(0, buttons, frames);
+  for (const [luigi, frames, mario = 0] of mapInputs(campaign, session.state, '106', 'luigi')) {
+    await session.drive(mario, luigi, frames);
   }
   const latest: (GameState | undefined)[] = [];
   const awards: HitAward[][] = [[], []];

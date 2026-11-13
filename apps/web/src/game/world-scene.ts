@@ -90,7 +90,7 @@ export class WorldScene extends Phaser.Scene {
       actors: this.cache.json.get('actors-registration'),
       creatures: this.cache.json.get('creatures-registration'),
     });
-    this.map = new OverworldView(this, this.terrain, this.nodes, this.content);
+    this.map = new OverworldView(this, this.terrain, this.nodes, this.content, this.live.playerId);
     this.transition = new SceneTransition(this, WIDTH, HEIGHT);
   }
 

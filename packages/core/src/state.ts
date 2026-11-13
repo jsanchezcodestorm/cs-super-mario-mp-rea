@@ -93,6 +93,7 @@ export function enterRoom(world: World, p: PlayerState, id: string, position?: E
   delete p.ropeId
   delete p.ropeReleased
   delete p.netClinging
+  delete p.vineClinging
   delete p.netPunchTick
   delete p.behindNet
   leaveQuestionBonus(world, p, id)

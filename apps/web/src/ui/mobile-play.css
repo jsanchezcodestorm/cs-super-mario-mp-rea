@@ -196,10 +196,11 @@
     background: var(--accent);
   }
 
-  #touch-controls:not([data-mode="level"]) .touch-actions button:not([data-control="action"]),
+  #touch-controls:not([data-mode="level"]):not([data-mode="map-prompt"]) .touch-actions button:not([data-control="action"]),
   #touch-controls:is([data-mode="level"], [data-mode="idle"]) [data-control="action"],
   #touch-controls:not([data-has-reserve]) [data-control="reserve"],
-  #touch-controls:is([data-mode="continue"], [data-mode="idle"]) .touch-directions {
+  #touch-controls:is([data-mode="continue"], [data-mode="idle"], [data-mode="map-prompt"], [data-mode="map-requested"]) .touch-directions,
+  #touch-controls[data-mode="map-prompt"] .touch-actions button:not([data-control="run"]):not([data-control="action"]) {
     display: none;
   }
   #touch-controls[data-mode="continue"] { justify-content: flex-end; }

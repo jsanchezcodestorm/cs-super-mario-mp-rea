@@ -1,13 +1,9 @@
 import assert from 'node:assert/strict';
-import { Buttons, type CampaignDefinition, type GameState } from '@smw/core';
+import { Buttons, type CampaignDefinition, type GameState, type PlayerId } from '@smw/core';
 import { overworldTarget } from '../../packages/core/src/overworld.ts';
 
 type Movement = { button: number; to: string };
 const controls = [Buttons.left, Buttons.right, Buttons.up, Buttons.down, Buttons.action];
-
-function position(state: GameState) {
-  return state.mapStop ?? state.progress.unlocked[state.progress.selection];
-}
 
 function pathTo(c: CampaignDefinition, unlocked: string[], start: string, goal: string): Movement[] {
   const queue = [start];
@@ -33,7 +29,9 @@ function pathTo(c: CampaignDefinition, unlocked: string[], start: string, goal: 
 
 // The caller applies each batch to the live simulation or both WebSocket clients
 // before requesting the next one. Distances come from the actual map animation.
-export function* mapInputs(c: CampaignDefinition, state: GameState, course: string): Generator<[button: number, frames: number]> {
+type MapBatch = [navigator: number, frames: number, partner?: number];
+export function* mapInputs(c: CampaignDefinition, state: GameState, course: string, navigator: PlayerId): Generator<MapBatch> {
+  const actor = state.mapPlayers[navigator];
   assert.equal(state.phase, 'map');
   assert.ok(state.progress.unlocked.includes(course), 'locked course ' + course);
   for (let i = 0; i < 60 && (state.goalWalk || state.keyholeFinish || state.orbFinish); i++) yield [0, 12];
@@ -44,24 +42,26 @@ export function* mapInputs(c: CampaignDefinition, state: GameState, course: stri
     if (state.cutscene) yield [Buttons.action, 1];
     assert.equal(state.cutscene, undefined, 'skip cutscene before map travel');
   }
-  function* finishTravel(): Generator<[number, number]> {
-    const travel = state.mapTravel;
+  function* finishTravel(): Generator<MapBatch> {
+    const travel = actor.travel;
     if (!travel) return;
     const remaining = travel.duration - travel.elapsed;
     assert.ok(Number.isSafeInteger(remaining) && remaining > 0, 'invalid map travel duration');
     yield [0, remaining];
-    assert.equal(state.mapTravel, undefined, 'map travel did not finish at ' + travel.to);
-    assert.equal(position(state), travel.to);
+    assert.equal(actor.travel, undefined, 'map travel did not finish at ' + travel.to);
+    assert.equal(actor.stop, travel.to);
   }
   yield* finishTravel();
-  const start = position(state);
+  const start = actor.stop;
   for (const { button, to } of pathTo(c, state.progress.unlocked, start, course)) {
     yield [button, 1];
-    assert.equal(state.mapTravel?.to, to, 'map direction did not lead to ' + to);
+    assert.equal(actor.travel?.to, to, 'map direction did not lead to ' + to);
     yield* finishTravel();
   }
   yield [0, 1];
   yield [Buttons.action, 1];
+  assert.deepEqual(state.mapRequest, { course, requester: navigator });
+  yield [0, 1, Buttons.action];
   assert.equal(state.phase, 'playing');
   assert.equal(state.progress.course, course);
 }

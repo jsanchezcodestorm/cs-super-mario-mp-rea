@@ -6,7 +6,7 @@ from map_tiles import vram
 
 def reward_sheet(core, rom):
     ram, memory, colors = bytearray(core.ram), vram(core), snes_colors(core)
-    sheet = canvas(32*16, 16)
+    sheet = canvas(34*16, 16)
 
     def frame(number, parts):
         for i, (x, y, tile, attr, size) in enumerate(parts):
@@ -31,4 +31,11 @@ def reward_sheet(core, rom):
         frame(27+i, [(0, 0, tile, 0x26, 0)])
     for i, tile in enumerate((0x3c, 0x3d)):
         frame(30+i, [(0, 0, tile, 0x20, 0)])
+    # Smoke sprite 02 uses four 8x8 tiles in OAM $F0..$FC.
+    for phase in (0, 1):
+        a, b = 0x7c + phase, 0x7d - phase
+        top = 0x20 | (phase << 6)
+        bottom = top ^ 0xc0
+        frame(32+phase, [(0, 0, a, top, 0), (8, 0, b, top, 0),
+                         (0, 8, b, bottom, 0), (8, 8, a, bottom, 0)])
     return sheet

@@ -3,6 +3,7 @@ import { stepStarTrail } from './star-trail.ts'
 import { advanceRewardEffects } from './reward-effects.ts'
 import { expireShatters } from './spin-block.ts'
 import { advanceNetDoors } from './net-door.ts'
+import { punchNetKoopa } from './net-punch.ts'
 import { releaseShell } from './shell-motion.ts'
 import { advanceGoalWalk } from './goal-walk.ts'
 import { keyholeFrame } from './keyhole.ts'
@@ -31,6 +32,8 @@ import { navigate, returnToMap } from './campaign.ts'
 import { overlaps } from './terrain.ts'
 import { settleBlockBounces } from './block-bounce.ts'
 import { settleTurnBlocks } from './turn-block.ts'
+
+const playerProjectiles = new Set<EntityState['kind']>(['fireball', 'yoshiFire'])
 
 function carry(e: EntityState, p: PlayerState, buttons: number) {
   if (p.carrying !== e.id) return false
@@ -97,7 +100,7 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
       .map((id) => state.players[id])
       .filter((p) => p.status === 'alive' && p.roomId === entity.roomId)
     if (!players.length) {
-      if (entity.emission) entity.active = false
+      if (entity.emission || playerProjectiles.has(entity.kind)) entity.active = false
       continue
     }
     const nearest = players.reduce((a, b) => (Math.abs(a.x - entity.x) < Math.abs(b.x - entity.x) ? a : b))
@@ -108,7 +111,10 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
     }
     if (entity.emission && Math.abs(nearest.x - entity.x) > 360) entity.active = false
     const followsRoom = entity.kind === 'exitSide' || (entity.kind === 'magikoopa' && entity.age > 0)
-    if (!followsRoom && Math.abs(nearest.x - entity.x) > 360) continue
+    if (!followsRoom && Math.abs(nearest.x - entity.x) > 360) {
+      if (playerProjectiles.has(entity.kind)) entity.active = false
+      continue
+    }
     if (entity.owner && carry(entity, state.players[entity.owner], inputs[entity.owner])) {
       if (entity.kind === 'shell') shellContact(world, entity)
       if (entity.kind === 'babyYoshi') {
@@ -151,6 +157,9 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
       contact(world, entity, p, inputs[p.id], feet[p.id].bottom, old, feet[p.id].x)
       if (state.phase !== 'playing') return
     }
+    // E1 checks the punch after the Koopa moves and resolves ordinary body contact.
+    if (entity.active && entity.netKoopa)
+      for (const p of players) punchNetKoopa(world, entity, p)
   }
   const mouths = [state.players.mario.mouth, state.players.luigi.mouth]
   state.entities = state.entities.filter((e) => e.active || e.shellKnockedOut ||

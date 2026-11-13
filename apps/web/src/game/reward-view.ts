@@ -4,6 +4,7 @@ import { palFrame, type GameState, type HitAward } from '@smw/core';
 import { drawGoalCoins } from './goal-coin-view';
 import { drawGoalStars } from './goal-stars-view';
 import { drawBlockFragments } from './block-fragments';
+import { drawContactFlash } from './contact-flash';
 import { queueEffectTile, scoreRise } from './effect-tiles';
 import type { Camera } from './terrain-view';
 
@@ -21,6 +22,7 @@ export class RewardView {
     const sheet = this.scene.textures.get('reward-tiles').getSourceImage() as HTMLImageElement;
     drawBlockFragments(this.objects, sheet, state, room, camera);
     const now = palFrame(state.tick);
+    drawContactFlash(this.objects, sheet, state.rewardEffects ?? [], now, room, camera);
     const tile = (frame: number, x: number, y: number, priority: number, oam: number) =>
       queueEffectTile(this.objects, sheet, frame, x - camera.x, y - camera.y, priority, oam);
     const walk = state.goalWalk;

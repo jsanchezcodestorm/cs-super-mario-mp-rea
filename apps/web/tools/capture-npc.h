@@ -45,6 +45,10 @@ static int npc_state_pose(const char *track, int i, int right) {
         return run_actor(0x018bc3, 0); // Spr0to13Gfx selects the turning image.
     }
     if (!strcmp(track, "net")) {
+        if (i >= 20) {
+            ram[0x1632 + actor_slot] = (i - 20) >> 1;
+            return run_actor(0x019b1f, 0); // HandleSpriteDeath, with this Koopa's tweaker bytes.
+        }
         if (i < 4) {
             ram[0x1632 + actor_slot] = i >> 1;
             ram[0x1570 + actor_slot] = (i & 1) << 3;

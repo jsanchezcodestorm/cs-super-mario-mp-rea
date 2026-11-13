@@ -1,11 +1,16 @@
 import { palFrame } from './pal-time.ts'
+import { climbStepY, jumpFromClimb } from './climb-motion.ts'
 import { clipDisplacement } from './terrain.ts'
 import { Buttons, type EntityState, type PlayerState, type World } from './types.ts'
 
 function touchesRope(p: PlayerState, rope: EntityState) {
-  // At the native pin the grippable section starts 16 pixels below the motor.
+  // E1 clipping profiles $12/$13 are 8×52 and 8×116. GetMarioClipping
+  // measures from the feet and counts a shared boundary pixel as contact.
+  const x = Math.floor(p.x), feet = Math.floor(p.y + p.height)
+  const height = p.form === 'small' || p.ducking ? 12 : 26
   const left = rope.x + 4, top = rope.y + 24
-  return p.x < left + 8 && p.x + p.width > left && p.y < rope.y + rope.height - 4 && p.y + p.height > top
+  return x <= left + 8 && x + p.width >= left &&
+    feet >= top && feet - height <= rope.y + rope.height - 4
 }
 
 export function moveRopePlayer(world: World, p: PlayerState, input: number, pressed: number) {
@@ -17,14 +22,13 @@ export function moveRopePlayer(world: World, p: PlayerState, input: number, pres
   }
   p.grounded = p.spin = false
   p.flight = p.vx = 0
-  if (pressed & (Buttons.jump | Buttons.spin)) {
+  if (pressed & Buttons.jump) {
     delete p.ropeId
     p.ropeReleased = world.state.tick
-    p.vy = -5 * 5 / 6  // $B0 per PAL frame
+    jumpFromClimb(world, p)
   } else {
-    const climb = Number(!!(input & Buttons.down)) - Number(!!(input & Buttons.up))
-    // The climbing routine stops at the motor. The open bottom lets Mario drop.
-    p.vy = climb < 0 && p.y <= rope.y + 24 ? 0 : climb * 5 / 6
+    const climb = input & Buttons.up ? -1 : Number(!!(input & Buttons.down))
+    p.vy = climb * climbStepY * (palFrame(world.state.tick) - palFrame(world.state.tick - 1))
   }
   return true
 }
@@ -32,7 +36,11 @@ export function moveRopePlayer(world: World, p: PlayerState, input: number, pres
 export function carryRopePlayer(world: World, rope: EntityState, p: PlayerState, input: number) {
   if (p.ropeReleased !== undefined && palFrame(world.state.tick) - palFrame(p.ropeReleased) < 16) return
   if (!p.ropeId) {
-    if (!(input & Buttons.up) || p.mounted || p.carrying || p.cloud || p.balloon || !touchesRope(p, rope)) return
+    if (!(input & Buttons.up) || p.netTurn || p.mounted || p.carrying || p.cloud || p.balloon || !touchesRope(p, rope)) return
+    delete p.netClinging
+    delete p.vineClinging
+    delete p.behindNet
+    delete p.netPunchTick
     p.ropeId = rope.id
     p.grounded = p.spin = false
     p.flight = p.vx = p.vy = 0
@@ -40,10 +48,16 @@ export function carryRopePlayer(world: World, rope: EntityState, p: PlayerState,
   }
   if (p.ropeId !== rope.id) return
   const room = world.campaign.levels[p.roomId]
+  // Contact is checked against the new pin before the sprite advects its rider.
+  if (!touchesRope(p, rope)) { delete p.ropeId; return }
   p.y = clipDisplacement(world, room, p, 'y', rope.vy)
+  const frame = palFrame(world.state.tick) - palFrame(world.state.tick - 1)
+  // The motor pushes a rider whose native origin is above the pin down by
+  // one PAL pixel. Held Up still advances by 1.15625, so the very top is open.
+  if (frame && Math.floor(p.y + p.height) - 32 < rope.y + 8)
+    p.y = clipDisplacement(world, room, p, 'y', 1)
   const previousCenter = rope.x - rope.vx + (rope.width - p.width) / 2
-  const centerCorrection = palFrame(world.state.tick) - palFrame(world.state.tick - 1)
-  const offset = Math.max(-centerCorrection, Math.min(centerCorrection, previousCenter - p.x))
+  const offset = Math.max(-frame, Math.min(frame, previousCenter - p.x))
   p.x = clipDisplacement(world, room, p, 'x', rope.vx + offset)
   if (!touchesRope(p, rope)) delete p.ropeId
 }

@@ -20,6 +20,7 @@ function setup(id: number, targetX: number, terrain: 'ledge' | 'wall' | 'net' = 
   const c = { start: room.id, levels: { test: room }, routes: { test: {} } }
   const state = createGame(c)
   stepGame(c, state, { mario: Buttons.action, luigi: 0 })
+  stepGame(c, state, { mario: 0, luigi: Buttons.action })
   const world = { state, campaign: c }, p = state.players.luigi, e = state.entities[0]
   const advance = () => { state.tick++; moveEntity(world, e, p) }
   return { world, e, p, advance }
@@ -90,7 +91,7 @@ test('native green/red fence travel and side changes stay aligned, including the
   }
 })
 
-test('Mario and Luigi contact a fence Koopa on the same side and can punch it through the net', () => {
+test('fence Koopas hurt Mario and Luigi only on the same side of the net', () => {
   const { world, e, advance } = setup(0x24, 180, 'net')
   advance()
   for (const p of Object.values(world.state.players)) {
@@ -98,12 +99,6 @@ test('Mario and Luigi contact a fence Koopa on the same side and can punch it th
     contact(world, e, p, 0, p.y + p.height)
     assert.equal(p.status, 'alive')
   }
-  const p = world.state.players.luigi
-  Object.assign(p, { x: e.x, y: e.y+15, netPunchTick: world.state.tick })
-  contact(world, e, p, Buttons.run, p.y + p.height)
-  assert.equal(e.active, false)
-  assert.equal(p.score, 100)
-
   const same = setup(0x24, 180, 'net')
   same.advance()
   for (const player of Object.values(same.world.state.players)) {

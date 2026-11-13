@@ -127,7 +127,7 @@
   ["003:supply",true,0],
   ["134:secret",false,0],
   ["109:normal",false,0],
-  ["001:normal",false,120],
+  ["001:normal",false,0],
   ["002:normal",false,0],
   ["130:normal",false,0],
   ["00b:normal",false,0],

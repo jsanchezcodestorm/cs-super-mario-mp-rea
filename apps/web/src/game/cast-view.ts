@@ -113,7 +113,7 @@ export class CastView {
           ? { x: x + (e.scale ? 16 : 8), y: y + 16 }
           : { x: (emerging?.x ?? x) + e.width / 2, y: (emerging?.y ?? plant?.drawY ?? y) + height };
       draw(e.id, pose.frame, anchor.x, anchor.y, boss ? boss.flipX : mirrorEntity(e), 1, pose.texture,
-        e.shellKnockedOut, order, emerging ? 1 : undefined);
+        e.shellKnockedOut && !e.netKoopa?.punched, order, emerging ? 1 : undefined);
     }
     for (const p of [state.players.luigi, state.players.mario]) {
       if (p.roomId !== stage.id) continue;

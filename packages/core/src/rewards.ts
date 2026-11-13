@@ -1,8 +1,10 @@
 import { addRewardEffect } from './reward-effects.ts'
-import type { World, PlayerState, EntityState, ReserveItem, HitAward, GameState } from './types.ts'
+import type { World, PlayerState, EntityState, ReserveItem, HitAward, GameState, RewardEffect } from './types.ts'
 import { spawnEntity } from './state.ts'
 import { scrollingCamera } from './autoscroll.ts'
 import { limit } from './terrain.ts'
+import { awardLives } from './lives.ts'
+import { palFrame } from './pal-time.ts'
 
 const reserveForForm = { small: null, super: 'mushroom', fire: 'flower', cape: 'feather' } as const
 const spriteForReserve = { mushroom: 0x74, flower: 0x75, feather: 0x77 } as const
@@ -11,10 +13,22 @@ export function addScore(p: PlayerState, amount: number) {
   p.score = Math.min(9999990, p.score + amount)
 }
 
-export function showHitAward(state: GameState, player: PlayerState, target: Pick<EntityState, 'roomId' | 'x' | 'y'>, amount: HitAward) {
-  if (amount === '1up') player.lives = Math.min(99, player.lives + 1)
+function claimImpactSlot(state: GameState, roomId: string) {
+  const frame = palFrame(state.tick)
+  const live = (state.rewardEffects ?? []).filter(e => e.roomId === roomId && e.impactSlot !== undefined && frame - palFrame(e.tick) <= 8)
+  // Smoke $02 takes the highest free slot and overwrites slot zero on overflow.
+  for (let slot = 3; slot >= 0; slot--)
+    if (!live.some(e => e.impactSlot === slot)) return slot
+  delete live.find(e => e.impactSlot === 0)!.impactSlot
+  return 0
+}
+
+export function showHitAward(state: GameState, player: PlayerState, target: Pick<EntityState, 'roomId' | 'x' | 'y'>, amount: HitAward, impact = false) {
+  if (amount === '1up') awardLives(state, player, 1)
   else addScore(player, amount)
-  addRewardEffect(state, { tick: state.tick, roomId: target.roomId, x: target.x, y: target.y - 8, award: amount })
+  const effect: RewardEffect = { tick: state.tick, roomId: target.roomId, x: target.x, y: target.y - 8, award: amount }
+  if (impact) effect.impactSlot = claimImpactSlot(state, target.roomId)
+  addRewardEffect(state, effect)
 }
 
 /** E1 ItemBoxSprite indexes the newly touched item and the previous form. */
@@ -55,7 +69,7 @@ export function goalReward(world: World, p: PlayerState, e: EntityState) {
     const band = Math.min(31, Math.floor((e.origin.y - e.y) / 4))
     const stars = band < 30 ? band + 1 : band === 30 ? 40 : 50
     p.bonusStars += stars
-    if (stars === 50) p.lives = Math.min(99, p.lives + 3)
+    if (stars === 50) awardLives(world.state, p, 3)
   }
   addScore(p, world.state.timeLeft * 50)
 }

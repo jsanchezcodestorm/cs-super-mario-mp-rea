@@ -1,7 +1,7 @@
 import { beginBonus, resumeBonus, validBonus } from './bonus-game.ts'
 import { beginGoalWalk, type GoalAward } from './goal-walk.ts'
 import { activePlayerIds, Buttons, playerIds } from './types.ts'
-import { beginOverworldTravel, navigateOverworld } from './overworld.ts'
+import { beginOverworldTravel, navigateOverworld, resetMapPlayers } from './overworld.ts'
 import type {
   World,
   CampaignDefinition,
@@ -14,23 +14,24 @@ import type {
   PlayerId,
 } from './types.ts'
 import { enterRoom, emit, initialCourses, initialPlayer } from './state.ts'
+import { awardLives, setSharedLives } from './lives.ts'
 
 export function startCourse(world: World, course: string, resumeCheckpoint = false) {
   const { state } = world
   if (!state.progress.unlocked.includes(course)) throw new Error('Course is locked')
   state.phase = 'playing'
   delete state.mapClouds
-  delete state.mapArrival
-  delete state.mapStop
-  delete state.mapTravel
   delete state.heldAtExit
   delete state.mapReveal
+  delete state.mapRequest
+  delete state.mapReply
   delete state.bonus
   delete state.goalWalk
   delete state.orbFinish
   delete state.keyholeFinish
   state.progress.course = course
   state.progress.selection = state.progress.unlocked.indexOf(course)
+  resetMapPlayers(state, course)
   if (!resumeCheckpoint) state.progress.checkpoint = null
   const checkpoint = state.progress.checkpoint
   const intro = !checkpoint && world.campaign.entranceInputs ? world.campaign.levels[course].intro : undefined
@@ -55,18 +56,22 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   state.pSwitch = 0
   state.timeLeft = world.campaign.levels[course].timeLimit ?? 400
   const activePlayers = activePlayerIds(state)
+  if (state.mode === 'coop' && !resumeCheckpoint && (state.sharedLives ?? 0) === 0)
+    awardLives(state, state.players.mario, 1)
   for (const id of playerIds) {
     const p = state.players[id]
     if (!activePlayers.includes(id)) {
       p.status = 'spectator'
       continue
     }
-    if (p.lives === 0 && !resumeCheckpoint) {
+    if (state.mode !== 'coop' && p.lives === 0 && !resumeCheckpoint) {
       p.lives = 1
       p.form = 'small'
       p.mounted = false
     }
-    p.status = p.lives === 0 ? 'spectator' : 'alive'
+    p.status = state.mode === 'coop'
+      ? (state.sharedLives ?? 0) === 0 ? 'spectator' : 'alive'
+      : p.lives === 0 ? 'spectator' : 'alive'
     p.timer = 0
     p.star = 0
     p.invincible = 0
@@ -116,11 +121,20 @@ export function createGame(
       if (score !== undefined) player.score = score
       if (bonusStars !== undefined) player.bonusStars = bonusStars
     }
+  const sharedLives = mode === 'coop'
+    ? Math.min(99, save?.sharedLives ?? (save
+      ? save.resources.mario.lives + save.resources.luigi.lives
+      : players.mario.lives + players.luigi.lives))
+    : undefined
   const state: GameState = {
     mode,
+    ...(sharedLives === undefined ? {} : { sharedLives }),
     tick: 0,
     phase: save?.phase ?? 'map',
-    ...(save?.mapStop ? { mapStop: save.mapStop } : {}),
+    mapPlayers: {
+      mario: { stop: save?.mapPlayers?.mario ?? save?.mapStop ?? progress.unlocked[progress.selection] },
+      luigi: { stop: save?.mapPlayers?.luigi ?? save?.mapStop ?? progress.unlocked[progress.selection] },
+    },
     players,
     entities: [],
     nextEntity: 0,
@@ -137,11 +151,26 @@ export function createGame(
     entrance: null,
     timeLeft: 400,
   }
+  if (sharedLives !== undefined) setSharedLives(state, sharedLives)
   const soloOutOfLives = mode === 'solo' && state.players.mario.lives === 0;
   if (mode === 'solo') state.players.luigi.status = 'spectator'
+  if (mode === 'coop' && sharedLives === 0 && save?.spectators)
+    for (const id of playerIds) state.players[id].status = save.spectators.includes(id) ? 'spectator' : 'alive'
+  if (mode === 'coop' && sharedLives === 0 && !save?.spectators)
+    for (const id of playerIds) state.players[id].status = 'spectator'
+  if (mode === 'coop' && sharedLives === 0 && save?.phase === 'gameOver')
+    for (const id of playerIds) state.players[id].status = 'spectator'
   if (soloOutOfLives && save?.phase === 'playing') state.phase = 'gameOver'
   if (save?.bonus && !soloOutOfLives) resumeBonus({ campaign, state }, save.bonus)
-  else if (save?.phase === 'playing' && !soloOutOfLives) startCourse({ campaign, state }, progress.course, true)
+  else if (save?.phase === 'playing' && !soloOutOfLives) {
+    startCourse({ campaign, state }, progress.course, true)
+    if (mode === 'coop' && sharedLives === 0) {
+      const spectators = save.spectators ?? playerIds
+      for (const id of playerIds)
+        state.players[id].status = spectators.includes(id) ? 'spectator' : 'alive'
+      if (playerIds.every((id) => state.players[id].status === 'spectator')) state.phase = 'gameOver'
+    }
+  }
   return state
 }
 export function finishCourse(
@@ -162,9 +191,11 @@ export function finishCourse(
   const paths = campaign.routes[p.course]?.[kind] ?? []
   for (const path of paths) if (campaign.levels[path] && !p.unlocked.includes(path)) p.unlocked.push(path)
   const next = paths.find((id) => p.unlocked.includes(id))
+  resetMapPlayers(state, p.course)
   const transitioned = !ending && next ? beginOverworldTravel(world, p.course, next, kind) : false
   if (firstClear && countsAsExit && !ending) {
-    state.mapReveal = { exit: exitId, course: p.course, travel: transitioned ? { ...state.mapTravel! } : undefined }
+    const returning = state.mapPlayers[activePlayerIds(state)[0]].travel
+    state.mapReveal = { exit: exitId, course: p.course, travel: transitioned && returning ? { ...returning } : undefined }
   }
   if (!transitioned) p.selection = next ? p.unlocked.indexOf(next) : p.unlocked.indexOf(p.course)
   p.checkpoint = null
@@ -183,22 +214,36 @@ export function returnToMap(state: GameState, inputs: InputFrame) {
   if (!activePlayerIds(state).some((id) => inputs[id] & ~state.players[id].lastInput & Buttons.action)) return
   if (state.phase === 'gameOver') {
     state.progress.checkpoint = null
+    if (state.mode === 'coop') setSharedLives(state, 10)
     for (const id of activePlayerIds(state)) {
-      state.players[id].lives = 5
+      if (state.mode !== 'coop') state.players[id].lives = 5
       state.players[id].status = 'alive'
     }
   }
+  resetMapPlayers(state, state.progress.course)
+  delete state.mapClouds
   state.phase = 'map'
 }
 export function makeSave(state: GameState): CampaignSave {
   const bonus = state.bonus ?? state.goalWalk?.bonus ?? state.orbFinish?.bonus
+  const sharedLives = state.sharedLives ?? Math.min(99, state.players.mario.lives + state.players.luigi.lives)
   const resources = (id: PlayerId) => {
     const { form, lives, coins, mounted, yoshiColor, reserve, score, bonusStars } = state.players[id]
     return { form, lives, coins, mounted, yoshiColor, reserve, score, bonusStars }
   }
   return {
     version: 1,
-    ...(state.mapStop ? { mapStop: state.mapStop } : {}),
+    ...(state.mode === 'coop' ? {
+      sharedLives,
+      ...(sharedLives === 0
+        ? { spectators: playerIds.filter((id) => state.players[id].status === 'spectator') }
+        : {}),
+    } : {}),
+    ...(state.phase === 'map' ? {
+      mapPlayers: Object.fromEntries(
+        playerIds.map((id) => [id, state.mapPlayers[id].travel?.to ?? state.mapPlayers[id].stop]),
+      ) as Record<PlayerId, string>,
+    } : {}),
     ...(bonus ? { bonus: structuredClone(bonus) } : {}),
     phase: bonus ? 'playing' : state.phase,
     progress: structuredClone(state.progress),
@@ -244,6 +289,25 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
     !integer(p.selection, 0, allowed.length - 1)
   )
     return false
+  if (value.mapPlayers !== undefined) {
+    if (value.phase !== 'map' || !record(value.mapPlayers)) return false
+    const mapPlayers = value.mapPlayers
+    if (!playerIds.every((id) => {
+      const stop = mapPlayers[id]
+      if (typeof stop !== 'string') return false
+      if (!campaign.overworldPaths) return allowed.includes(stop)
+      return Object.hasOwn(campaign.overworldPaths, stop) &&
+        (allowed.includes(stop) || !Object.hasOwn(campaign.routes, stop))
+    })) return false
+  }
+  if (value.sharedLives !== undefined && !integer(value.sharedLives, 0, 99)) return false
+  if (value.spectators !== undefined && (
+    value.sharedLives !== 0 ||
+    !Array.isArray(value.spectators) ||
+    value.spectators.length > playerIds.length ||
+    value.spectators.some((id) => id !== 'mario' && id !== 'luigi') ||
+    new Set(value.spectators).size !== value.spectators.length
+  )) return false
   if (p.checkpoint !== null) {
     const point = p.checkpoint
     if (!record(point) || typeof point.roomId !== 'string' || !Object.hasOwn(campaign.levels, point.roomId))
@@ -261,6 +325,11 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
     )
       return false
   }
+  if (value.sharedLives !== undefined)
+    for (const id of playerIds) {
+      const resource = members[id]
+      if (!record(resource) || resource.lives !== value.sharedLives) return false
+    }
   return playerIds.every((id) => {
     const r = members[id]
     return (

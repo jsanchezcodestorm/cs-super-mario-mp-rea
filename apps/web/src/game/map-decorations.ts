@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import type { RevealFrame } from './map-reveal';
 import { clipMapObject, mapObjectMask, type Occlusion } from './map-obj-mask';
-import { mapPosition, palFrame, type GameState } from '@smw/core';
+import { mapPosition, palFrame, type GameState, type MapCloud, type PlayerId } from '@smw/core';
 
 type Part = [x: number, y: number, tile: number, oam: number];
 type Clip = { start: number; frames: Part[][] };
@@ -20,7 +20,7 @@ export function preloadMapDecorations(scene: Phaser.Scene) {
   scene.load.image('map-decoration-tiles', '/assets/world/decorations.png');
 }
 
-type Trip = Pick<NonNullable<GameState['mapTravel']>, 'from' | 'command' | 'elapsed'>;
+type Trip = Pick<NonNullable<GameState['mapPlayers'][PlayerId]['travel']>, 'from' | 'command' | 'elapsed'>;
 function fishFrame(data: Decorations, frame: number, trips: (Trip | undefined)[]) {
   let available = -Infinity;
   let parts: Part[][] | undefined, age = 0;
@@ -47,7 +47,8 @@ function fishFrame(data: Decorations, frame: number, trips: (Trip | undefined)[]
 
 /** Each frame retains native OAM slot numbers and world coordinates, including offscreen movers. */
 export function decorationParts(data: Decorations, region: number, frame: number, forestOpen: boolean,
-  clouds: GameState['mapClouds'], camera: { x: number; y: number }, travel?: Trip, previous?: Trip, earlier?: Trip) {
+  clouds: (MapCloud | null)[] | undefined,
+  camera: { x: number; y: number }, travel?: Trip, previous?: Trip, earlier?: Trip) {
   const slots = new Map<number, Part>();
   const origin = mapPosition([region, 0, 0]);
   for (const { region: map, slot, offset, track } of data.actors) {
@@ -77,14 +78,15 @@ export function decorationParts(data: Decorations, region: number, frame: number
 }
 
 export function mapDecorations(scene: Phaser.Scene, state: GameState, region: number, frame: number,
-  camera: { x: number; y: number }, travel?: Trip, arrival?: GameState['mapArrival'], reveal?: RevealFrame) {
+  playerId: PlayerId, camera: { x: number; y: number }, travel?: Trip,
+  arrival?: GameState['mapPlayers'][PlayerId]['arrival'], reveal?: RevealFrame) {
   const data = scene.cache.json.get('map-decorations') as Decorations;
   const events = scene.cache.json.get('map-events').ids as Record<string, number>;
   const visible = state.progress.completed.some(id => events[id] === 43 || events[id] === 46);
   const previous = arrival && { ...arrival, elapsed: state.tick - arrival.departed };
   const earlier = arrival?.previous && { ...arrival.previous, elapsed: state.tick - arrival.previous.departed };
   return {
-    parts: decorationParts(data, region, frame, visible, state.mapClouds, camera, travel, previous, earlier),
+    parts: decorationParts(data, region, frame, visible, state.mapClouds?.[playerId], camera, travel, previous, earlier),
     blocked: mapObjectMask(data.occlusion, region, frame, state.progress.completed, events, reveal),
     priorities: data.priorities,
   };

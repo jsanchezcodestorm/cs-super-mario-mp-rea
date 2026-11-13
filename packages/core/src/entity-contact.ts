@@ -1,5 +1,5 @@
 import { carryRopePlayer } from './rope-motor.ts'
-import { netKoopaBox } from './net-koopa.ts'
+import { isNetKoopaTurning, netKoopaBox } from './net-koopa.ts'
 import { takeFishingPrize } from './lakitu.ts'
 import { palFrame } from './pal-time.ts'
 import { keyholeAnchor } from './keyhole.ts'
@@ -112,15 +112,8 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   if (!e.active || !e.height || p.status !== 'alive' || e.roomId !== p.roomId) return
   // Ordinary level sprites occupy the front plane. The PAL standard contact
   // handler compares their scenery-side bit with the player's before clipping.
-  if (e.kind !== 'exitSide' && !!p.behindNet !== !!e.netKoopa?.behind) {
-    if (e.netKoopa && p.netPunchTick !== undefined && p.netClinging) {
-      // A fence punch invokes the cape collision rectangle on the opposite side.
-      // Player coordinates here have the hitbox origin instead of the native origin.
-      const fist = { x: p.x - 4 + (p.behindNet ? -8 : 8), y: p.y + p.height - 30, width: 20, height: 16 }
-      if (overlaps(fist, netKoopaBox(e))) strike(world, e, p)
-    }
-    return
-  }
+  if (e.kind !== 'exitSide' && !!p.behindNet !== !!e.netKoopa?.behind) return
+  if (e.netKoopa && isNetKoopaTurning(e.netKoopa)) return
   if (e.kind === 'ropeMotor') { carryRopePlayer(world, e, p, input); return }
   if (e.kind === 'lakitu') takeFishingPrize(world, e, p)
   if (e.booStream?.trail.some(part => part.until > palFrame(world.state.tick) &&

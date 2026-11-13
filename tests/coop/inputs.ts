@@ -26,8 +26,8 @@ export function recordings(): Record<string, Recording> {
 
 export type Observe = (input: InputFrame) => void;
 export function choose(c: CampaignDefinition, state: GameState, course: string, observe?: Observe) {
-  for (const [button, frames] of mapInputs(c, state, course)) {
-    const input = { mario: button, luigi: 0 };
+  for (const [mario, frames, luigi = 0] of mapInputs(c, state, course, 'mario')) {
+    const input = { mario, luigi };
     for (let i = 0; i < frames; i++) {
       observe?.(input);
       stepGame(c, state, input);

@@ -4,6 +4,7 @@ const effects = {
   jump: 'jump',
   coin: 'coin',
   stomp: 'stomp',
+  netPunchHit: 'kick',
   item: 'powerup',
   exit: 'exit',
   death: 'death',

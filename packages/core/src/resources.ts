@@ -4,12 +4,15 @@ import { clearMouth, releaseMouth } from './yoshi-tongue.ts'
 import type { World, PlayerState } from './types.ts'
 import { activePlayerIds } from './types.ts'
 import { emit, enterRoom, spawnEntity } from './state.ts'
+import { awardLives, loseLife } from './lives.ts'
 export function die(world: World, p: PlayerState) {
   if (p.status !== 'alive') return
-  p.lives = Math.max(0, p.lives - 1)
-  p.status = p.lives === 0 ? 'spectator' : 'dead'
+  p.status = loseLife(world.state, p) === 0 ? 'spectator' : 'dead'
+  delete p.ropeId
+  delete p.ropeReleased
   delete p.netTurn
   delete p.netClinging
+  delete p.vineClinging
   delete p.netPunchTick
   delete p.behindNet
   p.timer = world.state.mode === 'solo' ? 228 : 76
@@ -70,7 +73,7 @@ export function collectCoin(world: World, p: PlayerState) {
   world.state.courseCoins++
   if (++p.coins >= 100) {
     p.coins = 0
-    p.lives = Math.min(99, p.lives + 1)
+    awardLives(world.state, p, 1)
   }
   emit(world, 'coin', p)
 }

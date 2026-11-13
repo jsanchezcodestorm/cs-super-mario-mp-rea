@@ -116,6 +116,12 @@ export interface OverworldTravel {
   elapsed: number
   duration: number
 }
+export interface MapPlayerState {
+  stop: string
+  travel?: OverworldTravel
+  arrival?: MapDeparture & { previous?: MapDeparture }
+}
+export interface MapCloud { x: number; y: number; z: number }
 export const playerIds = ['mario', 'luigi'] as const
 export type PlayerId = (typeof playerIds)[number]
 export type GameMode = 'solo' | 'coop'
@@ -149,6 +155,7 @@ export interface YoshiMouth {
 export interface PlayerState extends Body {
   ropeId?: string
   ropeReleased?: number
+  vineClinging?: boolean
   netClinging?: boolean
   behindNet?: boolean
   netPunchTick?: number
@@ -333,6 +340,9 @@ export interface CampaignProgress {
 }
 export interface CampaignSave {
   mapStop?: string
+  mapPlayers?: Record<PlayerId, string>
+  sharedLives?: number
+  spectators?: PlayerId[]
   bonus?: BonusGame
   version: 1
   progress: CampaignProgress
@@ -358,6 +368,7 @@ export interface RewardEffect extends Point {
   award: HitAward
   coinSlot?: number
   scoreSlot?: number
+  impactSlot?: number
   fromBlock?: boolean
 }
 export interface BlockBounce {
@@ -381,6 +392,7 @@ export interface GameEvent {
     | 'coin'
     | 'item'
     | 'shellHit'
+    | 'netPunchHit'
     | 'stomp'
     | 'hurt'
     | 'death'
@@ -412,12 +424,13 @@ export interface GameState {
   netDoors?: NetDoor[]
   questionBonus?: { roomId: string; closed: boolean }
   mode?: GameMode
+  sharedLives?: number
   bonus?: BonusGame
   cutscene?: { key: string; start: number; duration: number }
-  mapStop?: string
-  mapClouds?: ({ x: number; y: number; z: number } | null)[]
-  mapArrival?: MapDeparture & { previous?: MapDeparture }
-  mapTravel?: OverworldTravel
+  mapPlayers: Record<PlayerId, MapPlayerState>
+  mapClouds?: Partial<Record<PlayerId, (MapCloud | null)[]>>
+  mapRequest?: { course: string; requester: PlayerId }
+  mapReply?: { course: string; player: PlayerId; tick: number }
   mapReveal?: { exit: string; course: string; start?: number; travel?: OverworldTravel }
   tick: number
   phase: CampaignSave['phase']
