@@ -12,7 +12,7 @@ export function continueAfterGameOver(c: CampaignDefinition, state: GameState, o
     observe(input);
     stepGame(c, state, input);
   };
-  const teamLives = Math.max(state.players.mario.lives, state.players.luigi.lives);
+  const teamLives = state.sharedLives!;
   const timeout = c.levels['105'].timeLimit!;
   const deadline = state.tick + (teamLives + 2) * timeout * 41;
   const run = Buttons.right | Buttons.run;
@@ -21,7 +21,7 @@ export function continueAfterGameOver(c: CampaignDefinition, state: GameState, o
   press({ mario: 0, luigi: Buttons.action });
   assert.equal(state.phase, 'map');
   assert.deepEqual(state.progress.completed, completed);
-  for (const p of Object.values(state.players)) {
-    assert.deepEqual([p.form, p.mounted, p.reserve, p.lives], ['small', false, null, 5]);
-  }
+  assert.equal(state.sharedLives, 10);
+  for (const p of Object.values(state.players))
+    assert.deepEqual([p.form, p.mounted, p.reserve, p.lives], ['small', false, null, state.sharedLives]);
 }

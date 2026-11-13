@@ -7,6 +7,8 @@ export function enterFirstCourse(campaign: CampaignDefinition) {
   const map = createGame(campaign)
   assert.equal(map.phase, 'map')
   stepGame(campaign, map, { mario: Buttons.action, luigi: 0 })
+  assert.equal(map.mapRequest?.requester, 'mario')
+  stepGame(campaign, map, { mario: 0, luigi: Buttons.action })
   assert.equal(map.phase, 'playing')
   return createGame(campaign, makeSave(map))
 }
