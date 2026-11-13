@@ -36,6 +36,8 @@ function pathTo(c: CampaignDefinition, unlocked: string[], start: string, goal: 
 export function* mapInputs(c: CampaignDefinition, state: GameState, course: string): Generator<[button: number, frames: number]> {
   assert.equal(state.phase, 'map');
   assert.ok(state.progress.unlocked.includes(course), 'locked course ' + course);
+  for (let i = 0; i < 60 && (state.goalWalk || state.keyholeFinish || state.orbFinish); i++) yield [0, 12];
+  assert.ok(!state.goalWalk && !state.keyholeFinish && !state.orbFinish, 'finish the level before navigating');
   if (state.cutscene) {
     const elapsed = state.tick - state.cutscene.start;
     yield [0, Math.max(1, 31 - elapsed)];

@@ -82,6 +82,8 @@ export function* generatePlaythrough(campaign: CampaignDefinition) {
       }
       if (goal === 'supply') assert.equal(state.players[swap ? 'luigi' : 'mario'].form, 'cape');
       if (goal === 'pair') assert.ok(Object.values(state.players).every((p) => p.form === 'cape'));
+      for (let i = 0; i < 720 && (state.goalWalk || state.keyholeFinish || state.orbFinish); i++) press({ mario: 0, luigi: 0 }, inCourse);
+      assert.ok(!state.goalWalk && !state.keyholeFinish && !state.orbFinish, 'finish the closing animation at ' + id);
       for (let i = 0; state.bonus && i < 6000; i++) press(bonusInputs(state), inCourse);
       assert.equal(state.phase, goal === 'ending' ? 'ending' : 'map', id);
     }
