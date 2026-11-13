@@ -3,7 +3,7 @@ import { moveScalePan } from './scale-platforms.ts'
 import { palFrame } from './pal-time.ts'
 import { moveBlockEnemy } from './statue-enemies.ts'
 import { moveNetKoopa } from './net-koopa.ts'
-import { moveBooStream } from './boo-stream.ts'
+import { moveMovingHazard } from './hazard-motion.ts'
 import { moveBoo } from './boo.ts'
 import { stepLevelNpc } from './level-npcs.ts'
 import { moveKoopa } from './koopa-motion.ts'
@@ -115,6 +115,12 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
   if (e.spriteId >= 0x62 && e.spriteId <= 0x68) {
     moveLineGuide(world, room, e)
     return
+  }
+  if (e.kind === 'hazard' || e.spriteId === 0x27) {
+    if (moveMovingHazard(world, room, e, target)) {
+      if (e.y > room.height * 16 + 96) e.active = false
+      return
+    }
   }
   switch (e.kind) {
     case 'levelNpc':
@@ -270,18 +276,6 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       break
     case 'bullet':
       e.x += Math.sign(e.vx) * (e.spriteId === 0x9f ? 1 : 2.5)
-      break
-    case 'hazard':
-      if (e.spriteId === 0xb0) {
-        moveBooStream(world, room, e, target)
-        break
-      }
-      if (e.spriteId === 0x26 || e.spriteId === 0xac || e.spriteId === 0xad)
-        e.y = e.origin.y + Math.max(0, wave(e.age, 140)) * 52
-      else if (e.spriteId === 0x9e || e.spriteId === 0x65 || e.spriteId === 0x66) {
-        e.x = e.origin.x + wave(e.age, 170) * 24
-        e.y = e.origin.y + wave(e.age + 43, 170) * 24
-      }
       break
     case 'platform':
       if (e.scale) { moveScalePan(world, e); return }

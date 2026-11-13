@@ -19,6 +19,8 @@ import { landOnMovingDeck } from './platform-rider.ts'
 import { deckBounds, type DeckBounds } from './deck-bounds.ts'
 import { hitSolidDeck } from './solid-deck.ts'
 import { playerContactBody } from './player-size.ts'
+import { hazardContactBody, isHazardContactEntity, touchesHazard } from './hazard-contact.ts'
+import type { HazardSweep } from './hazard-contact.ts'
 import { takeItem } from './item-pickup.ts'
 import { goalReward, addScore, showHitAward } from './rewards.ts'
 import { taste } from './yoshi-tongue.ts'
@@ -111,7 +113,7 @@ export function strike(world: World, e: EntityState, p: PlayerState) {
   }
 }
 export function contact(world: World, e: EntityState, p: PlayerState, input: number, previousBottom: number,
-  previousDeck?: DeckBounds, previousX = p.x) {
+  previousDeck?: DeckBounds, previousX = p.x, hazardSweep?: HazardSweep) {
   if (!e.active || !e.height || p.status !== 'alive' || e.roomId !== p.roomId) return
   // Ordinary level sprites occupy the front plane. The PAL standard contact
   // handler compares their scenery-side bit with the player's before clipping.
@@ -165,7 +167,7 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   if (e.kind === 'yoshiEgg') return
   // E1 $B3 uses clipping profile $2D. Only the tip of the two-tile fireball burns.
   if (e.spriteId === 0xb3 && e.kind === 'bullet') {
-    if (overlaps(playerContactBody(p), { x: e.x + 4, y: e.y + 4, width: 8, height: 4 })) hurt(world, p)
+    if (touchesHazard(e, p, hazardSweep)) hurt(world, p)
     return
   }
   if (e.fromEnemyBlock && e.spriteId === 0x15 && !world.campaign.levels[e.roomId].water && overlaps(p, e)) {
@@ -177,8 +179,10 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     return
   }
   const surface = e.kind === 'spring'
-  const body = e.kind === 'netKoopa' ? netKoopaBox(e) : e.kind === 'plant' && e.pipePlant ? plantContactBox(e) : e
-  if (!overlaps(surface ? p : playerContactBody(p), body)) return
+  const hazard = isHazardContactEntity(e)
+  const body = hazard ? hazardContactBody(e) :
+    e.kind === 'netKoopa' ? netKoopaBox(e) : e.kind === 'plant' && e.pipePlant ? plantContactBox(e) : e
+  if (!body || (hazard ? !touchesHazard(e, p, hazardSweep) : !overlaps(surface ? p : playerContactBody(p), body))) return
   if (e.kind === 'balloon') {
     e.active = false
     p.balloon = 600
@@ -224,7 +228,7 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     }
     return
   }
-  const landed = previousBottom <= e.y + 6 && p.vy >= 0
+  const landed = previousBottom <= body.y + 6 && p.vy >= 0
   if (e.kind === 'spring') {
     if (e.spriteId === 0x2f && !landed && !p.mounted && !p.carrying && input & Buttons.run) {
       e.owner = p.id

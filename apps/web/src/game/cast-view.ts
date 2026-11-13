@@ -12,6 +12,7 @@ import { playerAppearance } from './player-effects';
 import { playerFacingRight } from './player-animation';
 import { drawnBehindNet } from './net-player';
 import { enemyDefeatPose } from './enemy-defeat-view';
+import { drawBallAndChain } from './hazard-view';
 import type { Stage } from './content';
 import { WIDTH, HEIGHT, type Camera } from './terrain-view';
 
@@ -84,6 +85,7 @@ export class CastView {
       }
       const plant = e.kind === 'plant' ? e.pipePlant : undefined;
       if (plant?.hidden && !defeat) continue;
+      if (e.hazardMotion?.type === 'podoboo' && e.hazardMotion.phase === 'waiting') continue;
       if (defeat?.kind === 'puff') {
         const sheet = this.scene.textures.get('reward-tiles').getSourceImage() as HTMLImageElement;
         queueEffectTile(this.objects, sheet, 18 + defeat.frame,
@@ -111,6 +113,7 @@ export class CastView {
       if (boss && !order) continue;
       const pose = boss ?? frameForEntity(e, state.tick, stage.spriteTileset, this.scene.textures.get('creatures'));
       if (!pose) continue;
+      if (drawBallAndChain(e, stage.spriteTileset, pose.frame, draw)) continue;
       const emerging = blockItemPosition(e, state.tick);
       if (emerging && !emerging.visible) continue;
       // A pipe boss's collision height is the exposed part of its 32 px body.

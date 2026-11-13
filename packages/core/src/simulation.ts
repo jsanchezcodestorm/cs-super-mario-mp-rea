@@ -32,6 +32,9 @@ import { overlaps } from './terrain.ts'
 import { settleBlockBounces } from './block-bounce.ts'
 import { settleTurnBlocks } from './turn-block.ts'
 import { advanceEntityDefeat } from './entity-defeat.ts'
+import { hazardContactBody } from './hazard-contact.ts'
+import { playerContactBody } from './player-size.ts'
+import type { ContactRect } from './hazard-contact.ts'
 
 const playerProjectiles = new Set<EntityState['kind']>(['fireball', 'yoshiFire'])
 
@@ -86,7 +89,8 @@ function projectileContact(world: World, entity: EntityState) {
     }
   }
 }
-function updateEntities(world: World, inputs: InputFrame, feet: Record<string, PreviousFoot>) {
+function updateEntities(world: World, inputs: InputFrame, feet: Record<string, PreviousFoot>,
+  previousContacts: Record<PlayerState['id'], { roomId: string; body: ContactRect }>) {
   const { state } = world
   const transported = new Map<PlayerState['id'], EntityState>()
   for (const entity of [...state.entities]) {
@@ -126,6 +130,7 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
       }
       continue
     }
+    const oldHazardBody = hazardContactBody(entity)
     const old = entity.kind === 'platform' || entity.kind === 'flyingQuestion' ? deckBounds(entity) : undefined
     moveEntity(world, entity, nearest)
     if (entity.spriteId === 3 && entity.kind === 'walker') {
@@ -157,7 +162,12 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
           continue
         }
       }
-      contact(world, entity, p, inputs[p.id], feet[p.id].bottom, old, feet[p.id].x)
+      const previousPlayer = previousContacts[p.id]
+      const hazardSweep = {
+        previousPlayer: previousPlayer.roomId === p.roomId ? previousPlayer.body : undefined,
+        previousHazard: oldHazardBody,
+      }
+      contact(world, entity, p, inputs[p.id], feet[p.id].bottom, old, feet[p.id].x, hazardSweep)
       if (state.phase !== 'playing') return
     }
     // E1 checks the punch after the Koopa moves and resolves ordinary body contact.
@@ -212,6 +222,10 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       mario: { x: state.players.mario.x, bottom: state.players.mario.y + state.players.mario.height },
       luigi: { x: state.players.luigi.x, bottom: state.players.luigi.y + state.players.luigi.height },
     }
+    const previousContacts = {
+      mario: { roomId: state.players.mario.roomId, body: { ...playerContactBody(state.players.mario) } },
+      luigi: { roomId: state.players.luigi.roomId, body: { ...playerContactBody(state.players.luigi) } },
+    }
     settleBlockBounces(world)
     expireShatters(state)
     advanceNetDoors(state)
@@ -224,7 +238,7 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       stepStarTrail(state.players[id], state.tick)
       if (state.phase !== 'playing') break
     }
-    if (state.phase === 'playing') updateEntities(world, inputs, feet)
+    if (state.phase === 'playing') updateEntities(world, inputs, feet, previousContacts)
     if (state.phase === 'playing') {
       for (const id of activePlayerIds(state)) stepBerries(world, state.players[id], inputs[id])
     }

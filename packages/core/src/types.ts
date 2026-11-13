@@ -260,6 +260,15 @@ export type EntityKind =
   | 'throwBlock'
   | 'switchPalace'
   | 'exitSide'
+export type HazardMotion =
+  | { type: 'thwomp'; phase: 'waiting' | 'falling' | 'impact' | 'rising'; homeY: number; timer: number }
+  | { type: 'thwimp'; phase: 'falling' | 'resting' | 'jumping'; timer: number; jumps: number }
+  | { type: 'podoboo'; phase: 'waiting' | 'airborne'; surfaceY: number; timer: number; launchSpeed: number; launchDelay: number; launchHold: number }
+  | { type: 'ball-and-chain'; phase: number; direction: -1 | 1; ball: Point }
+  | { type: 'wooden-spike'; phase: 0 | 1 | 2 | 3; timer: number; direction: -1 | 1 }
+  | { type: 'falling-spike'; phase: 'idle' | 'triggered' | 'armed'; timer: number; homeX: number }
+  | { type: 'reflecting-fireball'; direction: -1 | 1; horizontalSpeed: number; verticalSpeed: number }
+  | { type: 'statue-fireball'; direction: -1 | 0 | 1 }
 export interface EntityState extends Body {
   booStream?: BooStream
   resident?: LevelNpc
@@ -314,6 +323,7 @@ export interface EntityState extends Body {
   adultEgg?: boolean
   bonusPrize?: boolean
   swing?: { angle: number; speed: number }
+  hazardMotion?: HazardMotion
   id: string
   roomId: string
   kind: EntityKind

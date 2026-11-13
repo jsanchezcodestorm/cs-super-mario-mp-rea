@@ -17,6 +17,7 @@ import type {
 } from './types.ts'
 import { arenaEntry, prepareArena } from './arena.ts'
 import { entityFromSpawn } from './species.ts'
+import { initializeHazard } from './hazard-motion.ts'
 
 export function emit(world: World, type: GameEvent['type'], player?: PlayerState, exit?: GameEvent['exit']) {
   const event: GameEvent = {
@@ -31,7 +32,12 @@ export function emit(world: World, type: GameEvent['type'], player?: PlayerState
 }
 export function spawnEntity(world: World, roomId: string, spawn: Spawn, kind?: EntityKind) {
   const entity = entityFromSpawn(roomId, spawn, String(world.state.nextEntity++), kind)
-  if (entity) world.state.entities.push(entity)
+  if (entity) {
+    const room = world.campaign.levels[roomId]
+    if (!room) throw new Error('Unknown sprite room ' + roomId)
+    initializeHazard(world, room, entity)
+    world.state.entities.push(entity)
+  }
   return entity
 }
 export function spawnBlockReward(world: World, roomId: string, spawn: Spawn) {
