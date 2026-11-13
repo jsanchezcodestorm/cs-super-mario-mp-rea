@@ -161,7 +161,14 @@ function playGameEvent(event: GameEvent) {
   const local = me && playback?.state?.players[me];
   if (!event.roomId || event.roomId === local?.roomId) void audio.play(event).catch(audioError);
 }
-async function mountGame(makeSession: (content: Content) => GameSession, leaveRoomOnError = true) {
+function updateLocalState(state: GameState) {
+  for (const event of state.events) playGameEvent(event);
+  showHud(state);
+}
+async function mountGame(
+  makeSession: (content: Content) => GameSession,
+  options: { leaveRoomOnError?: boolean; errorOnPlaySurface?: boolean } = {},
+) {
   if (loading || stopped) return;
   loading = true;
   const generation = session;
@@ -178,8 +185,19 @@ async function mountGame(makeSession: (content: Content) => GameSession, leaveRo
     if (playback.state) showHud(playback.state);
   } catch (error) {
     if (generation !== session) return;
-    if (leaveRoomOnError) connection.leave();
-    end(error instanceof Error ? error.message : 'Caricamento fallito.');
+    if (options.leaveRoomOnError ?? true) connection.leave();
+    const message = error instanceof Error ? error.message : 'Caricamento fallito.';
+    if (options.errorOnPlaySurface) {
+      touchHud.clear();
+      stopped?.();
+      stopped = undefined;
+      playback = undefined;
+      me = undefined;
+      latest = undefined;
+      paused = false;
+      audio.stop();
+      lobby.overlay(message);
+    } else end(message);
   } finally {
     if (generation === session) loading = false;
   }
@@ -259,4 +277,21 @@ readSave()
     }
   })
   .catch(() => lobby.notice('Salvataggi locali indisponibili in questo browser.'));
-connection.restore();
+const directTestLevel = new URLSearchParams(window.location.search).get('testLevel');
+if (directTestLevel === null) connection.restore();
+else {
+  me = 'mario';
+  void mountGame(
+    (gameContent) => {
+      if (!Object.hasOwn(gameContent.levels, directTestLevel))
+        throw new Error(`Livello di test "${directTestLevel}" non trovato in /assets/content.json.`);
+      return new LocalGameSession(
+        gameContent,
+        undefined,
+        { step: updateLocalState },
+        { startAtCourse: directTestLevel },
+      );
+    },
+    { leaveRoomOnError: false, errorOnPlaySurface: true },
+  );
+}

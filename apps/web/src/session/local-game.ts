@@ -1,5 +1,6 @@
 import {
   createGame,
+  createGameAtCourse,
   makeSave,
   stepGame,
   type CampaignDefinition,
@@ -10,7 +11,11 @@ import type { GameSession } from '../game/playback';
 
 export type LocalGameCallbacks = {
   step: (state: GameState) => void;
-  save: (save: CampaignSave) => void;
+  save?: (save: CampaignSave) => void;
+};
+
+export type LocalGameOptions = {
+  startAtCourse?: string;
 };
 
 export class LocalGameSession implements GameSession {
@@ -22,8 +27,11 @@ export class LocalGameSession implements GameSession {
     private campaign: CampaignDefinition,
     save: CampaignSave | undefined,
     private callbacks: LocalGameCallbacks,
+    options: LocalGameOptions = {},
   ) {
-    this.state = createGame(campaign, save, 'solo');
+    this.state = options.startAtCourse !== undefined
+      ? createGameAtCourse(campaign, options.startAtCourse, 'solo')
+      : createGame(campaign, save, 'solo');
   }
 
   get displayState() {
@@ -41,7 +49,7 @@ export class LocalGameSession implements GameSession {
         ({ type }) => type === 'checkpoint' || type === 'exit' || type === 'gameOver',
       )
     )
-      this.callbacks.save(makeSave(this.state));
+      this.callbacks.save?.(makeSave(this.state));
   }
 
   pause(paused: boolean) {

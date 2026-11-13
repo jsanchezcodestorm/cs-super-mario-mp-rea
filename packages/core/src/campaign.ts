@@ -173,6 +173,19 @@ export function createGame(
   }
   return state
 }
+
+export function createGameAtCourse(
+  campaign: CampaignDefinition,
+  course: string,
+  mode: GameMode = 'solo',
+): GameState {
+  if (!Object.hasOwn(campaign.levels, course)) throw new Error('Unknown course ' + course)
+  const directCampaign = { ...campaign, start: course, initial: [course] }
+  const state = createGame(directCampaign, undefined, mode)
+  startCourse({ campaign: directCampaign, state }, course)
+  return state
+}
+
 export function finishCourse(
   world: World,
   player: PlayerState,
