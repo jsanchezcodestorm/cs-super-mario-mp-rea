@@ -1,7 +1,9 @@
 import type { CampaignSave, GameEvent, GameState, PlayerId } from '@smw/core';
 
+export type CampaignRef = { id: string; name: string };
+
 export type ClientMessage =
-  | { v: 1; type: 'createRoom'; save?: CampaignSave }
+  | { v: 1; type: 'createRoom'; campaign?: CampaignRef; save?: CampaignSave }
   | { v: 1; type: 'joinRoom'; code: string }
   | { v: 1; type: 'resume'; code: string; token: string }
   | { v: 1; type: 'ready' | 'leave' }
@@ -20,7 +22,7 @@ export type ServerMessage =
       expiresAt: number | null;
     }
   | { v: 1; type: 'snapshot'; state: GameState; ack: number }
-  | { v: 1; type: 'save'; save: CampaignSave }
+  | { v: 1; type: 'save'; campaign?: CampaignRef; save: CampaignSave }
   | { v: 1; type: 'gameEvent'; tick: number; event: GameEvent }
   | { v: 1; type: 'error'; message: string };
 
@@ -31,6 +33,8 @@ export function parseMessage(raw: string): ClientMessage {
   const codeOk = 'code' in m && typeof m.code === 'string' && /^[A-Z2-9]{6}$/.test(m.code);
   switch (m.type) {
     case 'createRoom':
+      if (!('campaign' in m) || validCampaignRef(m.campaign)) return m as ClientMessage;
+      break;
     case 'ready':
     case 'leave':
       return m as ClientMessage;
@@ -57,4 +61,13 @@ export function parseMessage(raw: string): ClientMessage {
       break;
   }
   throw Error('Messaggio di gioco non valido.');
+}
+
+function validCampaignRef(value: unknown): value is CampaignRef {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const ref = value as Record<string, unknown>;
+  return (
+    typeof ref.id === 'string' && /^[0-9a-f-]{36}$/i.test(ref.id) &&
+    typeof ref.name === 'string' && ref.name.trim().length > 0 && ref.name.length <= 48
+  );
 }

@@ -252,7 +252,7 @@ export function makeSave(state: GameState): CampaignSave {
         ? { spectators: playerIds.filter((id) => state.players[id].status === 'spectator') }
         : {}),
     } : {}),
-    ...(state.phase === 'map' ? {
+    ...(state.phase === 'map' && !bonus ? {
       mapPlayers: Object.fromEntries(
         playerIds.map((id) => [id, state.mapPlayers[id].travel?.to ?? state.mapPlayers[id].stop]),
       ) as Record<PlayerId, string>,

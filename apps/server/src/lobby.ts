@@ -35,7 +35,7 @@ export class Lobby {
             do {
               code = Array.from({ length: 6 }, () => alphabet[randomInt(alphabet.length)]).join('');
             } while (this.rooms.has(code));
-            room = new Room(code, this.campaign, m.save, () => this.rooms.delete(code));
+            room = new Room(code, this.campaign, m.save, m.campaign, () => this.rooms.delete(code));
             this.rooms.set(code, room);
             id = 'mario';
           } else if (m.type === 'joinRoom' || m.type === 'resume') {

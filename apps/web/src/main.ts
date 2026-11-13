@@ -4,10 +4,10 @@ import './ui/install-prompt.css';
 import { CutsceneView } from './game/cutscene-view';
 import { goalWalkFrame } from '@smw/core';
 import type { CampaignSave, GameEvent, GameState, PlayerId } from '@smw/core';
-import type { ServerMessage } from '@smw/protocol';
+import type { CampaignRef, ServerMessage } from '@smw/protocol';
 import { RoomConnection } from './session/connection';
-import { readSave, writeSave } from './session/save';
-import { el, Lobby } from './ui/lobby';
+import { readCampaigns, writeCampaignSave, type CampaignSlot } from './session/save';
+import { el, Lobby, type CampaignChoice } from './ui/lobby';
 import { loadContent, type Content } from './game/content';
 import { Playback, type GameSession } from './game/playback';
 import { GameAudio } from './game/audio';
@@ -17,7 +17,7 @@ import { bindPlaySurface } from './ui/play-surface';
 import { LocalGameSession } from './session/local-game';
 import { InstallPrompt } from './ui/install-prompt';
 
-let localSave: CampaignSave | undefined, me: PlayerId | undefined, playback: GameSession | undefined;
+let me: PlayerId | undefined, playback: GameSession | undefined;
 let stopped: (() => void) | undefined,
   loading = false,
   session = 0,
@@ -56,31 +56,36 @@ function loadResources() {
   }));
 }
 const lobby = new Lobby({
-  enter(code, resume) {
+  enter(code, choice) {
     audio.unlock();
     if (code) connection.connect({ v: 1, type: 'joinRoom', code });
-    else
-      connection.connect({ v: 1, type: 'createRoom', ...(resume && localSave ? { save: localSave } : {}) });
+    else if (choice) {
+      const selected = campaignFor(choice);
+      connection.connect({
+        v: 1,
+        type: 'createRoom',
+        campaign: selected.ref,
+        ...(selected.save ? { save: selected.save } : {}),
+      });
+    }
   },
   ready() {
     audio.unlock();
     connection.send({ v: 1, type: 'ready' });
   },
-  solo(resume) {
+  solo(choice) {
+    const selected = campaignFor(choice);
     connection.leave();
     latest = undefined;
     paused = false;
     me = 'mario';
     void mountGame(
       (gameContent) =>
-        new LocalGameSession(gameContent, resume ? localSave : undefined, {
-          step(state) {
-            for (const event of state.events) playGameEvent(event);
-            showHud(state);
-          },
-          save: persistSave,
+        new LocalGameSession(gameContent, selected.save, {
+          step: updateLocalState,
+          save: (save) => persistSave(selected.ref, save),
         }),
-      false,
+      { leaveRoomOnError: false },
     );
   },
   leave() {
@@ -88,6 +93,10 @@ const lobby = new Lobby({
     end();
   },
 });
+function campaignFor(choice: CampaignChoice): { ref: CampaignRef; save?: CampaignSave } {
+  if (choice.kind === 'new') return { ref: { id: crypto.randomUUID(), name: choice.name } };
+  return { ref: { id: choice.slot.id, name: choice.slot.name }, save: choice.slot.save };
+}
 function end(message = '') {
   touchHud.clear();
   void fullscreen.exitIfActive();
@@ -152,10 +161,10 @@ function showHud(s: GameState) {
   }
   else lobby.overlay('');
 }
-function persistSave(save: CampaignSave) {
-  localSave = save;
-  lobby.showSave(save);
-  void writeSave(save).catch(() => lobby.notice('Il browser non ha salvato la campagna.'));
+function persistSave(campaign: CampaignRef, save: CampaignSave) {
+  void writeCampaignSave(campaign, save)
+    .then((slot: CampaignSlot) => lobby.updateCampaign(slot))
+    .catch(() => lobby.notice('Il browser non ha salvato la campagna.'));
 }
 function playGameEvent(event: GameEvent) {
   const local = me && playback?.state?.players[me];
@@ -245,7 +254,8 @@ function message(m: ServerMessage) {
       playGameEvent(m.event);
       return;
     case 'save':
-      persistSave(m.save);
+      if (m.campaign) persistSave(m.campaign, m.save);
+      else lobby.notice('La stanza non ha identificato la campagna da salvare.');
       return;
     case 'error':
       if (stopped) lobby.overlay(m.message);
@@ -269,13 +279,8 @@ const connection = new RoomConnection({
     else lobby.notice('Riconnessione in corso…');
   },
 });
-readSave()
-  .then((save) => {
-    if (save) {
-      localSave = save;
-      lobby.showSave(save);
-    }
-  })
+readCampaigns()
+  .then((campaigns) => lobby.setCampaigns(campaigns))
   .catch(() => lobby.notice('Salvataggi locali indisponibili in questo browser.'));
 const directTestLevel = new URLSearchParams(window.location.search).get('testLevel');
 if (directTestLevel === null) connection.restore();

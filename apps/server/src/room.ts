@@ -8,7 +8,7 @@ import {
   type GameState,
   type PlayerId,
 } from '@smw/core';
-import type { RoomStatus, ServerMessage } from '@smw/protocol';
+import type { CampaignRef, RoomStatus, ServerMessage } from '@smw/protocol';
 import { Seat, send } from './seat.ts';
 
 const ids = ['mario', 'luigi'] as const;
@@ -22,6 +22,7 @@ export class Room {
     readonly code: string,
     private campaign: CampaignDefinition,
     private save: CampaignSave | undefined,
+    private campaignRef: CampaignRef | undefined,
     private onClose: () => void,
   ) {}
 
@@ -37,7 +38,10 @@ export class Room {
       if (this.state) this.status = 'playing';
     }
     this.notify();
-    if (this.state) this.snapshots();
+    if (this.state) {
+      this.saveCampaign();
+      this.snapshots();
+    }
   }
 
   setReady(id: PlayerId) {
@@ -46,6 +50,7 @@ export class Room {
     if (ids.every((key) => this.seats[key].ready && this.seats[key].socket)) {
       this.state = createGame(this.campaign, this.save, 'coop');
       this.status = 'playing';
+      this.saveCampaign();
     }
     this.notify();
     if (this.state) this.snapshots();
@@ -74,7 +79,7 @@ export class Room {
       previousPhase !== state.phase ||
       state.events.some((e) => e.type === 'checkpoint' || e.type === 'exit' || e.type === 'gameOver')
     ) {
-      this.broadcast({ v: 1, type: 'save', save: makeSave(state) });
+      this.saveCampaign();
     }
     if (state.tick % 2 === 0) this.snapshots();
   }
@@ -99,6 +104,16 @@ export class Room {
 
   private broadcast(message: ServerMessage) {
     for (const seat of Object.values(this.seats)) if (seat.socket) send(seat.socket, message);
+  }
+
+  private saveCampaign() {
+    if (!this.state) return;
+    this.broadcast({
+      v: 1,
+      type: 'save',
+      ...(this.campaignRef ? { campaign: this.campaignRef } : {}),
+      save: makeSave(this.state),
+    });
   }
 
   close() {

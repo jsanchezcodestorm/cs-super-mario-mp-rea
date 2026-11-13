@@ -1,4 +1,11 @@
 import type { CampaignSave } from '@smw/core';
+import type { CampaignRef } from '@smw/protocol';
+
+export interface CampaignSlot extends CampaignRef {
+  createdAt: number;
+  updatedAt: number;
+  save: CampaignSave;
+}
 
 function database(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -9,14 +16,34 @@ function database(): Promise<IDBDatabase> {
   });
 }
 
-export async function readSave(): Promise<CampaignSave | undefined> {
+export async function readCampaigns(): Promise<CampaignSlot[]> {
   const db = await database();
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction('campaigns', 'readonly');
-    const get = transaction.objectStore('campaigns').get('last');
+    const transaction = db.transaction('campaigns', 'readwrite');
+    const store = transaction.objectStore('campaigns');
+    const records = store.getAll();
+    const legacy = store.get('last');
+    let migrated: CampaignSlot | undefined;
+    legacy.onsuccess = () => {
+      if (!legacy.result) return;
+      const now = Date.now();
+      migrated = {
+        id: crypto.randomUUID(),
+        name: 'Campagna precedente',
+        createdAt: now,
+        updatedAt: now,
+        save: legacy.result as CampaignSave,
+      };
+      store.put(migrated, migrated.id);
+      store.delete('last');
+    };
     transaction.oncomplete = () => {
       db.close();
-      resolve(get.result);
+      const slots = (records.result as CampaignSlot[]).filter((record) =>
+        record && typeof record.id === 'string' && typeof record.name === 'string' && record.save,
+      );
+      if (migrated) slots.push(migrated);
+      resolve(slots.sort((a, b) => b.updatedAt - a.updatedAt));
     };
     transaction.onabort = () => {
       db.close();
@@ -25,14 +52,26 @@ export async function readSave(): Promise<CampaignSave | undefined> {
   });
 }
 
-export async function writeSave(save: CampaignSave): Promise<void> {
+export async function writeCampaignSave(campaign: CampaignRef, save: CampaignSave): Promise<CampaignSlot> {
   const db = await database();
   return new Promise((resolve, reject) => {
     const transaction = db.transaction('campaigns', 'readwrite');
-    transaction.objectStore('campaigns').put(save, 'last');
+    const store = transaction.objectStore('campaigns');
+    const previous = store.get(campaign.id);
+    let slot: CampaignSlot;
+    previous.onsuccess = () => {
+      const now = Date.now();
+      slot = {
+        ...campaign,
+        createdAt: (previous.result as CampaignSlot | undefined)?.createdAt ?? now,
+        updatedAt: now,
+        save,
+      };
+      store.put(slot, slot.id);
+    };
     transaction.oncomplete = () => {
       db.close();
-      resolve();
+      resolve(slot);
     };
     transaction.onabort = () => {
       db.close();

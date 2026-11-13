@@ -263,6 +263,12 @@ label {
 .panel input {
   text-transform: uppercase;
 }
+#campaign-name-field {
+  margin-top: 12px;
+}
+#campaign-name {
+  text-transform: none;
+}
 .primary {
   width: 100%;
   margin-top: 14px;
