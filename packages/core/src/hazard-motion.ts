@@ -65,6 +65,8 @@ export function initializeHazard(world: World, room: LevelDefinition, entity: En
       entity.hazardMotion = { type: 'thwimp', phase: 'falling', timer: 0, jumps: 0 }
       return true
     case 0x33:
+      // This sprite ID is also used for player fireballs and Yoshi fire.
+      if (entity.kind !== 'hazard') return false
       initializePodoboo(world, room, entity)
       return true
     case 0x9e: {
