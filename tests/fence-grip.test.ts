@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { Buttons, createGame, stepGame, type CampaignDefinition } from '@smw/core'
+import { Buttons, createGame, palFrame, stepGame, type CampaignDefinition } from '@smw/core'
 import { enterRoom } from '../packages/core/src/state.ts'
 
 const campaign: CampaignDefinition = JSON.parse(readFileSync('generated/content.json', 'utf8'))
@@ -89,4 +89,27 @@ test('small Mario and powered-up Luigi reach the same grate corner at their PAL 
   }
   assert.ok(Math.abs(mario.y + mario.height - 239) < 2)
   assert.ok(Math.abs(luigi.y + luigi.height - 246) < 2)
+})
+
+
+test('jumping off the Iggy fence stores the launch before moving on the following PAL frame', () => {
+  const { state, mario, luigi, drive } = enterCastle({ x: 122, y: 276 })
+  state.entities = state.entities.filter(e => e.kind !== 'netKoopa')
+  function frame(input: number) {
+    const previous = palFrame(state.tick)
+    do { drive(1, input, input) } while (palFrame(state.tick) === previous)
+  }
+  for (let n = 0; n < 3; n++) frame(Buttons.up)
+  for (let n = 0; n < 6; n++) frame(0)
+  assert.ok(mario.netClinging && luigi.netClinging)
+  const start = mario.y
+  // E1 WRAM capture for both seats, eleven frames holding B from a resting grip.
+  for (const [i, native] of [0, -6, -11, -17, -22, -26, -31, -35, -39, -43, -47].entries()) {
+    frame(Buttons.jump)
+    for (const p of [mario, luigi]) {
+      assert.ok(!p.netClinging)
+      if (i === 0) assert.equal(p.y, start)
+      assert.ok(Math.abs(Math.floor(p.y - start) - native) <= 1)
+    }
+  }
 })

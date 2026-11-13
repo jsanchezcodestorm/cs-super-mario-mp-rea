@@ -1,16 +1,18 @@
+import { spinReboundY } from './land-motion.ts'
+import { advanceMotion } from './player-motion.ts'
 import { moveRopePlayer } from './rope-motor.ts'
 import { playerPipePosition } from './emergence.ts'
-import { reboundGravity, shatterOnLanding } from './spin-block.ts'
+import { shatterOnLanding } from './spin-block.ts'
+import { climbingHeadInset } from './climb-motion.ts'
 import { stepTileClimb } from './tile-climb.ts'
 import { playerAnimation, stepPlayerAnimation } from './player-animation.ts'
 import { palFrame } from './pal-time.ts'
-import { slopeMotion } from './slope-motion.ts'
 import { tideSurface } from './tide.ts'
 import { startWallRun, stepWallRun } from './wall-run.ts'
 import { releaseReserve } from './rewards.ts'
 import { rideCloud } from './lakitu.ts'
 import { spinCape } from './cape-spin.ts'
-import { duckPlayer, resumePlayerGrowth } from './player-size.ts'
+import { resumePlayerGrowth } from './player-size.ts'
 import { constrainToScroll } from './autoscroll.ts'
 import { yoshiPowers } from './yoshi-colors.ts'
 import { releaseMouth, stepTongue } from './yoshi-tongue.ts'
@@ -18,25 +20,12 @@ import { strike } from './entity-contact.ts'
 import { overlaps } from './terrain.ts'
 import { standOnTilt } from './arena.ts'
 import { Buttons } from './types.ts'
-import type { World, PlayerState, LevelDefinition } from './types.ts'
-import { limit, moveBody, tileAt, bodyCells } from './terrain.ts'
+import type { World, PlayerState } from './types.ts'
+import { moveBody, tileAt, bodyCells } from './terrain.ts'
 import { emit, spawnEntity } from './state.ts'
 import { die, tickDead } from './resources.ts'
 import { interactTiles } from './blocks.ts'
 
-function approach(speed: number, target: number, accel: number) {
-  return speed + limit(target - speed, -accel, accel)
-}
-function horizontalAcceleration(speed: number, target: number, grounded: boolean, water: boolean) {
-  if (target === 0) return grounded || water ? 0.0625 : 0
-  if (Math.sign(speed) === -Math.sign(target)) return grounded && !water ? 0.25 : 0.15
-  return 0.08
-}
-function gravityForJumpPhase(p: PlayerState, holding: boolean) {
-  if (p.blockRebound) return reboundGravity(holding)
-  if (p.vy < 0) return holding ? 0.1875 : 0.375
-  return !p.mounted && p.form !== 'cape' ? 0.15 : 0.375
-}
 function shoot(world: World, p: PlayerState) {
   if (p.cooldown || p.form !== 'fire') return
   const shots = world.state.entities.filter((e) => e.owner === p.id && e.kind === 'fireball' && e.active)
@@ -51,56 +40,6 @@ function shoot(world: World, p: PlayerState) {
   p.cooldown = 14
   playerAnimation(p).shotUntil = palFrame(world.state.tick) + 10
   emit(world, 'shot', p)
-}
-function advanceMotion(world: World, room: LevelDefinition, p: PlayerState, input: number, pressed: number, water: boolean) {
-  const direction = Number(!!(input & Buttons.right)) - Number(!!(input & Buttons.left))
-  const running = !!(input & Buttons.run)
-  if (running && direction !== 0 && p.grounded && Math.abs(p.vx) >= 2)
-    p.runTicks = Math.min(64, p.runTicks + 1)
-  else if (p.grounded) p.runTicks = Math.max(0, p.runTicks - 2)
-  if (p.balloon > 0) {
-    duckPlayer(world, p, false, false)
-    p.balloon--
-    p.vx = approach(p.vx, direction * 1.5, 0.085)
-    const vertical = Number(!!(input & Buttons.down)) - Number(!!(input & Buttons.up))
-    p.vy = approach(p.vy, vertical * 1.4 - 0.12, 0.07)
-    p.grounded = false
-    return false
-  }
-  const onSlope = slopeMotion(world, room, p, input, pressed, water)
-  const down = !!(input & Buttons.down)
-  const swim = water && (!p.grounded || !!(pressed & (Buttons.jump | Buttons.spin)))
-  const spinJump = !p.mounted && !p.carrying && !!(pressed & Buttons.spin)
-  duckPlayer(world, p, down, !swim && !spinJump && !p.flight && !p.sliding)
-  // Horizontal input brakes on flat ground during an intentional duck. A
-  // player who released Down can still move out from under a low ceiling.
-  const moving = p.ducking && p.grounded && down ? 0 : direction
-  const max = water ? 1.25 : running ? (p.runTicks === 64 ? 3 : 2.5) : 1.5
-  const accel = horizontalAcceleration(p.vx, moving * max, p.grounded, water)
-  if (!onSlope) p.vx = approach(p.vx, moving * max, accel)
-  if (moving && !p.flight) p.facing = moving > 0 ? 1 : -1
-  const jump = pressed & (Buttons.jump | Buttons.spin)
-  if (jump && (water || p.grounded)) {
-    p.spin = spinJump && !water
-    p.vy = water ? -2.8 : p.spin ? -4.6 : -5.0
-    p.vy -= Math.abs(p.vx) * 0.42
-    if (!water && p.form === 'cape' && p.runTicks === 64 && !p.spin) {
-      p.vy = -8
-      p.flight = 1
-    }
-    p.grounded = false
-  }
-  const holding = !!(input & (Buttons.jump | Buttons.spin))
-  if (p.flight && running && !water && !p.spin) {
-    if (p.vy > 0 && direction === -p.facing) p.vy = Math.max(-4, p.vy - 0.35)
-    if (pressed & (p.facing === 1 ? Buttons.left : Buttons.right) && p.vy > 0.5) p.vy = -4.4
-    p.vx = approach(p.vx, p.facing * 3, 0.14)
-  }
-  const airGravity = gravityForJumpPhase(p, holding)
-  const gravity = water ? 0.105 : airGravity
-  const terminal = water ? 1.5 : p.form === 'cape' && holding ? 1.3 : 4
-  p.vy = Math.min(terminal, p.vy + gravity)
-  return !!jump && p.vy < 0 && (water || p.spin || !p.grounded)
 }
 export function stepPlayer(world: World, p: PlayerState, input: number) {
   if (p.pipeExit && !playerPipePosition(p, world.state.tick)) delete p.pipeExit
@@ -118,7 +57,6 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
   const water = !!room.water || tileIds.some((t) => t >= 0 && t < 5) || (tide !== null && p.y + p.height / 2 >= tide)
   const nearClimbable = tileIds.some(t => t >= 6 && t < 0x1d)
   if (water) p.spin = false
-  if (!p.spin || p.grounded) delete p.blockRebound
   if (pressed & Buttons.reserve) releaseReserve(world, p)
   if (stepWallRun(world, room, p, input, pressed)) {
     stepPlayerAnimation(p, world.state.tick, input, pressed, water)
@@ -128,12 +66,16 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
     (input & Buttons.up) && (input & (Buttons.jump | Buttons.spin)) &&
     (tide !== null ? p.y + 2 < tide :
       tileAt(world, room, Math.floor((p.x + p.width / 2) / 16), Math.floor((p.y + 2) / 16)) >= 5)
-  const grounded = p.grounded
+  const grounded = p.grounded, incomingY = p.vy
   const heldTile = p.netClinging || p.vineClinging
   const onRope = moveRopePlayer(world, p, input, pressed)
   const climbing = onRope || stepTileClimb(world, room, p, nearClimbable, input, pressed, water)
-  if (!climbing && !rideCloud(world, p, input, pressed) && advanceMotion(world, room, p, input, pressed, water) && (grounded || water))
-    emit(world, 'jump', p)
+  const releasedGrip = climbing && !!(pressed & Buttons.jump) && p.vy < 0 && !p.ropeId && !p.netClinging && !p.vineClinging
+  const motion = climbing || rideCloud(world, p, input, pressed) ? {} : advanceMotion(world, room, p, input, pressed, water)
+  // On the release frame E1 stores the jump speed but still integrates the climbing displacement.
+  if (releasedGrip) motion.dy = 0
+  if (climbing) delete p.queuedLandJump
+  if (motion.jump) emit(world, 'jump', p)
   if (jumpOut) {
     // The PAL surface check assigns signed $AA in sixteenths of a pixel.
     p.vy = -86 / 16
@@ -166,14 +108,21 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
     p.cooldown = 18
   }
   const oldBottom = p.y + p.height
-  const intendedFeet = oldBottom + p.vy
+  const intendedFeet = oldBottom + (motion.dy ?? p.vy)
   const speed = p.vx
-  // At a solid lintel the E1 climbing head probe stops with the feet
-  // 15 (small) or 22 (powered-up) pixels below it.
   const holdsTile = p.netClinging || p.vineClinging
-  const inset = p.height <= 16 ? 1 : p.height - 22
+  const inset = climbingHeadInset(p.height)
   const head = heldTile || holdsTile ? { previousInset: heldTile ? inset : 0, inset: holdsTile ? inset : 0 } : undefined
+  const vx = p.vx, vy = p.vy
+  if (motion.dx !== undefined) p.vx = motion.dx
+  if (motion.dy !== undefined) p.vy = motion.dy
   const contacts = moveBody(world, room, p, head)
+  if (motion.dx !== undefined && !contacts.some(c => c.side === 'left' || c.side === 'right')) p.vx = vx
+  if (motion.dy !== undefined) {
+    const landed = contacts.some(c => c.side === 'bottom')
+    if (vy < 0 && landed) p.grounded = false
+    if ((!landed || vy < 0) && !contacts.some(c => c.side === 'top')) p.vy = vy
+  }
   if (p.sliding && contacts.some((c) => c.side === 'left' || c.side === 'right')) delete p.sliding
   if (contacts.some((hit) => hit.crushed)) {
     die(world, p)
@@ -182,7 +131,8 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
   startWallRun(p, contacts, speed)
   constrainToScroll(world, room, p)
   if (p.status !== 'alive') return
-  if (!grounded) shatterOnLanding(world, room, p, contacts, intendedFeet)
+  if (!grounded && shatterOnLanding(world, room, p, contacts, intendedFeet))
+    p.vy = spinReboundY(incomingY, !!(input & (Buttons.jump | Buttons.spin)))
   standOnTilt(world, p, oldBottom)
   if (p.mounted && powers.stomp && !grounded && p.grounded) {
     const shock = { x: p.x - 32, y: p.y + p.height - 4, width: 80, height: 16 }
@@ -200,7 +150,6 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
   interactTiles(world, p, room, input, pressed, contacts)
   if (p.grounded) {
     p.spin = false
-    delete p.blockRebound
     p.flight = 0
   }
   if (room.id === p.roomId) stepPlayerAnimation(p, world.state.tick, input, pressed, water)

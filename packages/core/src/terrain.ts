@@ -115,7 +115,10 @@ function sweepTiles(world: World, room: LevelDefinition, body: Body, layer2 = fa
     alignSpinDrop(world, room, body)
   body.y += body.vy
   body.grounded = false
-  if (body.vy >= 0) {
+  // Releasing a grip extends the head probe to standing height immediately,
+  // even when the PAL position routine has zero vertical travel this tick.
+  const extendingHead = head && head.inset < head.previousInset && body.vy === 0
+  if (body.vy >= 0 && !extendingHead) {
     const newBottom = body.y + body.height
     let surface = Infinity
     const xs = [body.x + 1, body.x + body.width / 2, body.x + body.width - 1]
@@ -131,7 +134,10 @@ function sweepTiles(world: World, room: LevelDefinition, body: Body, layer2 = fa
         if (slope === null && !isSolid(tile) && (tile < 0x100 || tile >= 0x111)) continue
         const floor = row * TILE + (slope ?? 0)
         const stick = slope !== null && wasGrounded ? 5 : 0.01
-        if (oldBottom > floor + stick || newBottom + stick < floor || floor >= surface) continue
+        // The last sample of a slope can end one pixel above the flat tile.
+        // Keep the sliding foot supported through that final downward step.
+        const reach = wasGrounded && 'sliding' in body && body.sliding ? Math.max(1, stick) : stick
+        if (oldBottom > floor + stick || newBottom + reach < floor || floor >= surface) continue
         surface = floor
         contacts.push({ col, row, tile, side: 'bottom' })
       }
@@ -219,23 +225,25 @@ export function moveBody(world: World, room: LevelDefinition, body: Body, head?:
   }
   const moving = sweepTiles(world, room, local, true, false, head)
   body.layer2Ground = local.grounded
-  if (moving.some((hit) => hit.side === 'left' || hit.side === 'right')) {
-    body.x = local.x + ox
+  function correct(axis: 'x' | 'y', hit: Contact, target: number, motion: number) {
+    const travel = target - body[axis]
+    if (motion * travel > 0 && 'form' in body) {
+      // A translating face can push into static terrain along either axis.
+      const probe = { ...body, grounded: false, vx: axis === 'x' ? travel : 0, vy: axis === 'y' ? travel : 0 }
+      const side = axis === 'x' ? (travel < 0 ? 'left' : 'right') : (travel < 0 ? 'top' : 'bottom')
+      const stopped = sweepTiles(world, room, probe).some(contact => contact.side === side)
+      body[axis] = stopped ? probe[axis] : target
+      if (stopped && Math.abs(probe[axis] - target) > 1 / 256) hit.crushed = true
+    } else body[axis] = target
+  }
+  const horizontalHit = moving.find(hit => hit.side === 'left' || hit.side === 'right')
+  if (horizontalHit) {
+    correct('x', horizontalHit, local.x + ox, dx)
     body.vx = 0
   }
-  const verticalHit = moving.find((hit) => hit.side === 'bottom' || hit.side === 'top')
+  const verticalHit = moving.find(hit => hit.side === 'bottom' || hit.side === 'top')
   if (verticalHit) {
-    const targetY = local.y + oy
-    const travel = targetY - body.y
-    if (dy && travel * dy > 0 && 'form' in body) {
-      // Layer 2 may be lifting a rider against a solid ceiling, or pressing
-      // down against a floor. Its correction cannot overrule the static layer.
-      const probe = { ...body, grounded: false, vx: 0, vy: travel }
-      const stopped = sweepTiles(world, room, probe).some((hit) =>
-        hit.side === (travel < 0 ? 'top' : 'bottom'))
-      body.y = stopped ? probe.y : targetY
-      verticalHit.crushed = stopped && Math.abs(probe.y - targetY) > 1 / 256
-    } else body.y = targetY
+    correct('y', verticalHit, local.y + oy, dy)
     body.vy = 0
   }
   body.grounded ||= local.grounded

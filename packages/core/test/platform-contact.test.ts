@@ -1,6 +1,7 @@
+import { enterFirstCourse } from './enter-first-course.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { Buttons, createGame, stepGame, type CampaignDefinition, type LevelDefinition } from '../src/index.ts'
+import { Buttons, stepGame, type CampaignDefinition, type LevelDefinition } from '../src/index.ts'
 import { isBodyFree } from '../src/terrain.ts'
 
 function stage(spriteId: number, x: number) {
@@ -10,8 +11,7 @@ function stage(spriteId: number, x: number) {
   }
   room.tiles.fill(0x130, 7 * room.width)
   const campaign: CampaignDefinition = { start: 'r', levels: { r: room }, routes: { r: {} } }
-  const state = createGame(campaign)
-  stepGame(campaign, state, { mario: Buttons.action, luigi: 0 })
+  const state = enterFirstCourse(campaign)
   const players = Object.values(state.players)
   for (const p of players) Object.assign(p, { x, y: 80, grounded: true })
   return { room, world: { campaign, state }, players, deck: state.entities[0],
@@ -32,6 +32,8 @@ test('a skull carries its centered rider at the PAL rate and adjacent skulls bot
     assert.ok(p.grounded)
   }
   step(Buttons.jump)
+  step() // Integrate takeoff at the next PAL frame.
+  step()
   assert.ok(players[0].y + players[0].height < deck.y)
   assert.equal(players[1].y + players[1].height, deck.y)
 })
@@ -69,7 +71,7 @@ test('an ascending Forest deck cannot embed either rider in a low ceiling', () =
       assert.ok(isBodyFree(world, room, p))
     }
   }
-  assert.equal(deck.y, 94)
+  assert.equal(deck.y, 93.5) // Five PAL frames at half a pixel per frame.
 })
 
 test('a player rising from below passes through a one-way deck; the other can stay on top', () => {

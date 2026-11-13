@@ -8,6 +8,7 @@ import { awardLives, loseLife } from './lives.ts'
 export function die(world: World, p: PlayerState) {
   if (p.status !== 'alive') return
   p.status = loseLife(world.state, p) === 0 ? 'spectator' : 'dead'
+  p.flight = 0
   delete p.ropeId
   delete p.ropeReleased
   delete p.netTurn
@@ -45,6 +46,13 @@ export function hurt(world: World, p: PlayerState) {
       yoshi.facing = p.facing
       yoshi.yoshiColor = p.yoshiColor
     }
+  } else if (p.form === 'cape' && p.flight) {
+    // E1 HurtMario breaks the glide into an unpowered spin and keeps the cape.
+    p.flight = 0
+    p.spin = true
+    p.invincible = Math.ceil(0x30 * 60 / 50)
+    emit(world, 'hurt', p)
+    return
   } else if (p.form !== 'small') {
     releaseReserve(world, p)
     p.y += p.height - 16

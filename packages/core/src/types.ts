@@ -153,6 +153,8 @@ export interface YoshiMouth {
   ticks: number
 }
 export interface PlayerState extends Body {
+  /** Pressed between two PAL input samples. */
+  queuedLandJump?: number
   ropeId?: string
   ropeReleased?: number
   vineClinging?: boolean
@@ -195,7 +197,6 @@ export interface PlayerState extends Body {
   invincible: number
   star: number
   spin: boolean
-  blockRebound?: true
   timer: number
   lastInput: number
   carrying: string | null

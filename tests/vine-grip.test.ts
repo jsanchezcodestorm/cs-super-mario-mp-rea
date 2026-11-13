@@ -63,6 +63,8 @@ test('jumping from a vine below a solid ceiling stops the head even when the cli
     }
     drive(1, Buttons.jump)
     assert.ok(!player.vineClinging)
+    // An already touching head expands immediately; otherwise the next PAL displacement reaches it.
+    for (let i = 0; i < 2 && player.vy < 0; i++) drive(1)
     assert.equal(player.y, ceiling)
     assert.equal(player.vy, 0)
     for (let i = 0; i < 10; i++) {

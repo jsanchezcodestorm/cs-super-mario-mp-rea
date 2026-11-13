@@ -1,8 +1,9 @@
+import { enterFirstCourse } from './enter-first-course.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { Buttons, createGame, stepGame, type CampaignDefinition, type LevelDefinition } from '../src/index.ts'
+import { stepGame, type CampaignDefinition, type LevelDefinition } from '../src/index.ts'
 import { constrainToScroll } from '../src/autoscroll.ts'
-import { isBodyFree, tileAt } from '../src/terrain.ts'
+import { isBodyFree, tileAt, moveBody } from '../src/terrain.ts'
 
 function stage() {
   const room: LevelDefinition = {
@@ -13,8 +14,7 @@ function stage() {
   const campaign: CampaignDefinition = {
     start: room.id, levels: { r: room }, routes: { r: {} }, blockSnakePaths: [[0x40, 0xff], []],
   }
-  const state = createGame(campaign)
-  stepGame(campaign, state, { mario: Buttons.action, luigi: 0 })
+  const state = enterFirstCourse(campaign)
   return { world: { campaign, state }, room }
 }
 
@@ -65,4 +65,20 @@ test('an autoscroll correction preserves head clearance at the mouth of a one-ti
   constrainToScroll(world, room, mario)
   assert.equal(mario.y, 76)
   assert.ok(isBodyFree(world, room, mario))
+})
+
+test('a sideways layer 2 wall crushes at a static wall without entering its tile', () => {
+  const { world, room } = stage()
+  room.sprites = []
+  room.layer2 = Array(room.tiles.length).fill(0x25)
+  // The player stands between the right edge of the translating wall and the fixed wall at X=112.
+  room.layer2[5 * room.width + 5] = 0x130
+  room.tiles[5 * room.width + 7] = 0x130
+  world.state.layerOffsets.r = { x: 5, y: 0, dx: 1, dy: 0, age: 1, engaged: true }
+  for (const player of Object.values(world.state.players)) {
+    Object.assign(player, { x: 100, y: 80, width: 12, height: 16, vx: 0, vy: 0, grounded: false })
+    const contacts = moveBody(world, room, player)
+    assert.ok(contacts.some(c => c.layer2 && c.crushed))
+    assert.equal(player.x + player.width, 112)
+  }
 })

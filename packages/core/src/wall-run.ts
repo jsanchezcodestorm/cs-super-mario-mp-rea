@@ -1,8 +1,9 @@
+import { landSpeedByte } from './land-motion.ts'
 import { Buttons, type LevelDefinition, type PlayerState, type World } from './types.ts'
 import { isSolid, moveBody, tileAt, type Contact } from './terrain.ts'
 
 export function startWallRun(p: PlayerState, contacts: Contact[], speed: number) {
-  if (p.carrying || !p.grounded) return
+  if (!p.grounded) return
   const triangle = contacts.find(c => c.side === 'bottom' && (c.tile === 0x1b4 || c.tile === 0x1b5))
   if (!triangle) return
   const direction = triangle.tile === 0x1b4 ? 1 : -1
@@ -12,8 +13,8 @@ export function startWallRun(p: PlayerState, contacts: Contact[], speed: number)
     p.grounded = false
     return
   }
-  // E1's threshold is a fast run before reaching full flying speed.
-  if (speed * direction < 2.5) return
+  // E1 $00:EFF5 compares $7B to $2B on the right and strictly below $D6 on the left.
+  if (p.carrying || p.ducking || landSpeedByte(speed) * direction < 0x2b) return
   const edge = (triangle.col + (direction > 0 ? 1 : 0)) * 16
   p.x = direction > 0 ? edge - p.width : edge
   p.wallRun = direction

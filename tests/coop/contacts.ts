@@ -23,14 +23,17 @@ export async function exerciseContact(world: World, objective: Objective, seat: 
     state.entities.find((e) => e.active && e.roomId === room.id && e.kind === kind);
   if (tile !== undefined) {
     place((tile % room.width) * 16 + 2, Math.floor(tile / room.width) * 16 - player.height - 1, 1);
-    await move(0);
+    for (let i = 0; i < 2 && state.phase === 'playing'; i++) await move(0);
   } else if (spawn!.spriteId === 0x0e) {
     let key = active('key');
     if (!key) {
       const index = keyBlock(room, player, state.courseCoins);
       place((index % room.width) * 16 + 2, (Math.floor(index / room.width) + 1) * 16, -3);
-      await move(0);
-      key = active('key');
+      // At 60 server ticks per second, one tick can fall between PAL movement samples.
+      for (let i = 0; i < 2 && !key; i++) {
+        await move(0);
+        key = active('key');
+      }
     }
     assert.ok(key, 'missing key in ' + room.id);
     place(key.x, key.y);

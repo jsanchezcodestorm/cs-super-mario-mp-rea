@@ -86,7 +86,7 @@ export function enterRoom(world: World, p: PlayerState, id: string, position?: E
   delete p.starTrail
   delete p.formChange
   delete p.sliding
-  delete p.blockRebound
+  delete p.queuedLandJump
   delete p.wallRun
   delete p.animation
   delete p.netTurn

@@ -5,14 +5,6 @@ import { AIR, TILE, changeTile, clipDisplacement, isSolid, tileAt, type Contact 
 import { slopeHeight } from './slopes.ts'
 import type { GameState, LevelDefinition, PlayerState, World } from './types.ts'
 
-// E1 scales the signed vertical speed by ($100 + $28) / $100 when moving.
-const palVerticalScale = 0x128 / 0x100
-const framesPerTick = 5 / 6
-
-export function reboundGravity(holdingJump: boolean) {
-  return (holdingJump ? 0x0373 : 0x06e6) / 4096 * palVerticalScale * framesPerTick ** 2
-}
-
 export function recordShatter(state: GameState, roomId: string, x: number, y: number) {
   const effects = state.shatteredBlocks ??= []
   const active = effects.filter(effect => effect.roomId === roomId)
@@ -51,11 +43,9 @@ export function shatterOnLanding(world: World, room: LevelDefinition, p: PlayerS
       // A second block under the other foot can still stop that displacement.
       p.y = clipDisplacement(world, room, p, 'y', Math.max(0, intendedFeet - feet))
       p.grounded = false
-      p.blockRebound = true
-      p.vy = -3 * palVerticalScale * framesPerTick
       recordShatter(world.state, room.id, col * TILE, row * TILE)
       emit(world, 'shatter', p)
-      return
+      return true
     }
     if (isSolid(tile) || (tile >= 0x100 && tile < 0x111) || slopeHeight(world, room, tile, x & 15) === 0) return
   }
