@@ -154,6 +154,8 @@ export function stepPlayer(world: World, p: PlayerState, input: number) {
       spriteId: 0x35,
     })!
     mount.yoshiColor = p.yoshiColor
+    mount.facing = p.facing
+    mount.vx = p.vx
     p.cooldown = 18
   }
   const oldBottom = p.y + p.height

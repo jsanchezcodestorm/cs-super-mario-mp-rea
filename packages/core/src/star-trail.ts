@@ -1,19 +1,10 @@
+import { randomByte } from './sprite-random.ts'
 import { palFrame } from './pal-time.ts'
 import type { PlayerState, Point } from './types.ts'
 
 export interface StarTrail {
   seed: number
   sparks: (Point & { born: number; slot: number })[]
-}
-
-// One pass through the two-byte E1 GetRand state at $01:AD07.
-function randomByte(trail: StarTrail) {
-  const a = (5 * (trail.seed & 255) + 1) & 255
-  const old = trail.seed >> 8
-  const feedback = Number(!(((old >> 7) ^ (old >> 4)) & 1))
-  const b = ((old << 1) | feedback) & 255
-  trail.seed = a | (b << 8)
-  return a ^ b
 }
 
 export function stepStarTrail(p: PlayerState, tick: number) {

@@ -49,6 +49,7 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   delete state.rewardRecycle
   delete state.rewardEffects
   state.loadedRooms = []
+  delete state.booGroups
   state.entities = []
   state.tileChanges = {}
   state.pSwitch = 0

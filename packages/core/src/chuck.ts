@@ -32,6 +32,7 @@ export function moveChuck(world: World, room: LevelDefinition, e: EntityState, t
   const dx = target.x - e.x,
     direction = Math.sign(dx) || 1
   const hurt = e.stunnedUntil !== undefined && e.age < e.stunnedUntil
+  if (!hurt) e.facing = dx < 0 ? -1 : 1
   const activeKind = e.hp < 3 ? 0x91 : e.spriteId
   if (hurt) e.vx = 0
   else if (activeKind === 0x46 || activeKind === 0x97 || activeKind === 0x98) {

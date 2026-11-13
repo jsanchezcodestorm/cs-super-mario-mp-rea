@@ -29,6 +29,8 @@ export function braceShell(world: World, room: LevelDefinition, koopa: EntitySta
       shell.vx = defense.facing * 3 * palRate
       delete shell.bracedBy
       delete koopa.shellDefense
+      koopa.shellKickTick = world.state.tick
+      koopa.facing = defense.facing
       koopa.vx = defense.facing * 0.6
     }
     return true

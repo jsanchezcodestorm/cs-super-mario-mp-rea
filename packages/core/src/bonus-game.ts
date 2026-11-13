@@ -57,6 +57,7 @@ function movePlayers(world: World, bonus: BonusGame) {
   world.state.timeLeft = 0
   world.state.pSwitch = world.state.silverSwitch = 0
   world.state.loadedRooms = []
+  delete world.state.booGroups
   world.state.entities = []
   world.state.tileChanges = {}
   world.state.turning = []

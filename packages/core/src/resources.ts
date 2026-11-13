@@ -38,7 +38,8 @@ export function hurt(world: World, p: PlayerState) {
     p.mounted = false
     const yoshi = spawnEntity(world, p.roomId, { x: p.x + 18 * p.facing, y: p.y, spriteId: 0x35 })
     if (yoshi) {
-      yoshi.vx = p.facing * 1.5
+      yoshi.yoshiRunning = true
+      yoshi.facing = p.facing
       yoshi.yoshiColor = p.yoshiColor
     }
   } else if (p.form !== 'small') {

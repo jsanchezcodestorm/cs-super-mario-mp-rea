@@ -1,6 +1,26 @@
 import { Buttons, type EntityState, type PlayerState, type World } from './types.ts'
+import { showHitAward } from './rewards.ts'
+import { palFrame } from './pal-time.ts'
 import { limit } from './terrain.ts'
 import { spawnEntity } from './state.ts'
+
+export function throwSpiny(world: World, rider: EntityState, player: PlayerState) {
+  const spriteId = world.state.silverSwitch ? 0x21 : 0x14
+  const thrown = spawnEntity(world, rider.roomId, { x: rider.x, y: rider.y, spriteId })!
+  thrown.vy = -40 / 16
+  thrown.vx = player.x < rider.x ? -1 : 1
+  if (spriteId === 0x21) thrown.lakituCoin = true
+}
+
+export function takeFishingPrize(world: World, rider: EntityState, player: PlayerState) {
+  if (!(rider.origin.x & 16) || rider.baitTaken) return
+  const x = rider.x - 21, y = rider.y + 66
+  // CODE_02E67A uses PlayerX/YPosScrRel: the player origin sits above the feet.
+  const dx = player.x - x, dy = player.y + player.height - 32 - y
+  if (dx < -12 || dx >= 12 || dy < -12 || dy >= 12) return
+  rider.baitTaken = true
+  showHitAward(world.state, player, { x, y, roomId: rider.roomId }, '1up')
+}
 
 export function moveLakitu(world: World, rider: EntityState, target: PlayerState) {
   // E1 01:E98D accelerates toward the player every other frame while bobbing
@@ -12,9 +32,11 @@ export function moveLakitu(world: World, rider: EntityState, target: PlayerState
   }
   rider.x = limit(rider.x + rider.vx, 0, world.campaign.levels[rider.roomId].width * 16 - rider.width)
   rider.y += rider.vy
-  if (rider.age % 128 === 0 && !(rider.origin.x & 16)) {
-    const spiny = spawnEntity(world, rider.roomId, { x: rider.x, y: rider.y, spriteId: 0x13 })!
-    spiny.vy = -3
+  rider.facing = target.x < rider.x ? -1 : 1
+  const frame = palFrame(world.state.tick)
+  if (frame !== palFrame(world.state.tick - 1) && !(frame & 127) && (!(rider.origin.x & 16) || rider.baitTaken)) {
+    rider.lastThrowFrame = frame
+    throwSpiny(world, rider, target)
   }
 }
 

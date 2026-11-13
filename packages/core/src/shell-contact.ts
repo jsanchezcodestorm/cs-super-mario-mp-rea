@@ -18,7 +18,7 @@ function contactY(e: EntityState) {
   return Math.floor(e.y + e.height - 16) + (lowContact.has(e.spriteId) ? 10 : 2)
 }
 function canHit(world: World, shell: EntityState, target: EntityState) {
-  if (!target.active || !target.height || target === shell || target.roomId !== shell.roomId) return false
+  if (target.netKoopa?.behind || !target.active || !target.height || target === shell || target.roomId !== shell.roomId) return false
   // Scripted actors may use the graphic ID of an unrelated standard sprite.
   if (target.kind === 'cloudCoin' || target.kind === 'fireball' || target.kind === 'yoshiFire' || target.kind === 'chuckShot' ||
       target.kind === 'pipeDecoy' || target.kind === 'boss' || target.kind === 'endingBoss' ||

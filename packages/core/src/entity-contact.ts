@@ -1,4 +1,8 @@
+import { netKoopaBox } from './net-koopa.ts'
+import { takeFishingPrize } from './lakitu.ts'
+import { palFrame } from './pal-time.ts'
 import { keyholeAnchor } from './keyhole.ts'
+import { residentContact } from './level-npcs.ts'
 import { beginOrbFinish } from './orb-finish.ts'
 import { plantContactBox } from './pipe-plant.ts'
 import { playerAnimation } from './player-animation.ts'
@@ -28,6 +32,7 @@ export const weaponTargets = new Set([
   'lakitu',
   'chuck',
   'koopa',
+  'netKoopa',
   'walker',
   'rex',
   'spiny',
@@ -103,8 +108,20 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   if (!e.active || !e.height || p.status !== 'alive' || e.roomId !== p.roomId) return
   // Ordinary level sprites occupy the front plane. The PAL standard contact
   // handler compares their scenery-side bit with the player's before clipping.
-  if (p.behindNet && e.kind !== 'exitSide') return
+  if (e.kind !== 'exitSide' && !!p.behindNet !== !!e.netKoopa?.behind) {
+    if (e.netKoopa && p.netPunchTick !== undefined && p.netClinging) {
+      // A fence punch invokes the cape collision rectangle on the opposite side.
+      // Player coordinates here have the hitbox origin instead of the native origin.
+      const fist = { x: p.x - 4 + (p.behindNet ? -8 : 8), y: p.y + p.height - 30, width: 20, height: 16 }
+      if (overlaps(fist, netKoopaBox(e))) strike(world, e, p)
+    }
+    return
+  }
+  if (e.kind === 'lakitu') takeFishingPrize(world, e, p)
+  if (e.booStream?.trail.some(part => part.until > palFrame(world.state.tick) &&
+    overlaps(playerContactBody(p), { x: part.x+4, y: part.y+4, width: 8, height: 8 }))) hurt(world,p)
   if (e.kind === 'coinGameCloud') return
+  if ((e.kind === 'levelNpc' || e.spriteId === 0xaf) && residentContact(world, e, p, previousBottom)) return
   if (e.kind === 'cloudCoin') {
     collectCloudCoin(world, e, p)
     return
@@ -152,8 +169,21 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   if (e.kind === 'plant' && e.pipePlant?.hidden) return
   if (taste(world, p, e, input)) return
   if (e.kind === 'yoshiEgg') return
+  // E1 $B3 uses clipping profile $2D. Only the tip of the two-tile fireball burns.
+  if (e.spriteId === 0xb3 && e.kind === 'bullet') {
+    if (overlaps(playerContactBody(p), { x: e.x + 4, y: e.y + 4, width: 8, height: 4 })) hurt(world, p)
+    return
+  }
+  if (e.fromEnemyBlock && e.spriteId === 0x15 && !world.campaign.levels[e.roomId].water && overlaps(p, e)) {
+    e.active = false
+    e.shellKnockedOut = true
+    e.vx = p.x < e.x ? 1 : -1
+    e.vy = -2
+    addScore(p, 100)
+    return
+  }
   const surface = e.kind === 'platform' || e.kind === 'spring'
-  const body = e.kind === 'plant' && e.pipePlant ? plantContactBox(e) : e
+  const body = e.kind === 'netKoopa' ? netKoopaBox(e) : e.kind === 'plant' && e.pipePlant ? plantContactBox(e) : e
   if (!overlaps(surface ? p : playerContactBody(p), body)) return
   if (e.kind === 'balloon') {
     e.active = false

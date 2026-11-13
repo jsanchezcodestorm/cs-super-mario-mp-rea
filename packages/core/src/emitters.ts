@@ -1,3 +1,4 @@
+import { palFrame } from './pal-time.ts'
 import { playerViewport } from './autoscroll.ts'
 import { moveBody } from './terrain.ts'
 import { spawnEntity } from './state.ts'
@@ -24,6 +25,10 @@ function createEmission(world: World, room: LevelDefinition, row: Emission, view
   const e = spawnEntity(world, room.id, { x: view.x + x, y: view.y + y, spriteId: sprite }, kind)
   if (!e) return
   e.emission = { c2, facing }
+  // The generator leaves $157C at zero for these actors. Their MAIN
+  // routines derive their facing from the emitted horizontal velocity.
+  const facesTravel = sprite === 0x38 || sprite === 0x17 || sprite === 0x41
+  e.facing = facesTravel && speedX !== 0 ? (speedX < 0 ? -1 : 1) : (facing ? -1 : 1)
   e.vx = speedX
   e.vy = speedY
   if (sprite === 0x1c) {
@@ -103,7 +108,7 @@ export function moveEmission(world: World, room: LevelDefinition, e: EntityState
       }
       break
     case 0xb3:
-      e.x -= 1.5
+      if (palFrame(world.state.tick) !== palFrame(world.state.tick - 1)) e.x += dir
       break
     case 0x38:
       e.x += e.vx
@@ -136,6 +141,7 @@ export function moveEmission(world: World, room: LevelDefinition, e: EntityState
         e.kind = 'walker'
         e.spriteId = e.spriteId === 0x3f ? 0x0f : 0x0d
         delete e.emission
+        delete e.facing
       }
       break
     default:

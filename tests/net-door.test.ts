@@ -17,6 +17,8 @@ for (const id of ['101', '1d3']) {
         enterRoom({ campaign, state }, p, id);
         Object.assign(p, { x: door.x + 20, y: door.y + 26, vx: 0, vy: 0, grounded: false });
       }
+      // This fixture isolates the latch while both controllers stay in the same spot.
+      state.entities = state.entities.filter(e => e.kind !== 'netKoopa');
       step(state, Buttons.up, Buttons.up);
       step(state); // release the D-pad and stay on the net
       assert.ok(state.players.mario.netClinging && state.players.luigi.netClinging);

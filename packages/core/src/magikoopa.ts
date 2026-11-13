@@ -40,6 +40,7 @@ export function castMagic(world: World, wizard: EntityState, target: PlayerState
     if (wizard.age > 1 || isSolid(tileAt(world, room, Math.floor(wizard.x / 16), Math.floor(wizard.y / 16))))
       choosePerch(world, wizard, target)
   }
+  wizard.facing = target.x < wizard.x ? -1 : 1
   if (cycle !== 64) return
   const shot = spawnEntity(world, wizard.roomId, { x: wizard.x + 4, y: wizard.y + 6, spriteId: 0x20 })!
   shot.width = shot.height = 8

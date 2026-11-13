@@ -19,6 +19,10 @@ export function hatch(world: World, e: EntityState, target: PlayerState) {
   }
   const raised = spawnEntity(world, e.roomId, { x: e.x, y: e.y, spriteId: e.adultEgg ? 0x35 : 0x2d })!
   raised.yoshiColor = e.yoshiColor
+  if (e.adultEgg) {
+    raised.facing = 1
+    raised.yoshiGrowthTick = world.state.tick
+  }
 }
 export function feedBaby(world: World, baby: EntityState, target: PlayerState) {
   if (baby.stunnedUntil && baby.stunnedUntil > baby.age) return
@@ -43,6 +47,8 @@ export function feedBaby(world: World, baby: EntityState, target: PlayerState) {
   if (baby.meals === 5 || (food.spriteId >= 0x74 && food.spriteId <= 0x77)) {
     baby.kind = 'yoshi'
     baby.spriteId = 0x35
+    baby.facing = 1
+    baby.yoshiGrowthTick = world.state.tick
     baby.vx = 0
     baby.vy = 0
     if (baby.owner && world.state.players[baby.owner].carrying === baby.id)

@@ -1,3 +1,8 @@
+import type { KoopaMotion } from './koopa-motion.ts'
+import type { BooStream } from './boo-stream.ts'
+import type { LevelNpc } from './level-npcs.ts'
+import type { BooGroup } from './boo-clusters.ts'
+import type { NetKoopa } from './net-koopa.ts'
 import type { StarTrail } from './star-trail.ts'
 import type { BonusGame } from './bonus-game.ts'
 import type { EmitterCatalog } from './emitters.ts'
@@ -187,10 +192,12 @@ export interface PlayerState extends Body {
   balloon: number
 }
 export type EntityKind =
+  | 'levelNpc'
   | 'flyingQuestion'
   | 'lakitu'
   | 'cloud'
   | 'koopa'
+  | 'netKoopa'
   | 'pipeDecoy'
   | 'magikoopa'
   | 'magic'
@@ -239,6 +246,10 @@ export type EntityKind =
   | 'switchPalace'
   | 'exitSide'
 export interface EntityState extends Body {
+  booStream?: BooStream
+  resident?: LevelNpc
+  koopa?: KoopaMotion
+  netKoopa?: NetKoopa
   pipePlant?: PipePlant
   coinGame?: { attempts: number; collected: number }
   sourceCloud?: string
@@ -251,7 +262,15 @@ export interface EntityState extends Body {
   coinDirection?: number
   coinTurn?: number
   shellKnockedOut?: boolean
+  /** World direction used by the NPC's drawing routine, including pauses and turns. */
+  facing?: -1 | 1
+  boo?: { watching: boolean; check: number; turn: number; wait: number; peek: number; pose: number }
   bracedBy?: string
+  fromEnemyBlock?: boolean
+  baitTaken?: true
+  lastThrowFrame?: number
+  lakituCoin?: boolean
+  shellKickTick?: number
   shellDefense?: { id: string; facing: 1 | -1; wait: number }
   tossed?: boolean
   eerieAcceleration?: number
@@ -263,6 +282,8 @@ export interface EntityState extends Body {
   reserveDrop?: boolean
   emission?: { c2: number; facing: number }
   yoshiColor?: YoshiColor
+  yoshiGrowthTick?: number
+  yoshiRunning?: boolean
   shellColor?: YoshiColor
   rainbow?: boolean
   meals?: number
@@ -280,6 +301,7 @@ export interface EntityState extends Body {
   hp: number
   owner: PlayerId | null
   hurtAt?: number
+  bossTurnTick?: number
   stunnedUntil?: number
   split?: boolean
   projectile?: 'rock' | 'football' | 'baseball'
@@ -366,6 +388,8 @@ export interface GameEvent {
 }
 export interface NetDoor extends Point { roomId: string; tick: number; players: PlayerId[] }
 export interface GameState {
+  booGroups?: Record<string, BooGroup[]>
+  spriteSeed?: number
   heldAtExit?: InputFrame
   goalWalk?: GoalWalk
   orbFinish?: OrbFinish

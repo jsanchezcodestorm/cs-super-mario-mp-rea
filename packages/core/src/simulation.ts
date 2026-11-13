@@ -13,6 +13,7 @@ import { shellContact, stepKnockedOut } from './shell-contact.ts'
 import { resumeBonus, stepBonus } from './bonus-game.ts'
 import { guideCoins } from './directional-coins.ts'
 import { stepEmitters } from './emitters.ts'
+import { stepBooGroups } from './boo-clusters.ts'
 import { freeCloud } from './lakitu.ts'
 import { feedBaby } from './yoshi-growth.ts'
 import { stepBerries } from './yoshi-berries.ts'
@@ -190,6 +191,7 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       const present = activePlayers.filter((p) => p.roomId === id)
       stepLayer(world, campaign.levels[id], present)
       stepEmitters(world, campaign.levels[id], present)
+      stepBooGroups(world, campaign.levels[id], present)
     }
     const previousBonus=state.bonus
     const tops={mario:state.players.mario.y,luigi:state.players.luigi.y}

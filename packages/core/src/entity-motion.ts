@@ -1,3 +1,10 @@
+import { palFrame } from './pal-time.ts'
+import { moveBlockEnemy } from './statue-enemies.ts'
+import { moveNetKoopa } from './net-koopa.ts'
+import { moveBooStream } from './boo-stream.ts'
+import { moveBoo } from './boo.ts'
+import { stepLevelNpc } from './level-npcs.ts'
+import { moveKoopa } from './koopa-motion.ts'
 import { moveFlyingQuestion } from './flying-question.ts'
 import { moveCoinGameCloud, moveCloudCoin } from './coin-game-cloud.ts'
 import { blockItemPosition } from './emergence.ts'
@@ -7,12 +14,14 @@ import { moveSkull } from './skull-raft.ts'
 import { positionChainDeck, stepForestDeck, stepHammerDeck } from './flying-platforms.ts'
 import { isWallSpring } from './wall-spring.ts'
 import { movePipeBoss } from './pipe-boss.ts'
+import { bossFires, updateBossFacing } from './boss-facing.ts'
 import { isPipePlant, movePipePlant } from './pipe-plant.ts'
 import { castMagic, moveMagic } from './magikoopa.ts'
 import { moveTape } from './rewards.ts'
 import { moveCloud, moveLakitu } from './lakitu.ts'
 import { moveEmission } from './emitters.ts'
 import { hatch, feedBaby } from './yoshi-growth.ts'
+import { moveLooseYoshi } from './loose-yoshi.ts'
 import { moveChuck, moveChuckShot } from './chuck.ts'
 import { moveBridge } from './bridges.ts'
 import { moveLineGuide } from './line-guides.ts'
@@ -69,7 +78,8 @@ function bossMotion(world: World, e: EntityState, target: PlayerState, room: Lev
     walk(world, room, e, 0.8)
     if (e.grounded && e.age % 80 === 0) e.vy = -4.6
   }
-  if (e.kind === 'boss' && e.age % 190 === 0) {
+  if (e.spriteId !== 0xc5) updateBossFacing(e, target)
+  if (e.kind === 'boss' && bossFires(e)) {
     const fire = spawnEntity(world, room.id, { x: e.x, y: e.y, spriteId: 0x34 }, 'bullet')
     if (fire) fire.vx = target.x > e.x ? 2 : -2
   }
@@ -78,7 +88,16 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
   if (e.blockReleaseTick !== undefined && !blockItemPosition(e, world.state.tick)) delete e.blockReleaseTick
   const room = world.campaign.levels[e.roomId]
   e.age++
+  if (e.fromEnemyBlock) { moveBlockEnemy(world, e); return }
   if (e.shellDefense && braceShell(world, room, e)) return
+  if ((e.spriteId <= 12 || e.spriteId === 0xbd) && (e.kind === 'walker' || e.kind === 'koopa' || e.kind === 'flyer' || e.kind === 'jumper')) {
+    moveKoopa(world, room, e, target)
+    return
+  }
+  if (e.kind === 'netKoopa') {
+    moveNetKoopa(world, room, e, target)
+    return
+  }
   if (movePipeBoss(world, room, e)) return
   if (e.reserveDrop) {
     e.y += 1
@@ -96,6 +115,9 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
     return
   }
   switch (e.kind) {
+    case 'levelNpc':
+      stepLevelNpc(world, e, target)
+      break
     case 'coinGameCloud':
       moveCoinGameCloud(world, e)
       break
@@ -123,12 +145,32 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
     case 'mechakoopa':
     case 'walker':
     case 'koopa':
-    case 'spiny':
     case 'rex':
       walk(world, room, e, e.kind === 'rex' ? 0.75 : 0.6)
+      if (e.spriteId === 0x9b) {
+        const frame = palFrame(e.age)
+        const cycle = frame - Math.floor(frame / 4)
+        const submap = world.campaign.overworldNodes?.[world.state.progress.course]?.region
+        e.facing = cycle & (submap ? 16 : 32) ? 1 : -1
+      }
+      break
+    case 'spiny':
+      if (e.spriteId === 0x14) {
+        walk(world, room, e, Math.abs(e.vx))
+        if (e.grounded) {
+          e.spriteId = 0x13
+          e.vx = target.x < e.x ? -0.6 : 0.6
+        }
+      } else walk(world, room, e, 0.6)
       break
     case 'jumper':
       walk(world, room, e, 0.8, 3.6)
+      break
+    case 'coin':
+      if (e.lakituCoin) {
+        e.vy = Math.min(4, e.vy + 0.18)
+        moveBody(world, room, e)
+      }
       break
     case 'mushroom':
     case 'oneUp':
@@ -195,6 +237,8 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       moveShell(world, room, e, target)
       break
     case 'yoshi':
+      moveLooseYoshi(world, room, e)
+      break
     case 'key':
     case 'switch':
     case 'spring':
@@ -209,26 +253,28 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
         e.y += e.vy
         break
       }
-    case 'fish':
+    case 'fish': {
+      const previousX = e.x
       e.x = e.origin.x + wave(e.age, 200) * 34
       e.y = e.origin.y + wave(e.age, e.kind === 'fish' ? 140 : 105) * 16
+      if (e.x !== previousX) e.facing = e.x < previousX ? -1 : 1
       break
+    }
     case 'plant':
       if (isPipePlant(e.spriteId)) movePipePlant(world, room, e, target)
       else e.y = e.origin.y + Math.max(0, wave(e.age, 170)) * 23
       break
-    case 'boo': {
-      const dir = e.x > target.x ? 1 : -1
-      if (target.facing !== dir) {
-        e.x -= dir * 0.48
-        e.y += limit(target.y - e.y, -0.36, 0.36)
-      }
+    case 'boo':
+      moveBoo(e, target, world.state.tick)
       break
-    }
     case 'bullet':
       e.x += Math.sign(e.vx) * (e.spriteId === 0x9f ? 1 : 2.5)
       break
     case 'hazard':
+      if (e.spriteId === 0xb0) {
+        moveBooStream(world, room, e, target)
+        break
+      }
       if (e.spriteId === 0x26 || e.spriteId === 0xac || e.spriteId === 0xad)
         e.y = e.origin.y + Math.max(0, wave(e.age, 140)) * 52
       else if (e.spriteId === 0x9e || e.spriteId === 0x65 || e.spriteId === 0x66) {
@@ -264,7 +310,11 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
           e.vy += 0.03
           e.y += e.vy
         }
-      } else e.x = e.origin.x + wave(e.age, 230) * 47
+      } else {
+        const x = e.origin.x + wave(e.age, 230) * 47
+        if (x !== e.x) e.facing = x < e.x ? -1 : 1
+        e.x = x
+      }
       break
     case 'magikoopa':
       castMagic(world, e, target)

@@ -13,7 +13,7 @@ export function reboundGravity(holdingJump: boolean) {
   return (holdingJump ? 0x0373 : 0x06e6) / 4096 * palVerticalScale * framesPerTick ** 2
 }
 
-function recordShatter(state: GameState, roomId: string, col: number, row: number) {
+export function recordShatter(state: GameState, roomId: string, x: number, y: number) {
   const effects = state.shatteredBlocks ??= []
   const active = effects.filter(effect => effect.roomId === roomId)
   // Each block allocates four of the twelve minor extended sprite slots.
@@ -24,7 +24,7 @@ function recordShatter(state: GameState, roomId: string, col: number, row: numbe
     firstSlot = oldest.firstSlot
     effects.splice(effects.indexOf(oldest), 1)
   }
-  effects.push({ roomId, x: col * TILE, y: row * TILE, tick: state.tick, firstSlot })
+  effects.push({ roomId, x, y, tick: state.tick, firstSlot })
 }
 
 export function expireShatters(state: GameState) {
@@ -53,7 +53,7 @@ export function shatterOnLanding(world: World, room: LevelDefinition, p: PlayerS
       p.grounded = false
       p.blockRebound = true
       p.vy = -3 * palVerticalScale * framesPerTick
-      recordShatter(world.state, room.id, col, row)
+      recordShatter(world.state, room.id, col * TILE, row * TILE)
       emit(world, 'shatter', p)
       return
     }
