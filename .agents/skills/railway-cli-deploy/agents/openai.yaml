@@ -1,0 +1,3 @@
+interface:
+  display_name: "Railway CLI Deploy"
+  short_description: "Deploy with Railway CLI and verify production health"
