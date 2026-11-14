@@ -1,19 +1,18 @@
 import assert from 'node:assert/strict'
-import { once } from 'node:events'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { chromium } from 'playwright'
 import { cameraFor } from '../apps/web/src/game/terrain-view.ts'
-import { createGateway } from '../apps/server/src/gateway.ts'
+import { createServerApplication } from '../apps/server/src/create-application.ts'
+import { CAMPAIGN_DEFINITION } from '../apps/server/src/config/server-configuration.ts'
+import { Lobby } from '../apps/server/src/multiplayer/lobby.ts'
 import { startCourse } from '../packages/core/src/campaign.ts'
 import { enterRoom, spawnEntity } from '../packages/core/src/state.ts'
 
 const read = async path => JSON.parse(await readFile(path, 'utf8'))
-const campaign = await read('generated/content.json')
-campaign.overworldNodes = await read('generated/world/nodes.json')
-campaign.movieTicks = await read('generated/movies/durations.json')
-const gateway = createGateway(campaign, resolve('apps/web/dist'), resolve('generated'))
+const app = await createServerApplication({ host: '127.0.0.1', port: 0 })
+const campaign = app.get(CAMPAIGN_DEFINITION)
+const lobby = app.get(Lobby)
 const browser = await chromium.launch({ args: ['--enable-unsafe-swiftshader'] })
 
 async function until(description, check) {
@@ -63,8 +62,8 @@ async function sampleTarget(page, stage, focus, target, path, nativeFrame) {
 }
 
 try {
-  gateway.server.listen(0, '127.0.0.1')
-  await once(gateway.server, 'listening')
+  await app.listen(0, '127.0.0.1')
+  const address = app.getHttpServer().address()
   const ids = ['mario', 'luigi']
   const clients = {}
   const errors = []
@@ -83,7 +82,7 @@ try {
       const target = entities.find(e => e.id === targetId)
       if (target) frames.set(tick, { x: target.x, y: target.y, scores: ids.map(i => players[i].score) })
     }))
-    await page.goto('http://127.0.0.1:' + gateway.server.address().port)
+    await page.goto('http://127.0.0.1:' + address.port)
     clients[id] = { page, frames, castleReady: false }
   }
   const mario = clients.mario.page, luigi = clients.luigi.page
@@ -99,7 +98,7 @@ try {
   await Promise.all(ids.map(id => clients[id].page.locator('#ready').click()))
   await mario.locator('#start-room:not([disabled])').click()
   await Promise.all(ids.map(id => clients[id].page.locator('#screen canvas').waitFor()))
-  const room = gateway.lobby.rooms.get(code)
+  const room = lobby.rooms.get(code)
   const state = room.state, world = { campaign, state }
   state.progress.unlocked.push('101')
   startCourse(world, '101')
@@ -191,5 +190,5 @@ try {
   assert.deepEqual(errors, [])
 } finally {
   await browser.close()
-  await gateway.stop()
+  await app.close()
 }

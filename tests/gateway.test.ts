@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { WebSocket } from 'ws';
 import { once } from 'node:events';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { createGateway } from '../apps/server/src/gateway.ts';
+import { createServerApplication } from '../apps/server/src/create-application.ts';
+import { Lobby } from '../apps/server/src/multiplayer/lobby.ts';
 import { parseMessage, type ServerMessage } from '@smw/protocol';
 import { Buttons } from '@smw/core';
 
@@ -26,27 +25,64 @@ function peer(url: string) {
     }
     throw Error('Timeout ' + type + ': ' + messages.map((m) => m.type).slice(-5));
   }
-  return { ws, take, send: (m: object) => ws.send(JSON.stringify({ v: 2, ...m })) };
+  return { ws, take, send: (m: object) => ws.send(JSON.stringify({ v: 1, ...m })) };
 }
 
 test('reject invalid or unversioned input frames', () => {
   for (const m of [
-    { v: 1, type: 'ready' },
-    { v: 2, type: 'input', seq: 1, buttons: -1 },
-    { v: 2, type: 'resume', code: 'AAAAAA', token: 'x' },
+    { v: 2, type: 'ready' },
+    { v: 1, type: 'input', seq: 1, buttons: -1 },
+    { v: 1, type: 'resume', code: 'AAAAAA', token: 'x' },
   ])
     assert.throws(() => parseMessage(JSON.stringify(m)));
 });
 
+test('accept v1 protocol messages', () => {
+  assert.deepEqual(parseMessage(JSON.stringify({ v: 1, type: 'ready' })), { v: 1, type: 'ready' });
+});
+
 test('two network seats share authoritative state across disconnect and reconnect', async (t) => {
-  const campaign = JSON.parse(readFileSync('generated/content.json', 'utf8'));
-  const gateway = createGateway(campaign, resolve('apps/web/dist'), resolve('generated'));
-  gateway.server.listen(0, '127.0.0.1');
-  await once(gateway.server, 'listening');
-  const addr = gateway.server.address();
+  const app = await createServerApplication({
+    host: '127.0.0.1',
+    port: 0,
+    webOrigin: 'https://allowed.example',
+  });
+  await app.listen(0, '127.0.0.1');
+  const server = app.getHttpServer();
+  const addr = server.address();
   assert(addr && typeof addr === 'object');
   const url = 'ws://127.0.0.1:' + addr.port + '/ws';
-  t.after(() => gateway.stop());
+  t.after(() => app.close());
+
+  const deniedOrigin = new WebSocket(url, { headers: { Origin: 'https://blocked.example' } });
+  await assert.rejects(once(deniedOrigin, 'open'), /403/);
+  const allowedOrigin = new WebSocket(url, { headers: { Origin: 'https://allowed.example' } });
+  await once(allowedOrigin, 'open');
+  const allowedOriginClosed = once(allowedOrigin, 'close');
+  allowedOrigin.close();
+  await allowedOriginClosed;
+  const sameOrigin = new WebSocket(url, { headers: { Origin: 'http://127.0.0.1:' + addr.port } });
+  await once(sameOrigin, 'open');
+  const sameOriginClosed = once(sameOrigin, 'close');
+  sameOrigin.close();
+  await sameOriginClosed;
+  const wrongPath = new WebSocket(url.replace('/ws', '/wrong'));
+  await assert.rejects(once(wrongPath, 'open'));
+
+  const binary = new WebSocket(url);
+  await once(binary, 'open');
+  const binaryClosed = once(binary, 'close');
+  binary.send(Buffer.from('{"v":2,"type":"ready"}'), { binary: true });
+  const [binaryCloseCode] = await binaryClosed;
+  assert.equal(binaryCloseCode, 1008);
+
+  const oversized = new WebSocket(url);
+  await once(oversized, 'open');
+  const oversizedClosed = once(oversized, 'close');
+  oversized.send('x'.repeat(32 * 1024 + 1));
+  const [oversizedCloseCode] = await oversizedClosed;
+  assert.equal(oversizedCloseCode, 1009);
+
   const host = peer(url);
   await once(host.ws, 'open');
   host.send({ type: 'createRoom', profileId: 'mario', nickname: 'Mario', character: 'mario' });
@@ -84,7 +120,8 @@ test('two network seats share authoritative state across disconnect and reconnec
   assert.deepEqual(ack.state.players, shared.state.players);
   b.ws.terminate();
   await a.take('roomState', (m) => m.status === 'paused');
-  const room = gateway.lobby.rooms.get(first.code)!;
+  const lobby = app.get(Lobby);
+  const room = lobby.rooms.get(first.code)!;
   const tick = room.state!.tick;
   for (let i = 0; i < 30; i++) room.step(Date.now());
   assert.equal(room.state!.tick, tick);
@@ -97,8 +134,13 @@ test('two network seats share authoritative state across disconnect and reconnec
   assert(after.state.tick >= tick);
   a.send({ type: 'leave' });
   await resume.take('roomState', (m) => m.status === 'closed');
-  assert.equal(gateway.lobby.rooms.size, 0);
+  assert.equal(lobby.rooms.size, 0);
   const http = 'http://127.0.0.1:' + addr.port;
+  const health = await fetch(http + '/health');
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { status: 'ok' });
+  assert.equal((await fetch(http + '/health', { method: 'HEAD' })).status, 200);
+  assert.equal((await fetch(http + '/health', { method: 'POST' })).status, 405);
   const rom = await fetch(http + '/Super%20Mario%20World.smc');
   assert.equal(rom.status, 404);
   const movie = await fetch(http + '/assets/movies/ending.mp4', { headers: { Range: 'bytes=0-31' } });

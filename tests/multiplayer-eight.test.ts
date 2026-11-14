@@ -15,7 +15,7 @@ import {
   type PlayerProfile,
 } from '@smw/core';
 import type { ServerMessage } from '@smw/protocol';
-import { Lobby } from '../apps/server/src/lobby.ts';
+import { Lobby } from '../apps/server/src/multiplayer/lobby.ts';
 
 const campaign: CampaignDefinition = JSON.parse(readFileSync('generated/content.json', 'utf8'));
 const roster: PlayerProfile[] = Array.from({ length: 8 }, (_, index) => ({
@@ -93,7 +93,7 @@ class Client {
 
   async send(message: object) {
     if (this.socket.readyState !== WebSocket.OPEN) throw Error('Test client disconnected');
-    this.socket.send(JSON.stringify({ v: 2, ...message }));
+    this.socket.send(JSON.stringify({ v: 1, ...message }));
     const pong = once(this.socket, 'pong');
     this.socket.ping();
     await pong;

@@ -3,11 +3,10 @@ import './ui/mobile-play.css';
 import './ui/install-prompt.css';
 import { CutsceneView } from './game/cutscene-view';
 import { goalWalkFrame } from '@smw/core';
-import type { CampaignSave, GameEvent, GameState, PlayerId } from '@smw/core';
-import type { CampaignRef, ServerMessage } from '@smw/protocol';
-import { browserPlayerId, RoomConnection } from './session/connection';
-import { readCampaigns, writeCampaignSave, type CampaignSlot } from './session/save';
-import { el, Lobby, type CampaignChoice } from './ui/lobby';
+import type { GameEvent, GameState, PlayerId } from '@smw/core';
+import type { ServerMessage } from '@smw/protocol';
+import { RoomConnection } from './session/connection';
+import { el, Lobby } from './ui/lobby';
 import { loadContent, type Content } from './game/content';
 import { Playback, type GameSession } from './game/playback';
 import { GameAudio } from './game/audio';
@@ -18,6 +17,11 @@ import { LocalGameSession } from './session/local-game';
 import { InstallPrompt } from './ui/install-prompt';
 import { GameTraceControl } from './ui/game-trace-control';
 import type { GameTraceRecorder } from './game/game-trace';
+import { accountApi } from './session/api';
+import { AccountPanel } from './ui/account-panel';
+import { AuthPages } from './ui/auth-pages';
+import { CampaignPanel } from './ui/campaign-panel';
+import { ProgressPanel } from './ui/progress-panel';
 
 let me: PlayerId | undefined, playback: GameSession | undefined;
 let stopped: (() => void) | undefined,
@@ -45,6 +49,7 @@ window.addEventListener('keydown', () => audio.unlock(), { once: true });
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 const music = ['level', 'underground', 'athletic', 'castle', 'ghost', 'water', 'boss', 'bonus'];
 let audioNotice = '';
+let campaignPanel: CampaignPanel;
 const audioError = (error: unknown) => {
   audioNotice = error instanceof Error ? error.message : 'Audio indisponibile';
 };
@@ -70,53 +75,37 @@ function loadResources() {
   }));
 }
 const lobby = new Lobby({
-  enter(code, player, choice) {
+  async enter(code, player, choice, mode) {
     audio.unlock();
-    const profileId = browserPlayerId();
-    if (code) connection.connect({ v: 2, type: 'joinRoom', code, profileId, ...player });
-    else if (choice) {
-      const selected = campaignFor(choice);
-      connection.connect({
-        v: 2,
-        type: 'createRoom',
-        profileId,
-        ...player,
-        campaign: selected.ref,
-        ...(selected.save ? { save: selected.save } : {}),
-      });
+    if (code) {
+      connection.connect({ v: 1, type: 'joinRoom', code, character: player.character });
+      return;
     }
+    if (!choice || !mode) throw new Error('Seleziona una campagna e una modalità.');
+    const campaign = choice.kind === 'new'
+      ? await accountApi.createCampaign(choice.name, choice.mode)
+      : choice.campaign;
+    if (choice.kind === 'new') await campaignPanel.refresh();
+    connection.connect({
+      v: 1,
+      type: 'createRoom',
+      campaignId: campaign.id,
+      mode,
+      character: player.character,
+    });
   },
   ready() {
     audio.unlock();
-    connection.send({ v: 2, type: 'ready' });
+    connection.send({ v: 1, type: 'ready' });
   },
   start() {
-    connection.send({ v: 2, type: 'startRoom' });
-  },
-  solo(choice) {
-    const selected = campaignFor(choice);
-    connection.leave();
-    latest = undefined;
-    paused = false;
-    me = 'mario';
-    void mountGame(
-      (gameContent) =>
-        new LocalGameSession(gameContent, selected.save, {
-          step: updateLocalState,
-          save: (save) => persistSave(selected.ref, save),
-        }),
-      { leaveRoomOnError: false },
-    );
+    connection.send({ v: 1, type: 'startRoom' });
   },
   leave() {
     connection.leave();
     end();
   },
 });
-function campaignFor(choice: CampaignChoice): { ref: CampaignRef; save?: CampaignSave } {
-  if (choice.kind === 'new') return { ref: { id: crypto.randomUUID(), name: choice.name } };
-  return { ref: { id: choice.slot.id, name: choice.slot.name }, save: choice.slot.save };
-}
 function end(message = '') {
   touchHud.clear();
   void fullscreen.exitIfActive();
@@ -179,11 +168,6 @@ function showHud(s: GameState) {
   }
   else lobby.overlay('');
 }
-function persistSave(campaign: CampaignRef, save: CampaignSave) {
-  void writeCampaignSave(campaign, save)
-    .then((slot: CampaignSlot) => lobby.updateCampaign(slot))
-    .catch(() => lobby.notice('Il browser non ha salvato la campagna.'));
-}
 function playGameEvent(event: GameEvent) {
   const local = me ? playback?.state?.players[me] : undefined;
   if (!event.roomId || event.roomId === local?.roomId) void audio.play(event).catch(audioError);
@@ -245,7 +229,7 @@ function startPlay() {
   const playerId = me;
   void mountGame((gameContent) => {
     const remote = new Playback(gameContent, playerId, (seq, buttons) =>
-      connection.send({ v: 2, type: 'input', seq, buttons }),
+      connection.send({ v: 1, type: 'input', seq, buttons }),
     );
     remote.pause(paused);
     if (latest) remote.receive(latest.state, latest.ack);
@@ -282,9 +266,7 @@ function message(m: ServerMessage) {
     case 'gameEvent':
       playGameEvent(m.event);
       return;
-    case 'save':
-      if (m.campaign) persistSave(m.campaign, m.save);
-      else lobby.notice('La stanza non ha identificato la campagna da salvare.');
+    case 'saved':
       return;
     case 'error':
       if (stopped) lobby.overlay(m.message);
@@ -308,12 +290,27 @@ const connection = new RoomConnection({
     else lobby.notice('Riconnessione in corso…');
   },
 });
-readCampaigns()
-  .then((campaigns) => lobby.setCampaigns(campaigns))
-  .catch(() => lobby.notice('Salvataggi locali indisponibili in questo browser.'));
+campaignPanel = new CampaignPanel((campaigns) => lobby.setCampaigns(campaigns));
+const progressPanel = new ProgressPanel();
+const accountPanel = new AccountPanel({
+  async authenticated() {
+    const results = await Promise.allSettled([campaignPanel.load(), progressPanel.load()]);
+    if (results.some((result) => result.status === 'rejected'))
+      lobby.notice('Impossibile caricare alcuni dati account. Riprova dal pannello account.');
+    connection.restore();
+  },
+  signedOut() {
+    connection.leave();
+    end();
+  },
+});
+const authPages = new AuthPages(() => void accountPanel.initialize());
+const isAuthRoute = authPages.initialize();
 const directTestLevel = new URLSearchParams(window.location.search).get('testLevel');
-if (directTestLevel === null) connection.restore();
-else {
+if (directTestLevel === null && !isAuthRoute) void accountPanel.initialize();
+else if (directTestLevel !== null && !isAuthRoute) {
+  el('account-view').hidden = true;
+  el('start-view').hidden = true;
   me = 'mario';
   void mountGame(
     (gameContent) => {

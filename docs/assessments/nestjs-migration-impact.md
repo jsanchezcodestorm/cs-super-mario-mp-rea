@@ -1,34 +1,33 @@
 # Impatti di una migrazione del backend a NestJS
 
-**Stato:** valutazione tecnica, non implementata<br>
+**Stato:** porting implementato; build e type-check superati, test d’integrazione non eseguiti<br>
 **Riferimento:** checkout locale osservato il 14 novembre 2026<br>
-**Perimetro:** backend di `super-mario-mp`; nessuna modifica applicativa inclusa
+**Perimetro:** backend di `super-mario-mp` e contratto WebSocket v1; gameplay e formato dei salvataggi invariati
 
 ## Sintesi
 
-La migrazione a NestJS è tecnicamente realizzabile senza riscrivere il motore di gioco e senza cambiare il protocollo client-server, purché il nuovo gateway mantenga i messaggi WebSocket correnti. L’impatto riguarda soprattutto bootstrap, composizione dei servizi, gestione del ciclo di vita, integrazione WebSocket e test d’integrazione.
+La migrazione a NestJS è realizzata senza riscrivere il motore di gioco. Il wire protocol è stato portato alla versione 1 mantenendo i campi e i tipi dei messaggi attuali; client e server vengono aggiornati insieme e non viene mantenuta compatibilità con v2, perché non ci sono consumer in produzione. L’impatto principale riguarda bootstrap, composizione dei servizi, lifecycle, integrazione WebSocket e test d’integrazione.
 
-Nel codice attuale NestJS non aggiungerebbe nuove funzionalità di gioco. Porterebbe una struttura a moduli e provider, dependency injection e punti d’estensione standardizzati. L’opportunità dipende quindi dal valore di uniformare l’architettura o preparare nuove API e moduli applicativi.
+NestJS non aggiunge funzionalità di gioco. Il server è organizzato in moduli e provider, con dependency injection e punti d’estensione per future API. Il client e il server usano ora il tag wire `v: 1`.
 
 Questa valutazione non contiene una stima di giorni o costi, come richiesto.
 
-## Base di verifica
+## Base di verifica pre-porting
 
-Il backend è un workspace Node.js e TypeScript. Il requisito runtime è Node.js `>=24`; gli script avviano TypeScript con `tsx`. Il package del server dipende da `ws` e dai workspace `@smw/core` e `@smw/protocol`; non contiene dipendenze NestJS.
+Questa sezione riporta la base osservata prima del porting: backend Node.js e TypeScript, requisito runtime Node.js `>=24`, avvio TypeScript con `tsx` e dipendenze server `ws`, `@smw/core` e `@smw/protocol`. Il package non conteneva dipendenze NestJS.
 
-Il checkout contiene modifiche locali non committate, incluse modifiche ai file di lobby, stanza, server statico, avvio e test. Le osservazioni descrivono quindi i sorgenti presenti nel checkout, non una baseline ricostruita da `HEAD`.
+Il checkout iniziale conteneva modifiche locali a lobby, stanza, server statico, avvio e test; le osservazioni descrivevano quei sorgenti e non una baseline ricostruita da `HEAD`.
 
-Riferimenti principali:
+Riferimenti correnti dopo il porting:
 
-- [package.json](../../package.json) e [apps/server/package.json](../../apps/server/package.json): workspaces, script, versione Node e dipendenze.
-- [apps/server/tsconfig.json](../../apps/server/tsconfig.json): compilazione corrente senza emissione JavaScript e senza opzioni per i decorator NestJS.
-- [apps/server/src/main.ts](../../apps/server/src/main.ts): caricamento della campagna generata e avvio del gateway.
-- [apps/server/src/gateway.ts](../../apps/server/src/gateway.ts): HTTP, handshake WebSocket, loop di simulazione, heartbeat e arresto.
-- [apps/server/src/static.ts](../../apps/server/src/static.ts): health check e pubblicazione di client e asset.
-- [apps/server/src/lobby.ts](../../apps/server/src/lobby.ts), [room.ts](../../apps/server/src/room.ts) e [seat.ts](../../apps/server/src/seat.ts): lobby, stato delle stanze, sessioni di gioco e invio messaggi.
-- [tests/gateway.test.ts](../../tests/gateway.test.ts) e [tests/coop/socket-room.ts](../../tests/coop/socket-room.ts): prove del gateway reale e prove dirette della lobby.
+- [package.json](../../package.json) e [apps/server/package.json](../../apps/server/package.json): workspaces, script, versione Node e dipendenze NestJS.
+- [apps/server/tsconfig.json](../../apps/server/tsconfig.json): configurazione TypeScript per i decorator NestJS.
+- [apps/server/src/app.module.ts](../../apps/server/src/app.module.ts) e [create-application.ts](../../apps/server/src/create-application.ts): composizione dei moduli e bootstrap.
+- Le cartelle [config](../../apps/server/src/config), [campaign](../../apps/server/src/campaign), [multiplayer](../../apps/server/src/multiplayer), [runtime](../../apps/server/src/runtime), [websocket](../../apps/server/src/websocket) e [http](../../apps/server/src/http) contengono i moduli per responsabilità.
+- [packages/protocol/src/index.ts](../../packages/protocol/src/index.ts), [apps/web/src/session/connection.ts](../../apps/web/src/session/connection.ts) e [apps/server/src/multiplayer/lobby.ts](../../apps/server/src/multiplayer/lobby.ts): validazione condivisa e uso del wire protocol v1.
+- [tests/gateway.test.ts](../../tests/gateway.test.ts) e [tests/coop/socket-room.ts](../../tests/coop/socket-room.ts): test d’integrazione Nest e test diretti della lobby.
 
-## Backend attuale
+## Backend prima del porting
 
 ### HTTP e asset
 
@@ -55,7 +54,7 @@ Le stanze attive sono in memoria del processo. L’adozione di NestJS non introd
 | Bootstrap e moduli | Aggiungere il bootstrap NestJS, l’`AppModule` e i provider per la configurazione della campagna, la lobby e i servizi di runtime. | L’entry point e gli script di avvio cambiano; `HOST` e `PORT` devono continuare a essere applicati. |
 | Dipendenze e TypeScript | Aggiungere i pacchetti NestJS necessari, configurare i decorator e la metadata reflection e aggiornare il lockfile. | Aumentano dipendenze e configurazione del server; il client non ne è interessato. |
 | HTTP adapter | Scegliere esplicitamente un adapter HTTP. L’opzione Nest `NodeAdapter` usa `node:http`, già usato dal progetto; il default Nest è Express se non si specifica un adapter. | La scelta dell’adapter determina il middleware disponibile e la compatibilità con l’handler statico esistente. |
-| Gateway WebSocket | Collegare l’adapter `ws` e instradare i messaggi ricevuti al codice della lobby. | `/ws` e il protocollo versione 2 possono restare invariati se parsing e invio preservano i messaggi JSON grezzi. |
+| Gateway WebSocket | Collegare l’adapter `ws` e instradare i messaggi ricevuti al codice della lobby. | `/ws` e la forma JSON dei messaggi restano invariati; il tag wire è `v: 1`. |
 | Messaggi in uscita | Preservare gli invii server-initiated e la serializzazione attuale: snapshot, eventi, stato della stanza, errori e salvataggi. | Un involontario wrapper Nest `{ event, data }` cambierebbe il protocollo e richiederebbe modifiche al client. |
 | Connessione e sicurezza | Reimplementare in modo esplicito controllo dell’Origin, path `/ws`, massimo payload, rifiuto dei frame binari, backpressure, ping/pong e chiusura dei socket. | Il comportamento di ammissione, i limiti e i codici di chiusura restano compatibili. |
 | Loop e shutdown | Spostare timer di simulazione e heartbeat in un servizio con lifecycle NestJS; interromperli allo shutdown e chiudere stanze e socket. | Rimane un solo loop attivo per processo; non si duplicano tick in sviluppo, test o shutdown. |
@@ -69,7 +68,7 @@ Le guide ufficiali NestJS descrivono `NodeAdapter` per eseguire Nest direttament
 
 ### Compatibilità dell’adapter WebSocket
 
-NestJS fornisce `WsAdapter` tramite `@nestjs/platform-ws`, compatibile con WebSocket nativi del browser. Il formato gestito dai gateway Nest è `event`/`data`; la guida documenta un parser personalizzabile. Poiché il protocollo del gioco usa `type` e include `v: 2`, l’adattamento deve mappare i messaggi senza trasformare la forma osservabile sul wire.
+NestJS fornisce `WsAdapter` tramite `@nestjs/platform-ws`, compatibile con WebSocket nativi del browser. Il parser personalizzato mappa il frame in un evento Nest interno e passa alla lobby il JSON v1 originale. Nessun wrapper `event`/`data` viene esposto al client.
 
 Inoltre, il server invia diversi messaggi autonomamente durante la partita. Un gateway che si limita a restituire il risultato del singolo handler non copre da solo questo comportamento: occorre conservare un canale di invio diretto al socket o implementare una serializzazione/adattatore che mantenga i messaggi server-initiated e il loro formato.
 
@@ -82,19 +81,19 @@ Riferimenti ufficiali:
 ## Parti che possono restare invariate
 
 - `packages/core` può continuare a contenere simulazione deterministica e regole di gioco senza dipendenze NestJS.
-- `packages/protocol` può mantenere i tipi e la validazione del protocollo versione 2.
-- Il client web, la connessione browser e il proxy `/ws` di Vite non devono cambiare se Nest conserva path, origin e messaggi attuali.
+- `packages/protocol` mantiene tipi e validazione condivisi per il wire protocol v1.
+- Il client web invia e accetta v1; path `/ws`, origin e campi dei messaggi restano invariati.
 - Le classi `Lobby`, `Room` e `Seat` possono mantenere le responsabilità di dominio. Nest dovrebbe comporle e coordinarle, non accorpare tutta la logica in un singolo gateway.
 - I salvataggi locali del browser, il formato del salvataggio e le regole multiplayer non richiedono modifiche per il solo cambio di framework.
 - Non emerge la necessità di un database, Redis o un altro servizio esterno per completare il porting. Tali servizi sarebbero decisioni separate per persistenza o coordinamento tra istanze.
 
 ## Impatto sui test esistenti
 
-`tests/gateway.test.ts` controlla l’endpoint WebSocket, la riconnessione, il limite di giocatori, gli snapshot e le risposte HTTP con richieste a intervallo e `HEAD`. Va aggiornato affinché avvii l’app Nest reale e chiuda correttamente l’applicazione.
+`tests/gateway.test.ts` avvia l’app Nest reale e controlla l’endpoint WebSocket, il controllo dell’Origin, il path, i frame binari, il limite del payload, la riconnessione, il roster, gli snapshot e le risposte HTTP.
 
-`tests/coop/socket-room.ts` crea invece direttamente `Lobby` e `WebSocketServer` per controllare la simulazione con un clock di test. Questa separazione è utile: mantenere lobby e stanze invocabili senza bootstrap Nest preserva test deterministici e rapidi.
+`tests/coop/socket-room.ts` crea invece direttamente `Lobby` e `WebSocketServer` per controllare la simulazione con un clock di test. La lobby resta invocabile senza bootstrap Nest per preservare test deterministici e rapidi.
 
-Le verifiche richieste dopo un’implementazione sono elencate nella sezione “Criteri di accettazione”. Non sono state eseguite durante questa valutazione.
+Le verifiche richieste sono elencate nella sezione “Criteri di accettazione del porting”. Non sono state eseguite in questa sessione.
 
 ## Rischi tecnici da gestire
 
@@ -106,23 +105,24 @@ Le verifiche richieste dopo un’implementazione sono elencate nella sezione “
 6. **Sovrastima delle garanzie operative:** NestJS non rende persistenti le stanze e non rende automaticamente sicura la condivisione dello stato tra repliche.
 7. **Prestazioni non misurate:** il loop di gioco e la frequenza di messaggistica restano gli stessi, ma l’effetto dell’instradamento Nest sul carico non è deducibile dalla sola ispezione del codice. Se il carico è una preoccupazione, va misurato con lo stesso scenario prima e dopo.
 
-## Struttura target da valutare
+## Struttura implementata
 
-Una decomposizione coerente con il codice corrente sarebbe:
+Il server è diviso in moduli Nest per responsabilità:
 
-- **Application module:** bootstrap, configurazione, caricamento della campagna e provider condivisi.
-- **Game runtime service:** avvio e arresto del loop e dell’heartbeat.
-- **WebSocket gateway:** verifica del trasporto e delega dei comandi alla lobby, mantenendo messaggi server-initiated.
-- **Lobby e room services:** regole già presenti in `Lobby` e `Room`, isolate dal ciclo di vita Nest quando possibile.
-- **Health route:** `/health` con un controller Nest o con l’handler HTTP esistente.
-- **Static content handler:** pubblicazione di `apps/web/dist` e `generated` con le stesse garanzie correnti.
+- `config/`: configurazione runtime condivisa.
+- `campaign/`: caricamento e validazione della campagna generata.
+- `multiplayer/`: `Lobby`, `Room`, `Seat` e regole di sessione.
+- `runtime/`: loop a 60 tick/s, heartbeat e arresto ordinato.
+- `websocket/`: gateway Nest e adapter `ws` con parser per il wire protocol v1.
+- `http/`: controller `/health` e handler statico con le garanzie correnti.
+- `app.module.ts`: composizione dei moduli; `create-application.ts` e `main.ts` gestiscono bootstrap e configurazione dell’istanza.
 
 Se si vuole rendere anche la logica delle stanze indipendente da `ws`, si può introdurre un’interfaccia minima per la connessione e l’invio dei messaggi. È un’ulteriore separazione architetturale, non un prerequisito per usare NestJS con `WsAdapter`.
 
-## Criteri di accettazione per un eventuale porting
+## Criteri di accettazione del porting
 
 - `npm start` e `npm run dev` avviano l’applicazione con `HOST`, `PORT` e `WEB_ORIGIN` attesi.
-- Il client continua a collegarsi a `/ws` e invia/riceve gli stessi payload versione 2, senza modifiche ai messaggi osservabili.
+- Il client continua a collegarsi a `/ws` e invia/riceve i payload versione 1, con gli stessi campi dei messaggi e senza wrapper Nest osservabili.
 - Origini ammesse e rifiutate, path diverso da `/ws`, frame binari e messaggi oltre il limite hanno esiti equivalenti.
 - Creazione stanza, roster, avvio host, input, snapshot, riconnessione, pausa, scadenza e chiusura conservano lo stesso comportamento.
 - Il loop continua a produrre 60 tick/s e snapshot ogni due tick quando la stanza è attiva; si ferma correttamente quando la stanza è in pausa o il processo si arresta.
@@ -132,6 +132,6 @@ Se si vuole rendere anche la logica delle stanze indipendente da `ws`, si può i
 
 ## Valutazione finale
 
-Il porting è circoscritto al livello server e non richiede una riscrittura del gameplay. Il punto di maggior attenzione è il mantenimento esatto del contratto WebSocket, seguito dal ciclo di vita dei timer e dalle particolarità del server statico.
+Il porting è circoscritto al backend e all’aggiornamento coordinato del tag wire a v1; non richiede una riscrittura del gameplay. Restano da eseguire le verifiche automatiche e il playtest browser descritti nei criteri. I punti di maggior attenzione sono il contratto WebSocket, il ciclo di vita dei timer e le particolarità del server statico.
 
-L’adozione è sensata se NestJS risponde a un obiettivo architetturale concreto — moduli applicativi in crescita, API HTTP future, convenzioni condivise o integrazione di provider Nest. Se il solo obiettivo è cambiare framework senza un’esigenza architetturale successiva, il codice di gioco e il protocollo resterebbero quasi identici e si aggiungerebbero principalmente bootstrap, adapter e manutenzione del framework.
+L’adozione ha senso per organizzare moduli applicativi in crescita, future API HTTP e integrazioni Nest. Poiché non ci sono consumer in produzione, la migrazione mantiene il protocollo in v1 senza un percorso di compatibilità v2.

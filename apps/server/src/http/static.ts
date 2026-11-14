@@ -18,6 +18,15 @@ const types: Record<string, string> = {
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.bin': 'application/octet-stream',
 };
+const applicationPaths = new Set([
+  '/',
+  '/trace',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/verify-email',
+  '/reset-password',
+]);
 
 function byteRange(value: string, size: number) {
   const match = /^bytes=(\d*)-(\d*)$/.exec(value);
@@ -36,13 +45,14 @@ export function staticHandler(dist: string, assets: string) {
     }
     try {
       const path = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname);
+      const applicationPath = path.replace(/\/+$/, '') || '/';
       if (path === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"status":"ok"}');
         return;
       }
       const generated = path.startsWith('/assets/');
       const root = await realpath(generated ? assets : dist);
-      const relative = generated ? path.slice(8) : path === '/' || path === '/trace' ? 'index.html' : path.slice(1);
+      const relative = generated ? path.slice(8) : applicationPaths.has(applicationPath) ? 'index.html' : path.slice(1);
       const file = await realpath(resolve(root, relative));
       const extension = extname(file);
       if (!file.startsWith(root + sep) || !Object.hasOwn(types, extension)) {

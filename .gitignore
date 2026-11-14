@@ -3,6 +3,7 @@ dist/
 coverage/
 test-results/
 generated/
+apps/server/src/generated/prisma/
 *.smc
 *.sfc
 *.spc

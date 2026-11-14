@@ -1,25 +1,27 @@
 # Specifica tecnica — account, campagne condivise e classifica
 
-**Stato:** proposta tecnica, non implementata
+**Stato:** implementata nel checkout locale; build e configurazione Compose verificate, test e avvio PostgreSQL non eseguiti
 **Data:** 14 novembre 2026
 **Ambito:** Super Mario MP
 
-## 1. Valutazione e situazione attuale
+## 1. Valutazione iniziale e situazione implementata
 
-La richiesta è realizzabile e ha una motivazione concreta: la progressione oggi non ha un archivio centrale, quindi account, campagne condivise e classifica richiedono una persistenza server-side. Ha senso costruire queste funzionalità sul backend di destinazione NestJS, invece di aggiungerle al server attuale per poi trasferirle.
+La richiesta è realizzabile e ha una motivazione concreta: la progressione oggi non ha un archivio centrale, quindi account, campagne condivise e classifica richiedono una persistenza server-side. Ha senso costruire queste funzionalità sui moduli NestJS esistenti.
 
-Nel checkout attuale:
+Prima di questa implementazione, nel checkout:
 
-- `apps/server` è TypeScript su Node.js, con HTTP creato tramite `node:http` e WebSocket gestiti da `ws`; non usa NestJS.
-- `apps/server/src/lobby.ts` e `room.ts` gestiscono stanze e simulazione in memoria. L’identità e il nickname arrivano oggi dal client.
+- `apps/server` è un workspace TypeScript su Node.js organizzato in moduli NestJS. `NodeAdapter` gestisce HTTP; `WsAdapter` con `ws` gestisce `/ws`.
+- `apps/server/src/multiplayer/lobby.ts` e `room.ts` gestiscono stanze e simulazione in memoria. L’identità e il nickname arrivano oggi dal client.
 - `apps/web/src/session/save.ts` salva gli slot delle campagne in IndexedDB nel browser. Le stanze attive vivono nel processo server.
 - `packages/core` contiene una simulazione deterministica, modalità singolo/cooperativa e un punteggio individuale per giocatore; le stanze supportano fino a otto giocatori.
 - `CampaignSave` conserva progressi e risorse, ma non l’intero stato dinamico del livello. Dopo un’interruzione in corso, il gioco riparte dall’ultimo checkpoint salvato o dall’inizio del corso.
-- Non risultano un sistema di account, PostgreSQL, Prisma o API applicative nel backend attuale.
+- Non risultavano un sistema di account, PostgreSQL, Prisma o API applicative nel backend.
 
-La migrazione NestJS già valutata copre il cambio del server e la conservazione dei comportamenti HTTP/WebSocket. La stima preliminare di 4–7 giornate per quella sola migrazione non comprende autenticazione, PostgreSQL, condivisione persistente delle campagne o classifica.
+La migrazione NestJS era già stata realizzata e mantiene il wire protocol v1. Questa implementazione aggiunge account, sessioni autenticate, PostgreSQL/Prisma, campagne condivise, risultati e classifica. L’implementazione non cambia la generazione del wire protocol: client e server continuano a usare `v: 1`.
 
-## 2. Obiettivo e regole di prodotto proposte
+Il client Prisma si genera correttamente e `npm run build` completa type-check server e build web. `docker compose config --quiet` valida la configurazione locale e un import ESM diretto conferma l’export di `migrateCampaignSave`. Docker Compose definisce PostgreSQL locale e Mailpit; `.env` punta al database e SMTP locali. Le immagini non sono state avviate e le migrazioni non sono state applicate in questa sessione. In produzione resta da configurare il provider SMTP e l’URL pubblico. Non sono stati eseguiti test o playtest.
+
+## 2. Obiettivo e regole di prodotto implementate
 
 Un account verificato identifica la persona tra dispositivi e sessioni. L’account possiede un nickname stabile; il personaggio Mario o Luigi continua invece a essere scelto per ogni partita.
 
@@ -28,7 +30,7 @@ Una **campagna** è uno slot persistente con proprietario, partecipanti e salvat
 Scelte proposte per rendere il perimetro implementabile:
 
 1. Sono ammessi indirizzi con dominio esattamente `codestorm.it`; il server normalizza l’indirizzo e verifica la proprietà tramite email prima di attivare l’account. Sottodomini e domini con suffissi simili non sono ammessi.
-2. L’autenticazione usa link monouso inviati per email. Questa scelta rispetta la registrazione descritta (email e nickname) senza aggiungere una password non richiesta.
+2. La registrazione e il login usano email e password. La registrazione verifica il possesso dell’indirizzo con un link monouso; il recupero password usa un secondo link monouso e revoca le sessioni esistenti dopo la modifica.
 3. Il nickname è lungo 1–24 caratteri, univoco senza distinzione tra maiuscole e minuscole e modificabile dal profilo. Il nickname corrente appare in lobby e classifica; lo storico delle sessioni conserva anche il nickname usato all’avvio.
 4. L’identificatore UUID dell’account diventa l’identità stabile del giocatore nel percorso autenticato. Sostituisce il profilo casuale custodito nel browser. Mario/Luigi resta una scelta di sessione.
 5. Le campagne cooperative sono condivise tra account invitati, supportano da 2 a 8 partecipanti per sessione e hanno un solo proprietario. Solo una sessione alla volta può modificare una campagna. Le campagne personali in singolo restano private.
@@ -39,27 +41,27 @@ Scelte proposte per rendere il perimetro implementabile:
 
 ### Backend NestJS
 
-Portare HTTP e WebSocket sotto NestJS mantenendo `packages/core` indipendente dal framework. Usare NestJS 12.3 o successivo con `@nestjs/platform-node` e `NodeAdapter` per mantenere il trasporto basato su `node:http`, più un adapter WebSocket sottile che preservi il protocollo JSON del gioco `{ v, type, ... }`. Il parser/serializer deve impedire che i messaggi Nest `{ event, data }` diventino un nuovo formato visibile al client.
+Estendere i moduli NestJS esistenti mantenendo `packages/core` indipendente dal framework. Il backend usa `@nestjs/platform-node` con `NodeAdapter` per il trasporto `node:http` e un adapter WebSocket sottile per il protocollo JSON `{ v: 1, type, ... }`. Il parser/serializer impedisce che i messaggi Nest `{ event, data }` diventino un formato visibile al client.
 
 Comporre il server in moduli piccoli con responsabilità distinte:
 
 | Modulo | Responsabilità |
 | --- | --- |
 | `PrismaModule` | Un solo client Prisma gestito dal lifecycle NestJS. |
-| `AuthModule` | Registrazione, verifica email, link di accesso, cookie e revoca sessioni. |
+| `AuthModule` | Registrazione, verifica email, autenticazione email/password, recupero password, cookie e revoca sessioni. |
 | `AccountsModule` | Profilo, email privata e nickname. |
 | `CampaignsModule` | Campagne, autorizzazioni, membri, salvataggi e inviti. |
 | `GameSessionsModule` | Sessioni persistenti e partecipanti; coordina l’avvio e la chiusura. |
-| `RealtimeModule` | Handshake autenticato, stanze temporanee, input e snapshot. |
+| `MultiplayerModule`, `WebSocketModule`, `RuntimeModule` | Handshake autenticato, stanze temporanee, input, snapshot e loop di simulazione. |
 | `LeaderboardModule` | Classifiche e cronologia personale. |
 
-Un provider `SimulationClock` avanza le sessioni attive a 60 tick/s. Un registro in memoria contiene esclusivamente lo stato runtime delle partite attive; non è la fonte autorevole dei salvataggi. Controller, gateway, persistenza e presentazione non devono essere concentrati in un’unica classe.
+Il `GameRuntimeService` esistente avanza le stanze attive a 60 tick/s. Un registro in memoria contiene lo stato runtime delle partite attive; con persistenza, non diventerà la fonte autorevole dei salvataggi. Controller, gateway, persistenza e presentazione restano in moduli distinti.
 
 Il client di gioco resta sullo stack web presente. La lobby riceve l’identità già autenticata dal server e non richiede più un nickname per entrare. Le nuove viste di account, elenco/dettaglio campagne, inviti, cronologia e classifica vanno composte in schermate e componenti riusabili, mantenendo il renderer Phaser separato dalla UI accessibile in DOM.
 
 ### PostgreSQL e Prisma
 
-PostgreSQL è la fonte durevole per account, appartenenze, campagne e risultati. Prisma gestisce schema, accesso dati e transazioni; le modifiche strutturali passano da migrazioni versionate, applicate prima di avviare il servizio. La configurazione usa una connessione applicativa privata e variabili d’ambiente, senza credenziali nel repository.
+PostgreSQL è la fonte durevole per account, appartenenze, campagne e risultati. Prisma gestisce schema, accesso dati e transazioni; le modifiche strutturali passano da migrazioni versionate, applicate prima di avviare il servizio. `docker-compose.yml` fornisce PostgreSQL 17 e Mailpit per lo sviluppo locale, con porte limitate a loopback e volume persistente per il database. Mailpit raccoglie i link email e li rende leggibili nella UI locale. `.env.example` documenta le variabili; `.env` è locale e ignorato da Git. La configurazione usa variabili d’ambiente, senza credenziali locali nel repository.
 
 La colonna JSONB del salvataggio ospita il documento `CampaignSave` prodotto da `makeSave`. I campi usati per autorizzazioni, filtri, aggregazioni e ordinamento della classifica rimangono colonne o relazioni normalizzate: la classifica non deve scansionare né interpretare il JSON del motore.
 
@@ -67,25 +69,27 @@ Modelli logici proposti:
 
 | Modello | Dati principali e vincoli |
 | --- | --- |
-| `Account` | UUID, email normalizzata univoca, data di verifica, nickname e chiave nickname normalizzata univoca, date di creazione/aggiornamento. L’email non è esposta nelle API pubbliche. |
-| `EmailChallenge` | Hash del token, scopo (`REGISTER` o `LOGIN`), account o dati di registrazione in attesa, scadenza e data di consumo. Token monouso; il database non conserva il token in chiaro. |
+| `Account` | UUID, email normalizzata univoca, password hash scrypt nullable per gli account preesistenti, data di verifica, nickname e chiave nickname normalizzata univoca, date di creazione/aggiornamento. L’email non è esposta nelle API pubbliche. |
+| `EmailChallenge` | Hash del token, scopo (`REGISTER`, `LOGIN` legacy o `PASSWORD_RESET`), account o dati di registrazione in attesa e hash della password pendente, scadenza e data di consumo. Token monouso; il database non conserva token o password in chiaro. |
 | `AuthSession` | Hash del token cookie, account, scadenza e revoca. Più dispositivi possono avere sessioni indipendenti. |
 | `Campaign` | UUID, proprietario, nome, modalità (`SOLO`/`COOP`), `saveState` JSONB, versione del formato salvataggio, versione dei contenuti di gioco, revisione monotona e date. |
 | `CampaignMember` | Relazione univoca campagna/account, ruolo (`OWNER`/`MEMBER`) e data di ingresso. |
 | `CampaignInvite` | Hash del token casuale, campagna, autore, scadenza, revoca, usi e limite d’uso. Il token in chiaro compare solo nel link consegnato al creatore. |
 | `GameSession` | UUID, campagna, modalità, stato (`ACTIVE`, `COMPLETED`, `INTERRUPTED`, `ABANDONED`), motivo di chiusura, avvio, ultimo salvataggio durevole e chiusura. `COMPLETED` indica uscita volontaria o finale raggiunto; `INTERRUPTED` indica arresto non ordinato; `ABANDONED` indica sessione chiusa dopo la scadenza della riconnessione. |
 | `GameSessionParticipant` | Sessione/account, personaggio scelto, nickname alla partenza, punteggio iniziale, ultimo punteggio accreditato, punti guadagnati e uscite completate raggiunte. Vincolo univoco sessione/account. |
+| `GameSessionCheckpoint` | Sequenza e revisione persistite con hash del salvataggio; rende idempotenti i retry dei commit. |
 
 Vincoli aggiuntivi: foreign key con cancellazione esplicita, indici per campagne per account e classifiche per modalità/punti/progresso, un solo proprietario per campagna e una sola sessione attiva per campagna. La sessione attiva è protetta da un indice univoco parziale PostgreSQL mantenuto nelle migrazioni Prisma. Gli inviti scaduti o revocati non concedono accesso. L’accettazione di un invito e la creazione dell’appartenenza avvengono nella stessa transazione.
 
 ## 4. Registrazione, accesso e autorizzazione
 
-1. La registrazione riceve email e nickname. Il server normalizza l’email, verifica il dominio esatto e controlla l’unicità del nickname.
-2. Il server crea una richiesta pendente e invia un link con token casuale ad alta entropia. Il token è salvato solo come hash, scade dopo 15 minuti e si consuma una sola volta.
-3. La pagina del link mostra una conferma esplicita e invia il token con `POST`; l’apertura automatica dei link da parte degli scanner email non deve completare l’accesso.
+1. Le pagine dedicate `/register` e `/login` raccolgono email e password; la registrazione richiede anche il nickname e la conferma password. Il server normalizza l’email, verifica il dominio esatto e controlla l’unicità del nickname.
+2. Il server valida password da 12 a 128 code point e ne memorizza solo un hash scrypt con salt casuale. L’hash della nuova password resta nel payload della verifica pendente e non viene mai inviato in email.
+3. La registrazione invia un link email con token casuale ad alta entropia. Il token è salvato solo come hash, scade dopo 15 minuti e si consuma una sola volta. `/verify-email` richiede un’azione esplicita con `POST`, quindi l’apertura automatica dei link da parte degli scanner email non attiva l’account.
 4. Dopo la verifica, il server attiva l’account e imposta un cookie di sessione opaco `HttpOnly`, `Secure`, `SameSite=Lax`, con scadenza server-side. Il client non conserva token bearer in `localStorage`.
-5. Il login invia un nuovo link monouso. Per non rivelare se un indirizzo è registrato, la risposta HTTP è uguale per indirizzi ammessi esistenti e inesistenti.
-6. Il server applica limiti di frequenza su registrazione, invio link, verifica e inviti; protegge le mutazioni basate su cookie da richieste cross-site e verifica l’`Origin` anche sull’upgrade WebSocket. Le pagine che consumano token impostano `Referrer-Policy: no-referrer` e non caricano risorse di terze parti.
+5. Il login verifica email e password e risponde con un messaggio generico per credenziali errate. I tentativi sono limitati per IP e email; gli account preesistenti senza hash possono impostare una password tramite recupero account.
+6. `/forgot-password` invia un link monouso di reimpostazione quando l’account esiste, con risposta uguale in entrambi i casi. Il completamento richiede la nuova password, consuma il token e revoca tutte le sessioni attive dell’account.
+7. Il server applica limiti di frequenza su registrazione, login, recupero e verifica; protegge le mutazioni basate su cookie da richieste cross-site e verifica l’`Origin` anche sull’upgrade WebSocket. Le pagine che consumano token impostano `Referrer-Policy: no-referrer` e non caricano risorse di terze parti.
 
 La sola corrispondenza del dominio non dimostra il possesso dell’indirizzo: il link email verificato è necessario. La disponibilità del servizio email e del trasporto HTTPS è un prerequisito per registrazione, login e cookie di produzione.
 
@@ -125,9 +129,11 @@ Prefisso HTTP proposto: `/api/v1`. Tutti gli endpoint di account e campagna rich
 
 | Endpoint | Uso |
 | --- | --- |
-| `POST /api/v1/auth/register` | Invia email e nickname; avvia la verifica. |
-| `POST /api/v1/auth/login-link` | Richiede un link di accesso. |
-| `POST /api/v1/auth/verify-link` | Consuma un token e crea la sessione autenticata. |
+| `POST /api/v1/auth/register` | Invia email, nickname e password; avvia la verifica email. |
+| `POST /api/v1/auth/login` | Verifica email e password e crea la sessione autenticata. |
+| `POST /api/v1/auth/verify-link` | Consuma il token email di verifica e crea la sessione autenticata. |
+| `POST /api/v1/auth/password-reset-request` | Invia le istruzioni di recupero senza rivelare se l’account esiste. |
+| `POST /api/v1/auth/password-reset` | Consuma il token di recupero, aggiorna l’hash password e revoca tutte le sessioni attive. |
 | `POST /api/v1/auth/logout` | Revoca la sessione corrente. |
 | `GET /api/v1/me` | Legge il profilo dell’account corrente. |
 | `PATCH /api/v1/me` | Cambia il nickname con controllo di unicità. |
@@ -139,7 +145,7 @@ Prefisso HTTP proposto: `/api/v1`. Tutti gli endpoint di account e campagna rich
 | `GET /api/v1/me/sessions` | Legge la cronologia personale paginata. |
 | `GET /api/v1/leaderboard?metric=points\|progress&mode=solo\|coop` | Legge la classifica paginata, senza dati email. |
 
-Il protocollo WebSocket deve essere versionato insieme al client. La creazione/ingresso stanza non accetta più `profileId`, nickname, `CampaignSave` o riferimenti campagna forniti dal browser: riceve un `campaignId` autorizzato e il personaggio; l’account e il salvataggio sono risolti dal server. La modalità singolo usa lo stesso motore server-side con un partecipante, per poter registrare risultati attendibili.
+Il tag wire WebSocket resta `v: 1`, come deciso per questo checkout. La creazione/ingresso stanza non accetta più `profileId`, nickname, `CampaignSave` o riferimenti campagna forniti dal browser: riceve un `campaignId` autorizzato e il personaggio; l’account e il salvataggio sono risolti dal server. La modalità singolo usa lo stesso motore server-side con un partecipante, per poter registrare risultati attendibili. Il contratto dei campi è cambiato, quindi client e server vanno distribuiti insieme anche se la generazione resta v1.
 
 ## 8. Migrazione dei salvataggi esistenti e rilascio
 
@@ -151,17 +157,17 @@ Sequenza di rilascio proposta:
 
 1. Portare HTTP, file statici, health check e WebSocket in NestJS preservando i comportamenti esistenti e il motore `packages/core`.
 2. Introdurre schema Prisma e migrazioni PostgreSQL, configurazione sicura e backup automatici con procedura di ripristino verificata.
-3. Aggiungere account, verifica email e sessioni autenticate; distribuire client e server insieme con una nuova versione del protocollo WebSocket.
+3. Aggiungere account, verifica email e sessioni autenticate; distribuire client e server insieme mantenendo il tag wire WebSocket v1.
 4. Aggiungere campagne condivise, inviti, salvataggio server-side e sessioni server-authoritative.
 5. Aggiungere cronologia, aggregazioni e classifica; abilitare l’importazione dei salvataggi locali.
 
-I vecchi client WebSocket non sono compatibili con l’autenticazione obbligatoria: il passaggio del protocollo richiede il rilascio coordinato client/server. I vecchi dati locali non vengono cancellati dal browser durante il rilascio.
+I vecchi client WebSocket v1 non sono compatibili con i nuovi campi e con l’autenticazione obbligatoria: il rilascio va coordinato tra client e server, senza introdurre il tag v2. I vecchi dati locali non vengono cancellati dal browser durante il rilascio.
 
 ## 9. Verifica richiesta prima del rilascio
 
-Questi sono scenari per la futura implementazione; questa specifica non li esegue.
+Questi scenari descrivono la verifica ancora richiesta. In questa sessione sono stati eseguiti `npm run build` (generazione Prisma, type-check NestJS e build/type-check web), `docker compose config --quiet` e l’import ESM diretto del core; non sono stati eseguiti test, playtest, avvio del container o applicazione della migrazione a PostgreSQL.
 
-- Registrazione: dominio esatto accettato; sottodominio, dominio simile, email non verificata e token scaduto/rigiocato rifiutati.
+- Registrazione e autenticazione: dominio esatto accettato; sottodominio, dominio simile, password fuori dai limiti, credenziali errate, email non verificata e token di verifica/recupero scaduto o riutilizzato rifiutati.
 - Sicurezza sessione: cookie non leggibile da JavaScript, logout e revoca efficaci, richieste cross-site e upgrade WebSocket senza sessione rifiutati.
 - Profili: nickname normalizzato univoco, aggiornamento di nickname, email mai inclusa nelle risposte pubbliche.
 - Campagne: isolamento tra proprietari, accettazione/revoca/scadenza invito, membership richiesta, limite di otto partecipanti e blocco della seconda sessione concorrente.
@@ -172,14 +178,11 @@ Questi sono scenari per la futura implementazione; questa specifica non li esegu
 - Regressione di gioco: ingressi, riconnessione, avvio host, voto corso, personaggi, salvataggi e sessioni cooperative da 2 a 8 giocatori restano coerenti.
 - Prisma/PostgreSQL: migrazione da database vuoto, vincoli univoci/foreign key, commit atomici e ripristino da backup verificati su un ambiente di prova.
 
-## 10. Decisioni da confermare prima dello sviluppo
+## 10. Configurazione operativa ancora necessaria
 
-1. Confermare che il dominio ammesso sia letteralmente `codestorm.it` e che esista un servizio email autorizzato a inviarvi link.
-2. Confermare il login senza password tramite link email; è la scelta proposta perché la registrazione richiesta nomina email e nickname soltanto.
-3. Confermare nickname globalmente univoco e modificabile.
-4. Confermare che la classifica conti punti per sessione in modalità singolo e cooperativa, con due viste separate e progresso `N/96`.
-5. Confermare che il recupero dopo un riavvio riparta dal salvataggio/checkpoint durevole, senza ripristinare la simulazione al fotogramma esatto.
-6. Definire hosting, invio email, durata sessioni account, politica di conservazione/cancellazione e obiettivi di backup prima della messa in produzione.
+1. In locale, leggere i link email in Mailpit; in produzione, configurare `SMTP_URL` con il provider autorizzato e verificare l’invio dei link.
+2. Definire hosting, URL pubblico, durata delle sessioni, politica di conservazione/cancellazione e obiettivi di backup prima della messa in produzione.
+3. Applicare e provare la migrazione su PostgreSQL e verificare backup/ripristino in un ambiente dedicato prima del rilascio.
 
 ## Riferimenti tecnici
 

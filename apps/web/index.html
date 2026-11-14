@@ -3,10 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="referrer" content="no-referrer" />
     <meta name="theme-color" content="#142b33" />
     <meta
       name="description"
-      content="Gioca a Super Mario World nel browser: campagna in singolo con salvataggio locale o co-op privata fino a otto giocatori. Comandi touch, tastiera e gamepad."
+      content="Gioca a Super Mario World nel browser: campagna singola o co-op privata fino a otto giocatori, con account email e password. Comandi touch, tastiera e gamepad."
     />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="it_IT" />
@@ -38,6 +39,78 @@
       <span class="service"><i></i> SINGOLO · CO-OP PRIVATO</span>
     </header>
     <main>
+      <section id="auth-pages" class="auth-pages" hidden aria-live="polite">
+        <div class="auth-card">
+          <a class="auth-home" href="/">← Torna al gioco</a>
+          <section id="register-page" data-auth-page hidden aria-labelledby="register-title">
+            <p class="eyebrow"><span class="pixel square"></span>NUOVO ACCOUNT</p>
+            <h1 id="register-title">Crea il tuo<br />account<span>.</span></h1>
+            <p class="lead">Usa la tua email @codestorm.it. Ti invieremo un link per verificarla.</p>
+            <form id="register-form">
+              <label for="register-email">Email</label>
+              <input id="register-email" type="email" maxlength="320" autocomplete="email" required placeholder="nome@codestorm.it" />
+              <label for="register-nickname">Nickname</label>
+              <input id="register-nickname" maxlength="24" autocomplete="nickname" required placeholder="Come ti chiamano?" />
+              <label for="register-password">Password</label>
+              <input id="register-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required />
+              <label for="register-password-confirm">Conferma password</label>
+              <input id="register-password-confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required />
+              <button class="primary" type="submit"><span>Registrati</span><b aria-hidden="true">→</b></button>
+            </form>
+            <p class="auth-switch">Hai già un account? <a href="/login">Accedi</a></p>
+          </section>
+
+          <section id="login-page" data-auth-page hidden aria-labelledby="login-title">
+            <p class="eyebrow"><span class="pixel square"></span>BENTORNATO</p>
+            <h1 id="login-title">Accedi al<br />gioco<span>.</span></h1>
+            <form id="login-form">
+              <label for="login-email">Email</label>
+              <input id="login-email" type="email" maxlength="320" autocomplete="email" required placeholder="nome@codestorm.it" />
+              <label for="login-password">Password</label>
+              <input id="login-password" type="password" maxlength="128" autocomplete="current-password" required />
+              <button class="primary" type="submit"><span>Accedi</span><b aria-hidden="true">→</b></button>
+            </form>
+            <p class="auth-switch"><a href="/forgot-password">Hai dimenticato la password?</a></p>
+            <p class="auth-switch">Non hai un account? <a href="/register">Registrati</a></p>
+          </section>
+
+          <section id="forgot-password-page" data-auth-page hidden aria-labelledby="forgot-password-title">
+            <p class="eyebrow"><span class="pixel square"></span>RECUPERO ACCOUNT</p>
+            <h1 id="forgot-password-title">Reimposta la<br />password<span>.</span></h1>
+            <p class="lead">Inserisci l’email dell’account. Se è registrato, riceverai un link monouso.</p>
+            <form id="forgot-password-form">
+              <label for="forgot-email">Email</label>
+              <input id="forgot-email" type="email" maxlength="320" autocomplete="email" required placeholder="nome@codestorm.it" />
+              <button class="primary" type="submit"><span>Invia il link</span><b aria-hidden="true">→</b></button>
+            </form>
+            <p class="auth-switch"><a href="/login">Torna all’accesso</a></p>
+          </section>
+
+          <section id="verify-email-page" data-auth-page hidden aria-labelledby="verify-email-title">
+            <p class="eyebrow"><span class="pixel square"></span>VERIFICA EMAIL</p>
+            <h1 id="verify-email-title">Conferma il tuo<br />indirizzo<span>.</span></h1>
+            <p class="lead">Il link è monouso e scade dopo 15 minuti. Confermalo per attivare l’account.</p>
+            <form id="verify-email-form">
+              <button class="primary" id="verify-email-submit" type="submit"><span>Verifica email e accedi</span><b aria-hidden="true">→</b></button>
+            </form>
+            <p class="auth-switch"><a href="/register">Richiedi un nuovo link</a></p>
+          </section>
+
+          <section id="reset-password-page" data-auth-page hidden aria-labelledby="reset-password-title">
+            <p class="eyebrow"><span class="pixel square"></span>RECUPERO ACCOUNT</p>
+            <h1 id="reset-password-title">Scegli una nuova<br />password<span>.</span></h1>
+            <form id="reset-password-form">
+              <label for="reset-password">Nuova password</label>
+              <input id="reset-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required />
+              <label for="reset-password-confirm">Conferma password</label>
+              <input id="reset-password-confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required />
+              <button class="primary" id="reset-password-submit" type="submit"><span>Salva password</span><b aria-hidden="true">→</b></button>
+            </form>
+          </section>
+
+          <p id="auth-notice" class="notice" role="status" aria-live="polite"></p>
+        </div>
+      </section>
       <section class="lobby" id="lobby">
         <div class="preview">
           <video id="title-demo" width="256" height="224" muted loop playsinline preload="none"
@@ -47,7 +120,78 @@
           <div class="game-label"><span>SNES</span> SUPER MARIO WORLD <b>EUR · 1.1</b></div>
         </div>
         <div class="panel">
-          <div id="start-view">
+          <section id="account-view" aria-labelledby="account-title">
+            <div id="account-signed-out">
+              <p class="eyebrow"><span class="pixel square"></span>ACCOUNT</p>
+              <h1 id="account-title">Accedi per<br />giocare<span>.</span></h1>
+              <p class="lead">Accedi con email e password per gestire campagne, progressi e partite.</p>
+              <a class="primary auth-cta" href="/register"><span>Crea un account</span><b aria-hidden="true">→</b></a>
+              <a class="subtle auth-login-link" href="/login">Hai già un account? Accedi</a>
+            </div>
+            <div id="account-signed-in" hidden>
+              <p class="eyebrow"><span class="pixel square"></span>ACCOUNT VERIFICATO</p>
+              <button id="return-to-game" class="subtle" type="button">Torna al gioco</button>
+              <form id="profile-form" class="profile-form">
+                <label for="profile-nickname">Nickname</label>
+                <div class="inline-form">
+                  <input id="profile-nickname" maxlength="24" autocomplete="nickname" required />
+                  <button class="subtle" type="submit">Salva</button>
+                </div>
+                <small id="profile-email"></small>
+              </form>
+              <button id="logout" class="subtle" type="button">Esci dall’account</button>
+
+              <section class="account-section" aria-labelledby="campaigns-title">
+                <h2 id="campaigns-title">Campagne</h2>
+                <ul id="account-campaigns" class="account-list"></ul>
+                <form id="account-campaign-form">
+                  <label for="account-campaign-name">Nuova campagna</label>
+                  <input id="account-campaign-name" maxlength="48" required placeholder="Nome campagna" />
+                  <label for="account-campaign-mode">Modalità</label>
+                  <select id="account-campaign-mode"><option value="SOLO">Singolo</option><option value="COOP">Co-op condivisa</option></select>
+                  <button class="subtle" type="submit">Crea campagna</button>
+                </form>
+                <form id="invite-form">
+                  <label for="invite-campaign">Invita a una campagna co-op</label>
+                  <select id="invite-campaign"></select>
+                  <label for="invite-uses">Utilizzi del link</label>
+                  <select id="invite-uses"><option value="1">1 persona</option><option value="3">3 persone</option><option value="7" selected>7 persone</option></select>
+                  <button class="subtle" type="submit">Crea link d’invito</button>
+                  <output id="invite-link-output" class="invite-link-output"></output>
+                </form>
+                <div class="import-fields">
+                  <label for="import-mode">Importa salvataggi locali</label>
+                  <select id="import-mode"><option value="SOLO">Come campagna singola</option><option value="COOP">Come campagna co-op</option></select>
+                  <label for="import-character">Risorse legacy da associare al tuo account</label>
+                  <select id="import-character">
+                    <option value="">Lascia le risorse legacy non assegnate</option>
+                    <option value="mario">Mario</option>
+                    <option value="luigi">Luigi</option>
+                  </select>
+                  <button id="import-local-campaigns" class="subtle" type="button">Importa campagne dal browser</button>
+                </div>
+              </section>
+
+              <section class="account-section" aria-labelledby="history-title">
+                <h2 id="history-title">Cronologia</h2>
+                <ul id="session-history" class="account-list"></ul>
+                <button id="history-more" class="subtle" type="button" hidden>Carica altre sessioni</button>
+              </section>
+
+              <section class="account-section" aria-labelledby="leaderboard-title">
+                <h2 id="leaderboard-title">Classifica</h2>
+                <div class="inline-form">
+                  <select id="leaderboard-metric"><option value="points">Punti</option><option value="progress">Uscite</option></select>
+                  <select id="leaderboard-mode"><option value="solo">Singolo</option><option value="coop">Co-op</option></select>
+                  <button id="load-leaderboard" class="subtle" type="button">Mostra</button>
+                </div>
+                <ol id="leaderboard-list" class="account-list"></ol>
+                <button id="leaderboard-more" class="subtle" type="button" hidden>Carica altre posizioni</button>
+              </section>
+            </div>
+            <p id="account-notice" class="notice" role="status" aria-live="polite"></p>
+          </section>
+          <div id="start-view" hidden>
             <p class="eyebrow"><span class="pixel square"></span>DA UNO A OTTO GIOCATORI</p>
             <h1>Gioca in<br />Dinosaur Land<span>.</span></h1>
             <p class="lead">
@@ -60,8 +204,6 @@
             </div>
             <form id="room-form">
               <div id="player-fields">
-                <label for="nickname">Nickname</label>
-                <input id="nickname" maxlength="24" autocomplete="nickname" placeholder="Come ti chiamano?" />
                 <div id="character-field">
                   <label for="character">Personaggio</label>
                   <select id="character">
@@ -95,6 +237,7 @@
                 <span>Crea stanza</span><b aria-hidden="true">→</b>
               </button>
             </form>
+            <button id="manage-account" class="subtle" type="button">Profilo, campagne e progressi</button>
           </div>
           <div id="room-view" hidden>
             <p class="eyebrow"><span class="pixel square"></span>SALA D’ATTESA</p>
@@ -128,13 +271,12 @@
       <section class="game-info" aria-labelledby="game-info-title">
         <h2 id="game-info-title">Una campagna, da soli o in compagnia</h2>
         <p>
-          Esplora Dinosaur Land nel browser. In singolo, la campagna gira sul dispositivo e i progressi vengono
-          salvati localmente. In co-op, fino a otto giocatori possono condividere una stanza privata, scegliere
-          Mario o Luigi e riconoscersi tramite nickname.
+          Esplora Dinosaur Land nel browser. Le campagne e i progressi sono salvati sul server; in co-op, fino a
+          otto account possono condividere una campagna privata, scegliere Mario o Luigi e invitare i propri amici.
         </p>
         <p>
-          Gioca con tastiera, gamepad o comandi touch. La co-op richiede una connessione al server della stanza;
-          il salvataggio singolo resta nel browser.
+          Gioca con tastiera, gamepad o comandi touch. Le partite singole e cooperative usano sessioni autenticate
+          e vengono registrate nella cronologia personale.
         </p>
       </section>
       <section id="play" hidden aria-label="Partita">

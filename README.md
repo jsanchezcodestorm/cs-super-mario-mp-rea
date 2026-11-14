@@ -1,20 +1,23 @@
 # Super Mario World da solo o in cooperativa
 
-Da uno a otto giocatori possono esplorare la stessa cartuccia europea 1.1 ricostruita per il browser. In singolo Mario controlla la campagna locale senza una connessione al server; in cooperativa ciascuno sceglie Mario o Luigi, imposta il proprio nickname e gioca con la propria telecamera. Un server Node gestisce tramite WebSocket i giocatori, i nemici, le collisioni e la progressione della stanza.
+Da uno a otto giocatori possono esplorare la stessa cartuccia europea 1.1 ricostruita per il browser. Le campagne, i progressi e i risultati sono salvati in PostgreSQL; le partite singole e cooperative usano la simulazione server-side. Ogni persona accede con un account verificato via email e sceglie Mario o Luigi per ogni sessione. In co-op, il proprietario condivide una campagna privata tramite invito.
 
 ## Giocare
 
-In questa copia di lavoro le risorse sono già estratte. Con Node 24 o successivo, esegui questi comandi dalla radice del progetto.
+In questa copia di lavoro le risorse sono già estratte. Servono Node 24 o successivo e Docker Compose. Dalla radice del progetto prepara l’ambiente locale ed esegui il comando di sviluppo:
 
 ```sh
 npm ci
 npm run build
-npm start
+cp .env.example .env
+npm run dev
 ```
 
-Apri [il gioco in locale](http://127.0.0.1:8787). Ogni partecipante inserisce un nickname e sceglie Mario o Luigi. Chi ospita crea una stanza; gli altri scelgono **Entra con codice** e inseriscono i sei caratteri d’invito. Quando tutti hanno selezionato **Sono pronto**, chi ospita avvia la partita. Per provare da un solo computer puoi usare finestre indipendenti.
+`npm run dev` avvia PostgreSQL e Mailpit con Docker Compose, genera il client Prisma, applica le migrazioni e avvia API e Vite. Apri [il gioco in locale](http://localhost:5173) e [la casella Mailpit](http://localhost:8025) per vedere i link di verifica email e recupero password. Il database usa un volume Docker, quindi i dati restano dopo l’arresto dei processi. `npm run db:down` ferma PostgreSQL e Mailpit senza rimuovere il volume.
 
-Per giocare da soli seleziona **Gioca da solo**. La simulazione gira nel browser e controlli Mario sulla mappa e nei livelli; non serve creare una stanza. Puoi iniziare una nuova campagna o riprendere il salvataggio locale.
+`SMTP_URL` in `.env` punta già al servizio SMTP locale di Mailpit. I messaggi restano nella casella di sviluppo e non vengono inoltrati ai destinatari reali. Per un ambiente ospitato, configura invece `SMTP_URL` con il provider email scelto e imposta `PUBLIC_APP_URL` sull’indirizzo pubblico dell’app.
+
+Registrati con un indirizzo `@codestorm.it`, scegli nickname e password, poi verifica l’indirizzo dal link email. Per accedere usa email e password; dalla pagina di login puoi chiedere il ripristino della password. Dopo l’accesso crea una campagna singola o co-op. Per una stanza co-op, condividi il codice con un account già invitato alla campagna. Per avviare una partita singola non serve una stanza: anche quella sessione viene salvata dal server e compare nella cronologia account.
 
 | Comando | Tastiera |
 | --- | --- |
@@ -31,7 +34,7 @@ Premi **Su** per aggrapparti a una grata, a una liana o a una corda mobile. Puoi
 
 Il client accetta anche un gamepad con mappatura standard del browser. In cooperativa la campagna si apre sulla mappa dopo l’avvio dell’ospite. Ogni personaggio mostra il nickname scelto dal giocatore. Un giocatore propone il corso e tutti gli altri confermano l’ingresso. Il checkpoint e l’uscita raggiunta da uno valgono per il gruppo. La squadra parte con 10 vite condivise; i bonus aggiungono vite allo stesso totale, mostrato sulle barre SNES. Potenziamenti e riserva restano personali. Colpire il nastro al traguardo assegna stelle secondo l’altezza e a 100 stelle si entra nel minigioco bonus. Chi esaurisce le vite segue il gruppo e rientra al corso successivo con una vita condivisa.
 
-Il server congela la simulazione quando un giocatore si disconnette. Lo stesso browser può rientrare entro 60 secondi. Ogni browser conserva la campagna in IndexedDB ai checkpoint e ai cambi di fase. Per continuare dopo la chiusura della stanza, crea una stanza scegliendo **Riprendi campagna salvata**. Le stanze attive vivono nella memoria del processo.
+Il server congela la simulazione quando un giocatore si disconnette. Lo stesso account può rientrare entro 60 secondi dallo stesso browser. Il server salva la campagna ai checkpoint, ai cambi di fase e ogni 30 secondi. Dopo la chiusura o un riavvio, un membro può riaprire la campagna dall’ultimo salvataggio durevole. Le stanze attive vivono nella memoria del processo; PostgreSQL conserva campagne, sessioni, partecipanti, risultati e checkpoint.
 
 ## Rigenerare i dati da una nuova copia Git
 
@@ -44,7 +47,7 @@ npm run build
 npm start
 ```
 
-Con una sola ROM nella radice basta `npm run extract`. Il primo avvio dell’estrattore scarica e compila la revisione di Snes9x fissata in `tools/extract.mjs`. Per usare la stessa revisione già compilata, imposta `SNES9X_CORE` al percorso assoluto della libreria libretro. `FFMPEG` può indicare il percorso dell’eseguibile. Per sviluppare lo stack locale esegui `npm run dev`: avvia server e frontend con riavvio automatico del server e aggiornamento live di Vite. Apri [Vite](http://localhost:5173).
+Con una sola ROM nella radice basta `npm run extract`. Il primo avvio dell’estrattore scarica e compila la revisione di Snes9x fissata in `tools/extract.mjs`. Per usare la stessa revisione già compilata, imposta `SNES9X_CORE` al percorso assoluto della libreria libretro. `FFMPEG` può indicare il percorso dell’eseguibile. Per sviluppare lo stack locale esegui `npm run dev`: prepara PostgreSQL e le migrazioni, poi avvia server e frontend con riavvio automatico del server e aggiornamento live di Vite. Apri [Vite](http://localhost:5173).
 
 ## Lettura della cartuccia
 
@@ -82,4 +85,4 @@ Avvia il server sul computer che ospita la partita, indicando l’interfaccia di
 HOST=0.0.0.0 PORT=8787 npm start
 ```
 
-Fino a otto giocatori aprono lo stesso indirizzo LAN, per esempio `http://192.168.1.20:8787`, e scelgono nickname e personaggio. Con un reverse proxy HTTPS, inoltra anche l’upgrade WebSocket su `/ws`, conserva l’header `Host` e configura l’accesso privato sul proxy o sulla VPN. Il codice stanza consente agli altri sette giocatori di unirsi all’ospite. Il processo serve il client compilato e la directory `generated`.
+Fino a otto account membri della stessa campagna possono giocare via LAN. Per uno stack già preparato, avvia `npm start`; prima applica le migrazioni con `npm run db:migrate:deploy` e configura database, SMTP e `PUBLIC_APP_URL` tramite l’ambiente. Con un reverse proxy HTTPS, inoltra anche l’upgrade WebSocket su `/ws`, conserva l’header `Host` e configura l’accesso privato sul proxy o sulla VPN. Il codice stanza collega i membri autorizzati alla sessione attiva.

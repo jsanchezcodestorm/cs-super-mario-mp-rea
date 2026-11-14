@@ -43,6 +43,77 @@ select:focus-visible {
 [hidden] {
   display: none !important;
 }
+body.auth-route main > :not(#auth-pages) {
+  display: none !important;
+}
+.auth-pages {
+  min-height: calc(100vh - 145px);
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 4vw, 48px) 0;
+}
+.auth-card {
+  width: min(100%, 520px);
+  max-height: min(86vh, 980px);
+  overflow-y: auto;
+  background: var(--cream);
+  color: var(--ink);
+  border: 2px solid #0d242a;
+  border-radius: 13px;
+  box-shadow: 7px 7px 0 #0b2026;
+  padding: clamp(24px, 5vw, 54px);
+}
+.auth-card h1 {
+  font: 900 clamp(38px, 4.4vw, 62px) / 0.96 'Arial Black', 'Trebuchet MS', sans-serif;
+  letter-spacing: -0.07em;
+  margin: 0 0 20px;
+}
+.auth-card h1 span {
+  color: #588338;
+}
+.auth-card .lead {
+  margin: 14px 0 22px;
+}
+.auth-card label:not(:first-child) {
+  margin-top: 13px;
+}
+.auth-card input {
+  width: 100%;
+  height: 43px;
+  background: #faf8ed;
+  border: 1px solid #909e89;
+  border-radius: 4px;
+  color: var(--ink);
+  padding: 0 12px;
+  text-transform: none;
+}
+.auth-card .primary {
+  text-decoration: none;
+}
+.auth-home,
+.auth-switch a {
+  color: #275d3c;
+  font-weight: bold;
+  text-underline-offset: 3px;
+}
+.auth-home {
+  display: inline-block;
+  margin-bottom: 27px;
+  font-size: 13px;
+}
+.auth-switch {
+  color: #4e5c54;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 16px 0 0;
+}
+.auth-cta {
+  margin-top: 5px;
+}
+.auth-login-link {
+  display: inline-block;
+  margin-top: 12px;
+}
 .topbar {
   display: flex;
   align-items: center;
@@ -262,6 +333,112 @@ label {
 }
 .panel input {
   text-transform: uppercase;
+}
+.panel input[type='email'],
+.panel input[autocomplete='nickname'],
+.panel input[autocomplete='off'] {
+  text-transform: none;
+}
+#account-view {
+  width: 100%;
+  max-height: min(78vh, 900px);
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-color: #8a9a7d transparent;
+}
+#account-view form {
+  margin-bottom: 14px;
+}
+.inline-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+}
+.inline-form .subtle {
+  white-space: nowrap;
+  margin-top: 0;
+}
+.account-section {
+  border-top: 1px solid #bcc3ad;
+  margin-top: 23px;
+  padding-top: 19px;
+}
+.panel .account-section h2 {
+  font-size: clamp(23px, 2vw, 31px);
+  letter-spacing: -0.045em;
+  margin: 0 0 14px;
+}
+.account-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.account-list li {
+  border-bottom: 1px solid #c9cdb9;
+  padding: 9px 0;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.account-list li .campaign-summary {
+  margin: 0 0 6px;
+}
+#account-view details {
+  color: #385344;
+  font-size: 12px;
+}
+#account-view details summary {
+  cursor: pointer;
+  font-weight: bold;
+  padding: 5px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+#account-view details .account-list {
+  margin: 3px 0 12px;
+}
+#account-view details .account-list li {
+  font-size: 12px;
+  padding: 6px 0;
+}
+.account-list:empty::after {
+  content: 'Nessun dato disponibile.';
+  color: #68746b;
+  display: block;
+  font-size: 13px;
+  padding: 4px 0 10px;
+}
+#profile-email {
+  display: block;
+  margin-top: 7px;
+  color: #54635b;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.import-fields {
+  border-top: 1px solid #c9cdb9;
+  margin-top: 15px;
+  padding-top: 15px;
+}
+.invite-link-output {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.invite-link-output:empty {
+  display: none;
+}
+.invite-link-output a {
+  color: #275d3c;
+}
+#account-campaign-form label:not(:first-child),
+#invite-form label:not(:first-child),
+.import-fields label:not(:first-child) {
+  margin-top: 12px;
 }
 #campaign-name-field {
   margin-top: 12px;
@@ -532,6 +709,13 @@ body:has(#play:not([hidden])) main {
   }
   .panel {
     padding: 25px;
+  }
+  .auth-card {
+    max-height: none;
+    padding: 25px;
+  }
+  #account-view {
+    max-height: none;
   }
   .topbar {
     padding: 16px 18px;

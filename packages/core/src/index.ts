@@ -1,6 +1,6 @@
 export * from './types.ts'
 export { copyState } from './state.ts'
-export { createGame, createGameAtCourse, makeSave, validateSave } from './campaign.ts'
+export { createGame, createGameAtCourse, makeSave, migrateCampaignSave, validateSave } from './campaign.ts'
 export { pathPosition } from './overworld-path.ts'
 export { mapPosition, overworldTarget } from './overworld.ts'
 export { stepGame } from './simulation.ts'

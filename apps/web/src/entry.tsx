@@ -1,23 +1,27 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router';
 import './style.css';
 
 const traceEnabled = import.meta.env.VITE_GAME_TRACE === 'true';
 const TraceRoute = lazy(() => import('./trace/trace-route'));
+const accountRoutes = ['login', 'register', 'forgot-password', 'verify-email', 'reset-password'];
 
 function GameRoute() {
   useEffect(() => {
     void import('./main');
   }, []);
-  return null;
+  return <Outlet />;
 }
 
 function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<GameRoute />} />
+        <Route element={<GameRoute />}>
+          <Route index />
+          {accountRoutes.map((path) => <Route key={path} path={path} />)}
+        </Route>
         <Route
           path="/trace"
           element={
