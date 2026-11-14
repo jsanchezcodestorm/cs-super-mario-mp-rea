@@ -1,4 +1,5 @@
 import { palFrame } from './pal-time.ts'
+import { clearCapeFlight } from './cape-flight.ts'
 import { climbStepY, jumpFromClimb } from './climb-motion.ts'
 import { clipDisplacement } from './terrain.ts'
 import { Buttons, type EntityState, type PlayerState, type World } from './types.ts'
@@ -21,7 +22,8 @@ export function moveRopePlayer(world: World, p: PlayerState, input: number, pres
     return false
   }
   p.grounded = p.spin = false
-  p.flight = p.vx = 0
+  clearCapeFlight(p)
+  p.vx = 0
   if (pressed & Buttons.jump) {
     delete p.ropeId
     p.ropeReleased = world.state.tick
@@ -43,7 +45,8 @@ export function carryRopePlayer(world: World, rope: EntityState, p: PlayerState,
     delete p.netPunchTick
     p.ropeId = rope.id
     p.grounded = p.spin = false
-    p.flight = p.vx = p.vy = 0
+    clearCapeFlight(p)
+    p.vx = p.vy = 0
     rope.owner = p.id  // once released, the motor keeps running without a rider
   }
   if (p.ropeId !== rope.id) return

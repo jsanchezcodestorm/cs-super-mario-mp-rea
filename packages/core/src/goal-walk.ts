@@ -6,6 +6,7 @@ import { palFrame } from './pal-time.ts'
 import { moveBody } from './terrain.ts'
 import { stepPlayerAnimation } from './player-animation.ts'
 import { duckPlayer } from './player-size.ts'
+import { clearCapeFlight } from './cape-flight.ts'
 
 export interface GoalAward { scoreBefore: number; stars: number; coins?: GoalCoins }
 export interface GoalWalk extends GoalAward {
@@ -26,7 +27,8 @@ export function beginGoalWalk(world: World, finisher: PlayerState, award: GoalAw
     if (p.status !== 'alive' || p.roomId !== finisher.roomId) continue
     p.facing = 1
     p.spin = false
-    p.flight = p.balloon = p.star = 0
+    clearCapeFlight(p)
+    p.balloon = p.star = 0
     p.runTicks = 0
     p.tongueFrame = p.tongue = 0
     duckPlayer(world, p, false, false)

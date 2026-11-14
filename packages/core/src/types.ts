@@ -164,6 +164,20 @@ export interface YoshiMouth {
   rainbow?: boolean
   ticks: number
 }
+export interface CapeFlightState {
+  /** Current ROM FlightPhase ($1407), from folded (0) through dive (6). */
+  phase: 0 | 1 | 2 | 3 | 4 | 5 | 6
+  /** Requested pitch table index ($1408). */
+  target: 0 | 1 | 2 | 3 | 4
+  /** PAL frames until the next cape-pump phase change. */
+  pumpTimer: number
+  /** PAL frames of float remaining after holding Jump. */
+  floatTimer: number
+  /** E1 TakeoffTimer ($149F), set to $50 on a charged jump. */
+  takeoffTimer: number
+  /** E1 MaxStageOfFlight ($1409), used to speed up pumps after a deep dive. */
+  maxStage: number
+}
 export interface PlayerState extends Body {
   /** Pressed between two PAL input samples. */
   queuedLandJump?: number
@@ -178,6 +192,7 @@ export interface PlayerState extends Body {
   starTrail?: StarTrail
   formChange?: { from: PowerForm; to: PowerForm; tick: number }
   animation?: PlayerAnimation
+  capeFlight?: CapeFlightState
   berryBite?: { roomId: string; col: number; row: number; tile: BerryTile; tick: number }
   berries?: { red: number; pink: number }
   berryEgg?: { spriteId: 0x74 | 0x6a; tick: number }

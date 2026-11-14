@@ -1,8 +1,10 @@
 import { isBodyFree } from './terrain.ts'
+import { clearCapeFlight } from './cape-flight.ts'
 import type { PlayerState, PowerForm, World } from './types.ts'
 
 export function changePlayerForm(world: World, player: PlayerState, form: PowerForm) {
   if (player.form === form) return
+  if (player.form === 'cape' && form !== 'cape') clearCapeFlight(player)
   player.formChange = { from: player.form, to: form, tick: world.state.tick }
   player.form = form
 }

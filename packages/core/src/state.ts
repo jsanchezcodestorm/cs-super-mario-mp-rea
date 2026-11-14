@@ -135,6 +135,7 @@ export function enterRoom(world: World, p: PlayerState, id: string, position?: E
     flight: 0,
     balloon: 0,
   })
+  delete p.capeFlight
 }
 export function initialPlayer(identity: PlayerProfile, course: string): PlayerState {
   return {

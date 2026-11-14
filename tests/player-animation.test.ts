@@ -5,6 +5,7 @@ import { Buttons, createGame, palFrame, type CampaignDefinition, type PlayerId, 
 import { initialPlayer } from '../packages/core/src/state.ts'
 import { stepPlayer } from '../packages/core/src/player.ts'
 import { playerAnimation } from '../packages/core/src/player-animation.ts'
+import { startCapeFlight } from '../packages/core/src/cape-flight.ts'
 import { frameForPlayer, playerFacingRight } from '../apps/web/src/game/player-animation.ts'
 import { drawnBehindNet } from '../apps/web/src/game/net-player.ts'
 import { mountPose, riderSeatOffset } from '../apps/web/src/game/mount-view.ts'
@@ -76,6 +77,22 @@ test('spin body and facing change together every two PAL frames without steering
     assert.deepEqual(faces, [false,false,false,false,true,true,true,true])
     assert.equal(p.facing, -1)
   }
+})
+
+test('reversing a cape flight changes pitch without an upward impulse', () => {
+  const { p, advance } = stage('mario', 'cape')
+  p.flight = 1
+  p.grounded = false
+  p.facing = 1
+  p.y = 200
+  p.vy = 2
+  p.lastInput = Buttons.right | Buttons.run
+  p.capeFlight = { ...startCapeFlight(), phase: 6, target: 1, takeoffTimer: 0 }
+
+  advance(Buttons.left | Buttons.run, 2)
+
+  assert.equal(p.capeFlight?.phase, 5)
+  assert.ok(p.vy > 0)
 })
 
 test('local water tiles drive a finite swim stroke and climbing mirrors the front pose', () => {

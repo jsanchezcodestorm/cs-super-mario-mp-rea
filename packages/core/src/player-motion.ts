@@ -1,4 +1,5 @@
 import { advanceLandX, advanceLandY, landDistance, landFrame, launchSpeed } from './land-motion.ts'
+import { advanceCapeFlightY, startCapeFlight, stepCapeFlight } from './cape-flight.ts'
 import { duckPlayer } from './player-size.ts'
 import { slopeMotion } from './slope-motion.ts'
 import { limit } from './terrain.ts'
@@ -54,17 +55,19 @@ export function advanceMotion(world: World, room: LevelDefinition, p: PlayerStat
     if (!water && p.form === 'cape' && p.runTicks === 64 && !p.spin) {
       p.vy = -8
       p.flight = 1
+      p.capeFlight = startCapeFlight()
     }
     p.grounded = false
   }
   const holding = !!(input & (Buttons.jump | Buttons.spin))
-  if (p.flight && running && !water && !p.spin) {
-    if (p.vy > 0 && direction === -p.facing) p.vy = Math.max(-4, p.vy - 0.35)
-    if (pressed & (p.facing === 1 ? Buttons.left : Buttons.right) && p.vy > 0.5) p.vy = -4.4
-    p.vx = approach(p.vx, p.facing * 3, 0.14)
-  }
   if (water) p.vy = Math.min(1.5, p.vy + 0.105)
-  else if (p.flight) p.vy = Math.min(holding ? 1.3 : 4, p.vy + (holding && p.vy < 0 ? 0.1875 : 0.375))
+  else if (p.flight && p.capeFlight && p.form === 'cape' && !p.spin) {
+    if (sample) {
+      stepCapeFlight(p, p.capeFlight, input, world.state.tick)
+      p.vy = advanceCapeFlightY(p.vy, p.capeFlight, holding)
+    }
+    return { jump: takeoff, dy: sample ? landDistance(previousY, true) : 0 }
+  }
   else if (sample) p.vy = advanceLandY(p.vy, holding, p.form === 'cape' && holding)
   if (water || p.flight) return { jump: takeoff }
   return {

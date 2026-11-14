@@ -1,4 +1,5 @@
 import { changePlayerForm } from './player-size.ts'
+import { clearCapeFlight } from './cape-flight.ts'
 import { releaseReserve } from './rewards.ts'
 import { clearMouth, releaseMouth } from './yoshi-tongue.ts'
 import type { World, PlayerState } from './types.ts'
@@ -8,7 +9,7 @@ import { awardLives, loseLife } from './lives.ts'
 export function die(world: World, p: PlayerState) {
   if (p.status !== 'alive') return
   p.status = loseLife(world.state, p) === 0 ? 'spectator' : 'dead'
-  p.flight = 0
+  clearCapeFlight(p)
   delete p.ropeId
   delete p.ropeReleased
   delete p.netTurn
@@ -48,7 +49,7 @@ export function hurt(world: World, p: PlayerState) {
     }
   } else if (p.form === 'cape' && p.flight) {
     // E1 HurtMario breaks the glide into an unpowered spin and keeps the cape.
-    p.flight = 0
+    clearCapeFlight(p)
     p.spin = true
     p.invincible = Math.ceil(0x30 * 60 / 50)
     emit(world, 'hurt', p)

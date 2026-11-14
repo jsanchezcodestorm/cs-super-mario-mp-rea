@@ -6,7 +6,7 @@ import { palFrame } from './pal-time.ts'
 const framesPerTick = 5 / 6
 export const palVerticalSpeed = 0x128 / 0x100 * framesPerTick
 const xUnit = framesPerTick / 4096
-const yUnit = palVerticalSpeed / 4096
+export const yUnit = palVerticalSpeed / 4096
 const fullMeter = 104
 const jumpSpeed = [-80, -82, -85, -87, -90, -92, -95, -97]
 const spinSpeed = [-74, -76, -78, -80, -82, -85, -87, -90]

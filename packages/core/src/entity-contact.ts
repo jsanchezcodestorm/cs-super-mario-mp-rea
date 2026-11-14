@@ -34,6 +34,7 @@ import { emit, spawnEntity } from './state.ts'
 import { hurt } from './resources.ts'
 import { finishCourse } from './campaign.ts'
 import { settleGoalCoins } from './goal-coins.ts'
+import { clearCapeFlight } from './cape-flight.ts'
 
 export const weaponTargets = new Set([
   'lakitu',
@@ -219,7 +220,7 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     if (p.vy >= 0 && !e.owner && !p.cooldown && p.cloud === undefined) {
       e.owner = p.id
       p.cloud = e.id
-      p.flight = 0
+      clearCapeFlight(p)
       p.y = e.y - p.height + 2
       p.vy = 0
     }

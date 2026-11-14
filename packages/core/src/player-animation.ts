@@ -54,16 +54,10 @@ function stepCape(p: PlayerState, a: PlayerAnimation, speed: number) {
 
 // FlightPhase moves a single step toward the requested pitch after each pump
 // timer. In E1 the cape opens at the apex, after the charged takeoff.
-function stepGlide(p: PlayerState, a: PlayerAnimation, input: number) {
-  if (!p.flight || p.grounded || p.form !== 'cape') { a.glide = a.glideTimer = 0; return }
-  if (!a.glide && p.vy < 0) return
-  if (a.glideTimer && --a.glideTimer) return
-  const forward = p.facing === 1 ? Buttons.right : Buttons.left
-  const back = p.facing === 1 ? Buttons.left : Buttons.right
-  const target = !(input & Buttons.run) ? 0 : p.vy < 0 ? 1 :
-    input & forward ? 6 : input & back ? 1 : 3
-  a.glide += Math.sign(target - a.glide)
-  a.glideTimer = 8
+function stepGlide(p: PlayerState, a: PlayerAnimation) {
+  if (!p.flight || p.grounded || p.form !== 'cape' || !p.capeFlight) { a.glide = a.glideTimer = 0; return }
+  a.glide = p.capeFlight.phase
+  a.glideTimer = p.capeFlight.pumpTimer
 }
 
 export function stepPlayerAnimation(p: PlayerState, tick: number, input: number, pressed: number,
@@ -108,5 +102,5 @@ export function stepPlayerAnimation(p: PlayerState, tick: number, input: number,
     a.yoshiTimer = yoshiHold[Math.min(3, speed >> 4)]
   }
   stepCape(p, a, speed)
-  stepGlide(p, a, input)
+  stepGlide(p, a)
 }

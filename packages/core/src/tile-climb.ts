@@ -2,6 +2,7 @@ import { stepNetPunch } from './net-door.ts'
 import { palFrame } from './pal-time.ts'
 import { climbStepY, jumpFromClimb } from './climb-motion.ts'
 import { climbContacts } from './climb-contacts.ts'
+import { clearCapeFlight } from './cape-flight.ts'
 import { Buttons, type LevelDefinition, type PlayerState, type World } from './types.ts'
 
 export function stepTileClimb(world: World, room: LevelDefinition, p: PlayerState,
@@ -23,7 +24,8 @@ export function stepTileClimb(world: World, room: LevelDefinition, p: PlayerStat
     p.vineClinging = !grip.net || undefined
   }
   p.spin = p.grounded = false
-  p.flight = p.vx = p.vy = 0
+  clearCapeFlight(p)
+  p.vx = p.vy = 0
   if (p.netClinging && stepNetPunch(world.state, room, p, pressed)) return true
   if (pressed & Buttons.jump) {
     delete p.netClinging

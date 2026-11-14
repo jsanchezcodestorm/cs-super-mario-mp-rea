@@ -1,5 +1,6 @@
 import { spinReboundY } from './land-motion.ts'
 import { advanceMotion } from './player-motion.ts'
+import { clearCapeFlight } from './cape-flight.ts'
 import { moveRopePlayer } from './rope-motor.ts'
 import { playerPipePosition } from './emergence.ts'
 import { shatterOnLanding } from './spin-block.ts'
@@ -153,7 +154,7 @@ export function stepPlayer(world: World, p: PlayerState, inputSample: number) {
   interactTiles(world, p, room, input, pressed, contacts)
   if (p.grounded) {
     p.spin = false
-    p.flight = 0
+    clearCapeFlight(p)
   }
   if (room.id === p.roomId) stepPlayerAnimation(p, world.state.tick, input, pressed, water)
   if (p.roomId === room.id && p.y > room.height * 16 + 2) die(world, p)
