@@ -7,7 +7,8 @@ const issues = [];
 try {
   const pages = await Promise.all([browser.newPage(), browser.newPage()]);
   const snapshots = new Map();
-  for (const page of pages) {
+  for (const [index, page] of pages.entries()) {
+    await page.addInitScript((id) => localStorage.setItem('smw.player-profile.v1', id), index === 0 ? 'mario' : 'luigi');
     page.on('pageerror', (e) => issues.push(e.message));
     page.on('response', (r) => {
       if (r.status() >= 400) issues.push(r.status() + ' ' + r.url());
@@ -23,13 +24,18 @@ try {
   const [mario, luigi] = pages;
   mkdirSync('test-results', { recursive: true });
   await mario.screenshot({ path: 'test-results/lobby.png' });
+  await mario.locator('#nickname').fill('Mario');
+  await mario.locator('#campaign-name').fill('Browser co-op');
   await mario.locator('#submit').click();
   await mario.locator('#invite').waitFor();
   const code = await mario.locator('#invite').innerText();
   await luigi.locator('#join-tab').click();
+  await luigi.locator('#nickname').fill('Luigi');
+  await luigi.locator('#character').selectOption('luigi');
   await luigi.locator('#room-code').fill(code);
   await luigi.locator('#submit').click();
   await Promise.all(pages.map((page) => page.locator('#ready').click()));
+  await mario.locator('#start-room:not([disabled])').click();
   await Promise.all(pages.map((page) => page.locator('#screen canvas').waitFor()));
   await mario.waitForTimeout(750);
   assert.equal(snapshots.get(luigi).phase, 'map');

@@ -21,7 +21,7 @@ import { carryDeckRider } from './platform-rider.ts'
 import { deckBounds, type PreviousFoot } from './deck-bounds.ts'
 import { stepLayer } from './layer-two.ts'
 import { stepEntrance } from './entrance.ts'
-import { activePlayerIds, Buttons, playerIds } from './types.ts'
+import { activePlayerIds, Buttons } from './types.ts'
 import type { CampaignDefinition, GameState, World, EntityState, PlayerState, InputFrame } from './types.ts'
 import { stepPlayer } from './player.ts'
 import { die } from './resources.ts'
@@ -103,7 +103,7 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
       continue
     }
     if (!entity.active) continue
-    const players = playerIds
+    const players = activePlayerIds(state)
       .map((id) => state.players[id])
       .filter((p) => p.status === 'alive' && p.roomId === entity.roomId)
     if (!players.length) {
@@ -174,9 +174,15 @@ function updateEntities(world: World, inputs: InputFrame, feet: Record<string, P
     if (entity.active && entity.netKoopa)
       for (const p of players) punchNetKoopa(world, entity, p)
   }
-  const mouths = [state.players.mario.mouth, state.players.luigi.mouth]
+  const mouths = Object.values(state.players).map((player) => player.mouth)
   state.entities = state.entities.filter((e) => e.active || e.shellKnockedOut || e.defeat ||
     mouths.some(food => food?.entityId === e.id && food.ticks === 0))
+}
+function pipeAwareInputs(state: GameState, sampled: InputFrame): InputFrame {
+  return Object.fromEntries(activePlayerIds(state).map((id) => [
+    id,
+    state.players[id].pipeExit ? 0 : (sampled[id] ?? 0),
+  ])) as InputFrame
 }
 export function stepGame(campaign: CampaignDefinition, state: GameState, inputs: InputFrame) {
   const world = { campaign, state }
@@ -217,15 +223,16 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       stepBooGroups(world, campaign.levels[id], present)
     }
     const previousBonus=state.bonus
-    const tops={mario:state.players.mario.y,luigi:state.players.luigi.y}
-    const feet = {
-      mario: { x: state.players.mario.x, bottom: state.players.mario.y + state.players.mario.height },
-      luigi: { x: state.players.luigi.x, bottom: state.players.luigi.y + state.players.luigi.height },
-    }
-    const previousContacts = {
-      mario: { roomId: state.players.mario.roomId, body: { ...playerContactBody(state.players.mario) } },
-      luigi: { roomId: state.players.luigi.roomId, body: { ...playerContactBody(state.players.luigi) } },
-    }
+    const ids = activePlayerIds(state)
+    const tops = Object.fromEntries(ids.map((id) => [id, state.players[id].y]))
+    const feet = Object.fromEntries(ids.map((id) => {
+      const player = state.players[id]
+      return [id, { x: player.x, bottom: player.y + player.height }]
+    })) as Record<string, PreviousFoot>
+    const previousContacts = Object.fromEntries(ids.map((id) => {
+      const player = state.players[id]
+      return [id, { roomId: player.roomId, body: { ...playerContactBody(player) } }]
+    })) as Record<PlayerState['id'], { roomId: string; body: ContactRect }>
     settleBlockBounces(world)
     expireShatters(state)
     advanceNetDoors(state)
@@ -238,9 +245,10 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       stepStarTrail(state.players[id], state.tick)
       if (state.phase !== 'playing') break
     }
-    if (state.phase === 'playing') updateEntities(world, inputs, feet, previousContacts)
+    const playerInputs = pipeAwareInputs(state, inputs)
+    if (state.phase === 'playing') updateEntities(world, playerInputs, feet, previousContacts)
     if (state.phase === 'playing') {
-      for (const id of activePlayerIds(state)) stepBerries(world, state.players[id], inputs[id])
+      for (const id of activePlayerIds(state)) stepBerries(world, state.players[id], playerInputs[id] ?? 0)
     }
     if(previousBonus && previousBonus===state.bonus)stepBonus(world,tops)
     if (state.phase === 'playing' && !state.bonus && state.timeLeft > 0 && state.tick % 41 === 0 && --state.timeLeft === 0) {
@@ -248,6 +256,7 @@ export function stepGame(campaign: CampaignDefinition, state: GameState, inputs:
       state.timeLeft = campaign.levels[state.progress.course].timeLimit ?? 400
     }
   }
-  for (const id of playerIds) state.players[id].lastInput = inputs[id]
+  const playerInputs = pipeAwareInputs(state, inputs)
+  for (const id of activePlayerIds(state)) state.players[id].lastInput = playerInputs[id] ?? 0
   return state
 }

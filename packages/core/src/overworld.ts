@@ -7,18 +7,15 @@ const directions = Buttons.left | Buttons.right | Buttons.up | Buttons.down
 const enter = Buttons.jump | Buttons.action | Buttons.spin
 
 export function resetMapPlayers(state: World['state'], stop: string) {
-  state.mapPlayers = {
-    mario: { stop },
-    luigi: { stop },
-  }
+  state.mapPlayers = Object.fromEntries(activePlayerIds(state).map((id) => [id, { stop }]))
   delete state.mapRequest
   delete state.mapReply
 }
 
 export function finishMapTransition(state: World['state'], inputs: InputFrame) {
   if (state.mapReveal) state.mapReveal.start = state.tick
-  const mario = inputs.mario & directions, luigi = inputs.luigi & directions
-  if (mario || luigi) state.heldAtExit = { mario, luigi }
+  const held = Object.fromEntries(activePlayerIds(state).map((id) => [id, (inputs[id] ?? 0) & directions]))
+  if (Object.values(held).some(Boolean)) state.heldAtExit = held
 }
 
 function freshMapCommand(state: World['state'], inputs: InputFrame) {
@@ -97,7 +94,7 @@ function requestedCourse(world: World, playerId: PlayerId, from: string) {
   if (index < 0) return undefined
   state.progress.selection = index
   if (activePlayerIds(state).length === 1) return from
-  state.mapRequest = { course: from, requester: playerId }
+  state.mapRequest = { course: from, requester: playerId, confirmed: [playerId] }
   delete state.mapReply
   return undefined
 }
@@ -106,23 +103,23 @@ function answerRequest(world: World, inputs: InputFrame): string | null | undefi
   const { state } = world
   const request = state.mapRequest
   if (!request) return undefined
-  const other: PlayerId = request.requester === 'mario' ? 'luigi' : 'mario'
-  const requesterPressed = inputs[request.requester] & ~state.players[request.requester].lastInput
-  const otherPressed = inputs[other] & ~state.players[other].lastInput
-  if (otherPressed & enter) {
+  for (const id of activePlayerIds(state)) {
+    if (id === request.requester) continue
+    const pressed = (inputs[id] ?? 0) & ~state.players[id].lastInput
+    if (pressed & Buttons.run) {
+      state.mapReply = { course: request.course, player: id, tick: state.tick }
+      delete state.mapRequest
+      return null
+    }
+    if (pressed & enter && !request.confirmed.includes(id)) request.confirmed.push(id)
+  }
+  if (request.confirmed.length === activePlayerIds(state).length) {
     delete state.mapRequest
     delete state.mapReply
     return request.course
   }
-  if (otherPressed & Buttons.run) {
-    state.mapReply = { course: request.course, player: other, tick: state.tick }
-    delete state.mapRequest
-    return null
-  } else if (requesterPressed & enter) {
-    delete state.mapRequest
-    delete state.mapReply
-    return null
-  }
+  const requesterPressed = (inputs[request.requester] ?? 0) & ~state.players[request.requester].lastInput
+  if (requesterPressed & enter) delete state.mapRequest
   return null
 }
 
@@ -130,9 +127,8 @@ export function navigateOverworld(world: World, inputs: InputFrame) {
   const { state } = world
   const held = state.heldAtExit
   if (held) {
-    held.mario &= inputs.mario
-    held.luigi &= inputs.luigi
-    if (!held.mario && !held.luigi) delete state.heldAtExit
+    for (const id of activePlayerIds(state)) held[id] = (held[id] ?? 0) & (inputs[id] ?? 0)
+    if (!Object.values(held).some(Boolean)) delete state.heldAtExit
   }
   if (state.mapReply && state.tick - state.mapReply.tick > 120) delete state.mapReply
   if (state.mapReveal) {
@@ -152,10 +148,10 @@ export function navigateOverworld(world: World, inputs: InputFrame) {
     if (actor.travel) continue
     for (const command of movement) {
       const button = Buttons[command]
-      if (inputs[playerId] & ~(held?.[playerId] ?? 0) & button && travel(world, playerId, actor.stop, command)) break
+      if ((inputs[playerId] ?? 0) & ~(held?.[playerId] ?? 0) & button && travel(world, playerId, actor.stop, command)) break
     }
     if (actor.travel) continue
-    const pressed = inputs[playerId] & ~state.players[playerId].lastInput
+    const pressed = (inputs[playerId] ?? 0) & ~state.players[playerId].lastInput
     if (!(pressed & enter)) continue
     if (state.progress.unlocked.includes(actor.stop)) {
       const course = requestedCourse(world, playerId, actor.stop)

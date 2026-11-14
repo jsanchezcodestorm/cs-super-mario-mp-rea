@@ -6,34 +6,59 @@ import {
   type CampaignDefinition,
   type CampaignSave,
   type GameState,
+  MAX_MULTIPLAYER_PLAYERS,
   type PlayerId,
+  type PlayerProfile,
 } from '@smw/core';
-import type { CampaignRef, RoomStatus, ServerMessage } from '@smw/protocol';
+import type { CampaignRef, RoomPlayerInfo, RoomStatus, ServerMessage } from '@smw/protocol';
 import { Seat, send } from './seat.ts';
 
-const ids = ['mario', 'luigi'] as const;
+export const MAX_ROOM_PLAYERS = MAX_MULTIPLAYER_PLAYERS;
+const MIN_ROOM_PLAYERS = 2;
+
+type Participant = PlayerProfile & { seat: Seat; host: boolean };
 
 export class Room {
-  readonly seats = { mario: new Seat(), luigi: new Seat() };
+  readonly participants = new Map<PlayerId, Participant>();
   state: GameState | null = null;
   status: RoomStatus = 'waiting';
   expiresAt: number | null = null;
+
   constructor(
     readonly code: string,
     private campaign: CampaignDefinition,
     private save: CampaignSave | undefined,
     private campaignRef: CampaignRef | undefined,
+    readonly hostId: PlayerId,
     private onClose: () => void,
   ) {}
 
-  attach(id: PlayerId, socket: WebSocket) {
-    const seat = this.seats[id];
-    if (seat.socket || this.status === 'closed') throw Error('Questo posto è già occupato.');
-    seat.socket = socket;
-    seat.claimed = true;
-    seat.resetControls();
-    send(socket, { v: 1, type: 'joined', code: this.code, playerId: id, token: seat.token });
-    if (ids.every((key) => !this.seats[key].claimed || this.seats[key].socket)) {
+  add(profile: PlayerProfile, socket: WebSocket) {
+    if (this.status !== 'waiting' || this.expiresAt) throw Error('Stanza piena o in corso.');
+    if (this.participants.size >= MAX_ROOM_PLAYERS)
+      throw Error(`La stanza può contenere al massimo ${MAX_ROOM_PLAYERS} giocatori.`);
+    if (this.participants.has(profile.id)) throw Error('Questo profilo è già nella stanza.');
+    const normalized = profile.nickname.trim().toLowerCase();
+    if ([...this.participants.values()].some((member) => member.nickname.trim().toLowerCase() === normalized))
+      throw Error('Il nickname è già usato nella stanza.');
+    const member: Participant = { ...profile, nickname: profile.nickname.trim(), seat: new Seat(), host: profile.id === this.hostId };
+    this.participants.set(profile.id, member);
+    this.connect(member, socket);
+  }
+
+  resume(token: string, socket: WebSocket) {
+    const member = [...this.participants.values()].find((player) => player.seat.token === token);
+    if (!member || member.seat.socket || this.status === 'closed') throw Error('Rientro non disponibile.');
+    this.connect(member, socket);
+    return member.id;
+  }
+
+  private connect(member: Participant, socket: WebSocket) {
+    member.seat.socket = socket;
+    member.seat.claimed = true;
+    member.seat.resetControls();
+    send(socket, { v: 2, type: 'joined', code: this.code, playerId: member.id, token: member.seat.token });
+    if ([...this.participants.values()].every((player) => player.seat.socket)) {
       this.expiresAt = null;
       if (this.state) this.status = 'playing';
     }
@@ -46,19 +71,34 @@ export class Room {
 
   setReady(id: PlayerId) {
     if (this.status !== 'waiting') throw Error('La partita è già iniziata.');
-    this.seats[id].ready = true;
-    if (ids.every((key) => this.seats[key].ready && this.seats[key].socket)) {
-      this.state = createGame(this.campaign, this.save, 'coop');
-      this.status = 'playing';
-      this.saveCampaign();
-    }
+    this.requireParticipant(id).seat.ready = true;
     this.notify();
-    if (this.state) this.snapshots();
+  }
+
+  start(id: PlayerId) {
+    if (id !== this.hostId) throw Error('Solo chi ha creato la stanza può avviare la partita.');
+    if (this.status !== 'waiting') throw Error('La partita è già iniziata.');
+    if (this.participants.size < MIN_ROOM_PLAYERS) throw Error('Servono almeno due giocatori per iniziare.');
+    const members = [...this.participants.values()];
+    if (members.some((member) => !member.seat.socket || !member.seat.ready))
+      throw Error('Tutti i giocatori presenti devono essere connessi e pronti.');
+    const roster = members.map(({ id: playerId, nickname, character }) => ({ id: playerId, nickname, character }));
+    this.state = createGame(this.campaign, this.save, 'coop', roster);
+    this.status = 'playing';
+    this.expiresAt = null;
+    this.saveCampaign();
+    this.notify();
+    this.snapshots();
+  }
+
+  push(id: PlayerId, seq: number, buttons: number) {
+    this.requireParticipant(id).seat.push(seq, buttons);
   }
 
   detach(id: PlayerId) {
-    this.seats[id].socket = null;
-    for (const seat of Object.values(this.seats)) seat.resetControls();
+    const member = this.requireParticipant(id);
+    member.seat.socket = null;
+    for (const player of this.participants.values()) player.seat.resetControls();
     if (this.status === 'closed') return;
     this.expiresAt ??= Date.now() + 60_000;
     if (this.state) this.status = 'paused';
@@ -71,45 +111,50 @@ export class Room {
       return;
     }
     if (this.status !== 'playing' || !this.state) return;
-    const state = this.state,
-      previousPhase = state.phase;
-    stepGame(this.campaign, state, { mario: this.seats.mario.next(), luigi: this.seats.luigi.next() });
-    for (const event of state.events) this.broadcast({ v: 1, type: 'gameEvent', tick: state.tick, event });
+    const state = this.state;
+    const previousPhase = state.phase;
+    const inputs = Object.fromEntries([...this.participants].map(([id, member]) => [id, member.seat.next()]));
+    stepGame(this.campaign, state, inputs);
+    for (const event of state.events) this.broadcast({ v: 2, type: 'gameEvent', tick: state.tick, event });
     if (
       previousPhase !== state.phase ||
-      state.events.some((e) => e.type === 'checkpoint' || e.type === 'exit' || e.type === 'gameOver')
-    ) {
-      this.saveCampaign();
-    }
+      state.events.some((event) => event.type === 'checkpoint' || event.type === 'exit' || event.type === 'gameOver')
+    ) this.saveCampaign();
     if (state.tick % 2 === 0) this.snapshots();
   }
 
   snapshots() {
     if (!this.state) return;
-    for (const seat of Object.values(this.seats))
-      if (seat.socket) send(seat.socket, { v: 1, type: 'snapshot', state: this.state, ack: seat.ack });
+    for (const member of this.participants.values())
+      if (member.seat.socket) send(member.seat.socket, { v: 2, type: 'snapshot', state: this.state, ack: member.seat.ack });
   }
 
   notify() {
-    const info = (id: PlayerId) => ({ ready: this.seats[id].ready, connected: !!this.seats[id].socket });
-    this.broadcast({
-      v: 1,
-      type: 'roomState',
-      code: this.code,
-      status: this.status,
-      expiresAt: this.expiresAt,
-      seats: { mario: info('mario'), luigi: info('luigi') },
-    });
+    const players: RoomPlayerInfo[] = [...this.participants.values()].map(({ id, nickname, character, seat, host }) => ({
+      id,
+      nickname,
+      character,
+      host,
+      ready: seat.ready,
+      connected: !!seat.socket,
+    }));
+    this.broadcast({ v: 2, type: 'roomState', code: this.code, status: this.status, hostId: this.hostId, players, expiresAt: this.expiresAt });
+  }
+
+  private requireParticipant(id: PlayerId) {
+    const member = this.participants.get(id);
+    if (!member) throw Error('Giocatore non presente nella stanza.');
+    return member;
   }
 
   private broadcast(message: ServerMessage) {
-    for (const seat of Object.values(this.seats)) if (seat.socket) send(seat.socket, message);
+    for (const member of this.participants.values()) if (member.seat.socket) send(member.seat.socket, message);
   }
 
   private saveCampaign() {
     if (!this.state) return;
     this.broadcast({
-      v: 1,
+      v: 2,
       type: 'save',
       ...(this.campaignRef ? { campaign: this.campaignRef } : {}),
       save: makeSave(this.state),
@@ -120,7 +165,7 @@ export class Room {
     if (this.status === 'closed') return;
     this.status = 'closed';
     this.notify();
-    for (const seat of Object.values(this.seats)) seat.socket?.close(1000, 'Stanza chiusa');
+    for (const member of this.participants.values()) member.seat.socket?.close(1000, 'Stanza chiusa');
     this.onClose();
   }
 }

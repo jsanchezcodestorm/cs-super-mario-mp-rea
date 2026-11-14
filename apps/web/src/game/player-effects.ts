@@ -8,7 +8,7 @@ const growth = [0, 61, 0, 61, 0, 61, 70, 61, 70, 61, 70, 61];
 export function playerAppearance(p: PlayerState, tick: number, walk?: GameState['goalWalk']) {
   if (walk && p.status === 'alive' && p.roomId === walk.roomId && goalWalkFrame(walk, tick).salute) {
     const form = p.growthPending ? 'small' : p.form;
-    return { frame: p.id + '/' + form + '/' + (p.mounted ? 20 : 38), visible: true };
+    return { frame: p.character + '/' + form + '/' + (p.mounted ? 20 : 38), visible: true };
   }
   const clock = palFrame(tick), change = p.formChange;
   const age = change ? clock - palFrame(change.tick) : Infinity;
@@ -17,7 +17,7 @@ export function playerAppearance(p: PlayerState, tick: number, walk?: GameState[
     if ((change.to === 'super' || change.to === 'small') && age <= 48) {
       const index = Math.min(11, Math.max(0, age - 1) >> 2);
       const pose = growth[change.to === 'small' ? 11 - index : index];
-      return { frame: p.id + '/small/' + pose, visible: true };
+      return { frame: p.character + '/small/' + pose, visible: true };
     }
     if (change.to === 'cape' && age < 27) {
       // $0296D8 smoke timer starts at $1B, the body is masked for $18 frames.

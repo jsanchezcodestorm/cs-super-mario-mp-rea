@@ -12,6 +12,7 @@ export interface GoalWalk extends GoalAward {
   tick: number
   roomId: string
   finisher: PlayerId
+  character: PlayerState['character']
   mounted: boolean
   bonus?: BonusGame
 }
@@ -19,7 +20,7 @@ export interface GoalWalk extends GoalAward {
 export function beginGoalWalk(world: World, finisher: PlayerState, award: GoalAward) {
   const state = world.state
   if (state.phase !== 'map' || state.cutscene || state.bonus) return
-  state.goalWalk = { tick: state.tick, roomId: finisher.roomId, finisher: finisher.id, mounted: finisher.mounted, ...award }
+  state.goalWalk = { tick: state.tick, roomId: finisher.roomId, finisher: finisher.id, character: finisher.character, mounted: finisher.mounted, ...award }
   for (const id of activePlayerIds(state)) {
     const p = state.players[id]
     if (p.status !== 'alive' || p.roomId !== finisher.roomId) continue
@@ -50,7 +51,7 @@ export function goalWalkFrame(walk: GoalWalk, tick: number) {
   const elapsed = Math.max(0, age - irisAt + 1)
   // SpotlightSize falls by four per update. The PAL walk holds four early
   // updates on foot and alternates frames longer while still riding Yoshi.
-  const holds = walk.mounted ? Math.min(walk.finisher === 'luigi' ? 20 : 19, elapsed >> 1) :
+  const holds = walk.mounted ? Math.min(walk.character === 'luigi' ? 20 : 19, elapsed >> 1) :
     Math.min(4, Math.floor(elapsed / 5))
   const iris = age < irisAt ? undefined : Math.max(0, 240 - 4 * (elapsed - holds))
   return { age, saluteAt, salute: age >= saluteAt && age < irisAt, iris, irisAt, finished: elapsed - holds > 60 }

@@ -14,6 +14,8 @@ const seats = ['mario', 'luigi'] as const
 const forms = ['small', 'super', 'cape', 'fire'] as const
 const body = (frame: string) => Number(frame.split('/')[2]) & 127
 const atlas = JSON.parse(readFileSync('generated/actors.json', 'utf8')).frames
+const player = (character: 'mario' | 'luigi', course: string) =>
+  initialPlayer({ id: character, nickname: character, character }, course)
 
 function stage(id: PlayerId, form: PowerForm, tile = 0x25) {
   const width = 96, height = 24, tiles = Array.from({ length: width * height }, (_, i) => i >= width * 20 ? 0x130 : tile)
@@ -61,7 +63,7 @@ test('both seats select the PAL walk, skid, sprint, takeoff and ordinary landing
 
 test('spin body and facing change together every two PAL frames without steering the player', () => {
   for (const id of seats) for (const form of forms) {
-    const p = Object.assign(initialPlayer(id, 'flat'), { form, spin: true, facing: -1 as const })
+    const p = Object.assign(player(id, 'flat'), { form, spin: true, facing: -1 as const })
     const poses = [], faces = []
     for (let f = 0; f < 8; f++) {
       const tick = Math.ceil(f * 6 / 5)
@@ -140,7 +142,7 @@ test('pipe samples leave the head ahead of the rider and the body behind for eve
 
 test('front and back net punches, turns and OAM side retain the native frame order', () => {
   for (const id of seats) for (const form of forms) for (const behind of [false, true]) {
-    const p = initialPlayer(id, '1d3')
+    const p = player(id, '1d3')
     Object.assign(p, { form, netClinging: true, netPunchTick: 0, behindNet: behind, x: 196 })
     assert.equal(body(frameForPlayer(p, 0)), behind ? 34 : 21)
     assert.equal(body(frameForPlayer(p, 6)), behind ? 35 : 30)

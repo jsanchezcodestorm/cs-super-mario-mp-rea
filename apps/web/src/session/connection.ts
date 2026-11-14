@@ -5,7 +5,16 @@ export type SessionCallbacks = {
   message: (message: ServerMessage) => void;
   disconnected: (resuming: boolean) => void;
 };
-const storageKey = 'smw.room.v1';
+const storageKey = 'smw.room.v2';
+const profileStorageKey = 'smw.player-profile.v1';
+
+export function browserPlayerId() {
+  const id = localStorage.getItem(profileStorageKey);
+  if (id && /^[0-9a-f-]{36}$/i.test(id)) return id;
+  const created = crypto.randomUUID();
+  localStorage.setItem(profileStorageKey, created);
+  return created;
+}
 
 export class RoomConnection {
   private socket?: WebSocket;
@@ -30,7 +39,7 @@ export class RoomConnection {
     ws.onopen = () => this.send(first);
     ws.onmessage = ({ data }) => {
       const m: ServerMessage = JSON.parse(data);
-      if (m.v !== 1) {
+      if (m.v !== 2) {
         this.leave();
         throw new Error('Protocollo WebSocket incompatibile.');
       }
@@ -61,12 +70,12 @@ export class RoomConnection {
   }
 
   leave() {
-    this.send({ v: 1, type: 'leave' });
+    this.send({ v: 2, type: 'leave' });
     this.reset();
   }
 
   private resume() {
-    if (this.credentials) this.connect({ v: 1, type: 'resume', ...this.credentials });
+    if (this.credentials) this.connect({ v: 2, type: 'resume', ...this.credentials });
   }
 
   private reset() {

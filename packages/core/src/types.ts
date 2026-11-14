@@ -123,7 +123,15 @@ export interface MapPlayerState {
 }
 export interface MapCloud { x: number; y: number; z: number }
 export const playerIds = ['mario', 'luigi'] as const
-export type PlayerId = (typeof playerIds)[number]
+export const MAX_MULTIPLAYER_PLAYERS = 8
+export type PlayerId = string
+export const playerCharacters = ['mario', 'luigi'] as const
+export type PlayerCharacter = (typeof playerCharacters)[number]
+export interface PlayerProfile {
+  id: PlayerId
+  nickname: string
+  character: PlayerCharacter
+}
 export type GameMode = 'solo' | 'coop'
 export const Buttons = {
   left: 1,
@@ -181,6 +189,8 @@ export interface PlayerState extends Body {
   bonusStars: number
   scrollClock?: number
   id: PlayerId
+  nickname: string
+  character: PlayerCharacter
   roomId: string
   lives: number
   form: PowerForm
@@ -356,22 +366,21 @@ export interface CampaignSave {
   sharedLives?: number
   spectators?: PlayerId[]
   bonus?: BonusGame
-  version: 1
+  version: 1 | 2
   progress: CampaignProgress
-  resources: Record<
-    PlayerId,
-    {
-      lives: number
-      form: PowerForm
-      coins: number
-      mounted: boolean
-      yoshiColor?: YoshiColor
-      reserve?: ReserveItem | null
-      score?: number
-      bonusStars?: number
-    }
-  >
+  resources: Record<PlayerId, PlayerResources>
+  legacyResources?: Partial<Record<PlayerCharacter, PlayerResources>>
   phase: 'playing' | 'map' | 'ending' | 'gameOver'
+}
+export interface PlayerResources {
+  lives: number
+  form: PowerForm
+  coins: number
+  mounted: boolean
+  yoshiColor?: YoshiColor
+  reserve?: ReserveItem | null
+  score?: number
+  bonusStars?: number
 }
 export type HitAward = 10 | 100 | 200 | 400 | 800 | 1000 | 2000 | 4000 | 8000 | '1up'
 export interface RewardEffect extends Point {
@@ -440,8 +449,11 @@ export interface GameState {
   bonus?: BonusGame
   cutscene?: { key: string; start: number; duration: number }
   mapPlayers: Record<PlayerId, MapPlayerState>
+  savedMapPlayers?: Record<PlayerId, string>
+  savedResources?: Record<PlayerId, PlayerResources>
+  legacyResources?: Partial<Record<PlayerCharacter, PlayerResources>>
   mapClouds?: Partial<Record<PlayerId, (MapCloud | null)[]>>
-  mapRequest?: { course: string; requester: PlayerId }
+  mapRequest?: { course: string; requester: PlayerId; confirmed: PlayerId[] }
   mapReply?: { course: string; player: PlayerId; tick: number }
   mapReveal?: { exit: string; course: string; start?: number; travel?: OverworldTravel }
   tick: number
@@ -467,8 +479,7 @@ export interface GameState {
   shatteredBlocks?: (Point & { roomId: string; tick: number; firstSlot: number })[]
   multicoinUntil?: Record<string, number>
 }
-const soloPlayerIds = ['mario'] as const
-export function activePlayerIds(state: Pick<GameState, 'mode'>): readonly PlayerId[] {
-  return state.mode === 'solo' ? soloPlayerIds : playerIds
+export function activePlayerIds(state: Pick<GameState, 'players'>): PlayerId[] {
+  return Object.keys(state.players)
 }
 export type World = { campaign: CampaignDefinition; state: GameState }

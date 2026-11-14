@@ -1,9 +1,10 @@
-import type { PlayerId } from '@smw/core';
+import { MAX_MULTIPLAYER_PLAYERS, type PlayerCharacter, type PlayerId } from '@smw/core';
 import type { ServerMessage } from '@smw/protocol';
 import type { CampaignSlot } from '../session/save';
 import { TitleDemo } from './title-demo';
 type RoomInfo = Extract<ServerMessage, { type: 'roomState' }>;
 export type CampaignChoice = { kind: 'new'; name: string } | { kind: 'saved'; slot: CampaignSlot };
+export type PlayerChoice = { nickname: string; character: PlayerCharacter };
 export const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 export class Lobby {
@@ -13,9 +14,10 @@ export class Lobby {
   private selectionTouched = false;
   private campaignsLoaded = false;
   constructor(handlers: {
-    enter: (code: string | null, campaign?: CampaignChoice) => void;
+    enter: (code: string | null, player: PlayerChoice, campaign?: CampaignChoice) => void;
     solo: (campaign: CampaignChoice) => void;
     ready: () => void;
+    start: () => void;
     leave: () => void;
   }) {
     el('join-tab').onclick = () => this.showMode('join');
@@ -30,10 +32,12 @@ export class Lobby {
       }
       const campaign = this.mode === 'join' ? undefined : this.campaignChoice();
       if (this.mode !== 'join' && !campaign) return;
+      const player = this.playerChoice();
+      if (this.mode !== 'solo' && !player) return;
       this.notice(this.mode === 'solo' ? 'Avvio della partita…' : 'Connessione alla stanza…');
       el<HTMLButtonElement>('submit').disabled = true;
       if (this.mode === 'solo') handlers.solo(campaign!);
-      else handlers.enter(this.mode === 'join' ? code : null, campaign);
+      else handlers.enter(this.mode === 'join' ? code : null, player!, campaign);
     };
     el<HTMLSelectElement>('campaign').onchange = () => {
       this.selectionTouched = true;
@@ -41,6 +45,7 @@ export class Lobby {
     };
     el<HTMLInputElement>('campaign-name').oninput = () => (this.selectionTouched = true);
     el('ready').onclick = handlers.ready;
+    el('start-room').onclick = handlers.start;
     el('leave').onclick = handlers.leave;
     el('play-leave').onclick = handlers.leave;
     el('copy').onclick = async () => {
@@ -48,7 +53,7 @@ export class Lobby {
         await navigator.clipboard.writeText(el('invite').textContent ?? '');
         this.notice('Codice copiato.');
       } catch {
-        this.notice('Seleziona il codice e copialo per invitare il secondo giocatore.');
+        this.notice('Seleziona il codice e copialo per invitare altri giocatori.');
       }
     };
   }
@@ -60,6 +65,7 @@ export class Lobby {
     el('solo-tab').setAttribute('aria-pressed', String(mode === 'solo'));
     el('code-field').hidden = mode !== 'join';
     el('save-field').hidden = mode === 'join';
+    el('player-fields').hidden = mode === 'solo';
     el('submit').firstElementChild!.textContent =
       mode === 'join' ? 'Entra nella stanza' : mode === 'solo' ? 'Gioca da solo' : 'Crea stanza';
     if (mode === 'join') el('room-code').focus();
@@ -105,6 +111,19 @@ export class Lobby {
     }
     return { kind: 'saved', slot };
   }
+  private playerChoice(): PlayerChoice | undefined {
+    const nickname = el<HTMLInputElement>('nickname').value.trim();
+    if (!nickname || nickname.length > 24) {
+      this.notice('Inserisci un nickname da 1 a 24 caratteri.');
+      return;
+    }
+    const value = el<HTMLSelectElement>('character').value;
+    if (value !== 'mario' && value !== 'luigi') {
+      this.notice('Seleziona Mario o Luigi.');
+      return;
+    }
+    return { nickname, character: value };
+  }
   private updateCampaignNameVisibility() {
     el('campaign-name-field').hidden = el<HTMLSelectElement>('campaign').value !== 'new';
   }
@@ -116,6 +135,7 @@ export class Lobby {
     el('lobby').hidden = false;
     this.demo.show(true);
     el('room-view').hidden = true;
+    el('start-room').hidden = true;
     el('start-view').hidden = false;
     el<HTMLButtonElement>('submit').disabled = false;
     this.notice(message);
@@ -129,18 +149,22 @@ export class Lobby {
   waiting(room: RoomInfo, me: PlayerId) {
     const seats = el('seats');
     seats.replaceChildren();
-    for (const id of ['mario', 'luigi'] as const) {
+    for (const player of room.players) {
       const li = document.createElement('li'),
-        status = document.createElement('small'),
-        s = room.seats[id];
-      li.textContent = (id === 'mario' ? 'Mario' : 'Luigi') + (id === me ? ' · Tu' : '');
-      status.textContent = s.connected ? (s.ready ? 'Pronto' : 'In stanza') : 'In attesa';
+        status = document.createElement('small');
+      li.textContent = `${player.nickname} · ${player.character === 'mario' ? 'Mario' : 'Luigi'}${player.id === me ? ' · Tu' : ''}${player.host ? ' · Creatore' : ''}`;
+      status.textContent = player.connected ? (player.ready ? 'Pronto' : 'In stanza') : 'Disconnesso';
       li.append(status);
       seats.append(li);
     }
+    el('room-count').textContent = `${room.players.length} / ${MAX_MULTIPLAYER_PLAYERS} giocatori`;
     const button = el<HTMLButtonElement>('ready');
-    button.disabled = room.seats[me].ready;
+    const localPlayer = room.players.find((player) => player.id === me);
+    button.disabled = !localPlayer || localPlayer.ready;
     button.firstElementChild!.textContent = button.disabled ? 'Pronto' : 'Sono pronto';
+    const start = el<HTMLButtonElement>('start-room');
+    start.hidden = room.hostId !== me;
+    start.disabled = room.players.length < 2 || room.players.some((player) => !player.connected || !player.ready);
   }
   play() {
     this.demo.show(false);

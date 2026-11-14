@@ -9,6 +9,7 @@ import type {
   GameState,
   PlayerState,
   PlayerId,
+  PlayerProfile,
   World,
   EntityKind,
   EntryPoint,
@@ -129,9 +130,11 @@ export function enterRoom(world: World, p: PlayerState, id: string, position?: E
     balloon: 0,
   })
 }
-export function initialPlayer(id: PlayerId, course: string): PlayerState {
+export function initialPlayer(identity: PlayerProfile, course: string): PlayerState {
   return {
-    id,
+    id: identity.id,
+    nickname: identity.nickname,
+    character: identity.character,
     roomId: course,
     x: 0,
     y: 0,

@@ -5,7 +5,7 @@ import { CutsceneView } from './game/cutscene-view';
 import { goalWalkFrame } from '@smw/core';
 import type { CampaignSave, GameEvent, GameState, PlayerId } from '@smw/core';
 import type { CampaignRef, ServerMessage } from '@smw/protocol';
-import { RoomConnection } from './session/connection';
+import { browserPlayerId, RoomConnection } from './session/connection';
 import { readCampaigns, writeCampaignSave, type CampaignSlot } from './session/save';
 import { el, Lobby, type CampaignChoice } from './ui/lobby';
 import { loadContent, type Content } from './game/content';
@@ -56,14 +56,17 @@ function loadResources() {
   }));
 }
 const lobby = new Lobby({
-  enter(code, choice) {
+  enter(code, player, choice) {
     audio.unlock();
-    if (code) connection.connect({ v: 1, type: 'joinRoom', code });
+    const profileId = browserPlayerId();
+    if (code) connection.connect({ v: 2, type: 'joinRoom', code, profileId, ...player });
     else if (choice) {
       const selected = campaignFor(choice);
       connection.connect({
-        v: 1,
+        v: 2,
         type: 'createRoom',
+        profileId,
+        ...player,
         campaign: selected.ref,
         ...(selected.save ? { save: selected.save } : {}),
       });
@@ -71,7 +74,10 @@ const lobby = new Lobby({
   },
   ready() {
     audio.unlock();
-    connection.send({ v: 1, type: 'ready' });
+    connection.send({ v: 2, type: 'ready' });
+  },
+  start() {
+    connection.send({ v: 2, type: 'startRoom' });
   },
   solo(choice) {
     const selected = campaignFor(choice);
@@ -151,12 +157,17 @@ function showHud(s: GameState) {
   else if (p.status === 'spectator' && phase === 'playing')
     lobby.overlay('Spettatore · Rientro al prossimo livello', true);
   else if (s.mapRequest) {
-    const requester = s.mapRequest.requester === 'mario' ? 'Mario' : 'Luigi';
-    const other = s.mapRequest.requester === 'mario' ? 'Luigi' : 'Mario';
+    const requesterId = s.mapRequest.requester;
+    const requester = s.players[requesterId].nickname;
+    const waitingFor = Object.values(s.players)
+      .filter((player) => player.id !== requesterId && !s.mapRequest!.confirmed.includes(player.id))
+      .map((player) => player.nickname);
     const course = content.names?.[s.mapRequest.course] ?? s.mapRequest.course;
-    const message = s.mapRequest.requester === me
-      ? `In attesa di ${other}: ${course}\n${touchDevice.matches ? 'Tocca Annulla' : 'Invio annulla la richiesta'}`
-      : `${requester} chiede di entrare in ${course}\n${touchDevice.matches ? 'Tocca Conferma o Rifiuta' : 'Invio conferma · X rifiuta'}`;
+    const message = requesterId === me
+      ? `In attesa di ${waitingFor.join(', ')}: ${course}\n${touchDevice.matches ? 'Tocca Annulla' : 'Invio annulla la richiesta'}`
+      : s.mapRequest.confirmed.includes(me)
+        ? `Hai confermato ${course}. In attesa del gruppo.`
+        : `${requester} propone ${course}\n${touchDevice.matches ? 'Tocca Conferma o Rifiuta' : 'Invio conferma · X rifiuta'}`;
     lobby.overlay(message, true);
   }
   else lobby.overlay('');
@@ -167,7 +178,7 @@ function persistSave(campaign: CampaignRef, save: CampaignSave) {
     .catch(() => lobby.notice('Il browser non ha salvato la campagna.'));
 }
 function playGameEvent(event: GameEvent) {
-  const local = me && playback?.state?.players[me];
+  const local = me ? playback?.state?.players[me] : undefined;
   if (!event.roomId || event.roomId === local?.roomId) void audio.play(event).catch(audioError);
 }
 function updateLocalState(state: GameState) {
@@ -216,7 +227,7 @@ function startPlay() {
   const playerId = me;
   void mountGame((gameContent) => {
     const remote = new Playback(gameContent, playerId, (seq, buttons) =>
-      connection.send({ v: 1, type: 'input', seq, buttons }),
+      connection.send({ v: 2, type: 'input', seq, buttons }),
     );
     remote.pause(paused);
     if (latest) remote.receive(latest.state, latest.ack);

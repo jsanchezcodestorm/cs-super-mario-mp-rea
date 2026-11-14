@@ -60,7 +60,7 @@ export function* mapInputs(c: CampaignDefinition, state: GameState, course: stri
   }
   yield [0, 1];
   yield [Buttons.action, 1];
-  assert.deepEqual(state.mapRequest, { course, requester: navigator });
+  assert.deepEqual(state.mapRequest, { course, requester: navigator, confirmed: [navigator] });
   yield [0, 1, Buttons.action];
   assert.equal(state.phase, 'playing');
   assert.equal(state.progress.course, course);

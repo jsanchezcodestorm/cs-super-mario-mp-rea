@@ -10,10 +10,12 @@ import { RewardView } from '../apps/web/src/game/reward-view.ts';
 
 const tickFor = (native: number) => Math.ceil(native * 6 / 5);
 const atlas = JSON.parse(readFileSync('generated/actors.json', 'utf8')).frames;
+const player = (character: 'mario' | 'luigi', course: string) =>
+  initialPlayer({ id: character, nickname: character, character }, course);
 
 for (const seat of ['mario', 'luigi'] as const) {
   test(seat + ' uses the 12 E1 growth and damage steps, four star palettes and opaque i-frames', () => {
-    const p = initialPlayer(seat, '105');
+    const p = player(seat, '105');
     p.grounded = true;
     p.form = 'super';
     p.formChange = { from: 'small', to: 'super', tick: 0 };
@@ -73,7 +75,7 @@ test('block coins use separate slots and PAL Y velocities before handing off to 
 
 
 test('star sparks stay at the position of emission and expire on the shared PAL frame', () => {
-  const p = initialPlayer('luigi', '105');
+  const p = player('luigi', '105');
   p.star = 600;
   for (let tick = 1; tick <= 28; tick++) {
     p.x += 4;
@@ -95,7 +97,7 @@ test('death holds, rises 70 px, and falls past the camera before respawning in e
   const { deathPosition, departing } = await import('../apps/web/src/game/death-animation.ts');
   const curve = JSON.parse(readFileSync('generated/player-death.json', 'utf8'));
   for (const duration of [76, 228]) {
-    const p = initialPlayer('mario', '105');
+    const p = player('mario', '105');
     p.status = 'dead'; p.death = { y: 168, tick: 17, duration };
     const y = Array.from({ length: duration }, (_, i) => deathPosition(p, 17 + i, curve).y);
     assert.equal(y[0], 168);

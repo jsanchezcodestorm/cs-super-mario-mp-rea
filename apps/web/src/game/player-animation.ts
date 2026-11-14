@@ -83,5 +83,5 @@ export function frameForPlayer(p: PlayerState, tick: number) {
       cape = phase ? [5, 6, 3, 4][(phase - 1) & 3] : 0;
     }
   }
-  return p.id + '/' + form + '/' + (pose + 128 * cape);
+  return p.character + '/' + form + '/' + (pose + 128 * cape);
 }

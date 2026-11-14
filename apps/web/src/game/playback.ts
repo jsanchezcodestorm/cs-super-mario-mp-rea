@@ -61,10 +61,10 @@ export class Playback implements GameSession {
     if ((state.goalWalk && goalWalkFrame(state.goalWalk, next).finished) ||
         (state.keyholeFinish && keyholeFrame(state.keyholeFinish.tick, next).finished) ||
         (state.orbFinish && orbFinishFrame(state.orbFinish, next).finished)) return;
-    const p = state.players;
-    stepGame(this.campaign, state, {
-      mario: this.playerId === 'mario' ? buttons : p.mario.lastInput,
-      luigi: this.playerId === 'luigi' ? buttons : p.luigi.lastInput,
-    });
+    const inputs = Object.fromEntries(Object.values(state.players).map((player) => [
+      player.id,
+      player.id === this.playerId ? buttons : player.lastInput,
+    ]));
+    stepGame(this.campaign, state, inputs);
   }
 }

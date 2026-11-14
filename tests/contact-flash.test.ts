@@ -7,7 +7,7 @@ import { showHitAward } from '../packages/core/src/rewards.ts';
 import { initialPlayer } from '../packages/core/src/state.ts';
 
 test('contact smoke keeps the native origin, two-frame animation and shared OAM while points rise', () => {
-  const p = initialPlayer('luigi', '101');
+  const p = initialPlayer({ id: 'luigi', nickname: 'Luigi', character: 'luigi' }, '101');
   const state = { tick: 12, players: { luigi: p } } as GameState;
   const draws: ObjPart[] = [];
   const view = new RewardView({ textures: { get: () => ({ getSourceImage: () => ({}) }) } } as never,

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#142b33" />
     <meta
       name="description"
-      content="Gioca a Super Mario World nel browser: campagna in singolo con salvataggio locale o co-op privata con un amico. Comandi touch, tastiera e gamepad."
+      content="Gioca a Super Mario World nel browser: campagna in singolo con salvataggio locale o co-op privata fino a otto giocatori. Comandi touch, tastiera e gamepad."
     />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="it_IT" />
@@ -14,13 +14,13 @@
     <meta property="og:title" content="Gioca a Super Mario World nel browser · Solo e Co-op" />
     <meta
       property="og:description"
-      content="Esplora Dinosaur Land da solo oppure condividi la campagna con un amico, direttamente nel browser."
+      content="Esplora Dinosaur Land da solo oppure condividi la campagna con un massimo di sette amici, direttamente nel browser."
     />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Gioca a Super Mario World nel browser · Solo e Co-op" />
     <meta
       name="twitter:description"
-      content="Esplora Dinosaur Land da solo oppure condividi la campagna con un amico, direttamente nel browser."
+      content="Esplora Dinosaur Land da solo oppure condividi la campagna con un massimo di sette amici, direttamente nel browser."
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="SMW Solo e Co-op" />
@@ -48,10 +48,10 @@
         </div>
         <div class="panel">
           <div id="start-view">
-            <p class="eyebrow"><span class="pixel square"></span>UNO O DUE GIOCATORI</p>
+            <p class="eyebrow"><span class="pixel square"></span>DA UNO A OTTO GIOCATORI</p>
             <h1>Gioca in<br />Dinosaur Land<span>.</span></h1>
             <p class="lead">
-              Esplora il mondo da solo nei panni di Mario oppure condividi la campagna con un amico.
+              Esplora il mondo da solo oppure condividi la campagna con un massimo di sette amici.
             </p>
             <div class="choices" role="group" aria-label="Modalità di gioco">
               <button id="solo-tab" aria-pressed="false">Gioca da solo</button
@@ -59,6 +59,17 @@
               ><button id="join-tab" aria-pressed="false">Entra con codice</button>
             </div>
             <form id="room-form">
+              <div id="player-fields">
+                <label for="nickname">Nickname</label>
+                <input id="nickname" maxlength="24" autocomplete="nickname" placeholder="Come ti chiamano?" />
+                <div id="character-field">
+                  <label for="character">Personaggio</label>
+                  <select id="character">
+                    <option value="mario">Mario</option>
+                    <option value="luigi">Luigi</option>
+                  </select>
+                </div>
+              </div>
               <div id="save-field">
                 <label for="campaign">Campagna</label
                 ><select id="campaign">
@@ -90,9 +101,13 @@
             <h2>La tua stanza<span>.</span></h2>
             <label for="invite">Codice di invito</label>
             <div class="invite"><output id="invite"></output><button id="copy">Copia</button></div>
+            <p id="room-count" class="room-count"></p>
             <ul id="seats" class="seats"></ul>
             <button class="primary" id="ready" type="button">
               <span>Sono pronto</span><b aria-hidden="true">→</b>
+            </button>
+            <button class="primary" id="start-room" type="button" hidden>
+              <span>Avvia partita</span><b aria-hidden="true">→</b>
             </button>
             <button class="subtle" id="leave" type="button">Esci dalla stanza</button>
           </div>
@@ -114,8 +129,8 @@
         <h2 id="game-info-title">Una campagna, da soli o in compagnia</h2>
         <p>
           Esplora Dinosaur Land nel browser. In singolo, la campagna gira sul dispositivo e i progressi vengono
-          salvati localmente. In co-op, crea una stanza privata, condividi il codice con un amico e attraversate
-          insieme i livelli.
+          salvati localmente. In co-op, fino a otto giocatori possono condividere una stanza privata, scegliere
+          Mario o Luigi e riconoscersi tramite nickname.
         </p>
         <p>
           Gioca con tastiera, gamepad o comandi touch. La co-op richiede una connessione al server della stanza;

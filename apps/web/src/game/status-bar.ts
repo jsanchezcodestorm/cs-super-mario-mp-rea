@@ -48,6 +48,8 @@ export class StatusBar {
     const lives = player.lives;
     const signature = [
       player.id,
+      player.nickname,
+      player.character,
       lives,
       player.coins,
       player.score,
@@ -63,13 +65,14 @@ export class StatusBar {
       : 'vuota';
     this.canvas.setAttribute(
       'aria-label',
-      `${player.id === 'mario' ? 'Mario' : 'Luigi'}, ${lives} vite${state.mode === 'coop' ? ' condivise' : ''}, ${player.coins} monete, ${
+      `${player.nickname}, ${lives} vite${state.mode === 'coop' ? ' condivise' : ''}, ${player.coins} monete, ${
         player.score
       } punti, ${player.bonusStars} stelle bonus, tempo ${state.timeLeft}, riserva ${reserve}.`,
     );
     const ctx = this.texture.context;
     ctx.clearRect(0, 0, 256, 32);
-    ctx.drawImage(this.sheets[player.id === 'mario' ? 'base-mario' : 'base-luigi'], 0, 0);
+    ctx.drawImage(this.sheets[player.character === 'mario' ? 'base-mario' : 'base-luigi'], 0, 0);
+    this.drawNickname(ctx, player);
     this.number(lives, 32, 16, 2, 0);
     this.number(player.coins, 224, 8, 2, 0);
     this.number(player.score, 184, 16, 7, 0);
@@ -82,6 +85,16 @@ export class StatusBar {
       ctx.drawImage(this.sheets.reserve, reserveFrame[player.reserve] * 16, 0, 16, 16, 120, 8, 16, 16);
     }
     this.texture.refresh();
+  }
+  private drawNickname(ctx: CanvasRenderingContext2D, player: PlayerState) {
+    ctx.save();
+    ctx.clearRect(16, 8, 94, 8);
+    ctx.font = 'bold 7px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = player.character === 'mario' ? '#de3818' : '#5aff5a';
+    ctx.fillText(player.nickname, 17, 15, 92);
+    ctx.restore();
   }
   private number(value: number, x: number, y: number, places: number, sourceY: 0 | 8 | 16) {
     hudNumber(this.texture.context, this.sheets.digits, value, x, y, places, sourceY);

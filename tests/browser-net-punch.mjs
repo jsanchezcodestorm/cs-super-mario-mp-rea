@@ -72,6 +72,7 @@ try {
   for (const id of ids) {
     const page = await browser.newPage({ viewport: { width: 880, height: 700 } })
     const frames = new Map()
+    await page.addInitScript((profileId) => localStorage.setItem('smw.player-profile.v1', profileId), id)
     page.on('pageerror', error => errors.push(error.message))
     page.on('websocket', socket => socket.on('framereceived', ({ payload }) => {
       const message = JSON.parse(payload)
@@ -86,12 +87,17 @@ try {
     clients[id] = { page, frames, castleReady: false }
   }
   const mario = clients.mario.page, luigi = clients.luigi.page
+  await mario.locator('#nickname').fill('Mario')
+  await mario.locator('#campaign-name').fill('Net punch')
   await mario.locator('#submit').click()
   const code = await mario.locator('#invite').innerText()
   await luigi.locator('#join-tab').click()
+  await luigi.locator('#nickname').fill('Luigi')
+  await luigi.locator('#character').selectOption('luigi')
   await luigi.locator('#room-code').fill(code)
   await luigi.locator('#submit').click()
   await Promise.all(ids.map(id => clients[id].page.locator('#ready').click()))
+  await mario.locator('#start-room:not([disabled])').click()
   await Promise.all(ids.map(id => clients[id].page.locator('#screen canvas').waitFor()))
   const room = gateway.lobby.rooms.get(code)
   const state = room.state, world = { campaign, state }

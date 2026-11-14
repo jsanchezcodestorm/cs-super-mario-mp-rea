@@ -6,6 +6,7 @@ import { drawMapTiles, type MapAnimation } from './map-events';
 import { drawMapPlayers, mapActors } from './map-player';
 import { HEIGHT, WIDTH } from './terrain-view';
 import { touchDevice } from '../ui/touch-hud';
+import { drawPlayerNameplates } from './player-nameplates';
 
 export type WorldNodes = Record<string, OverworldNode>;
 
@@ -25,7 +26,7 @@ function mapCommands(campaign: CampaignDefinition, state: GameState, id: string,
     .map(direction => directions[direction]);
   const commands: string[] = [];
   if (state.mapReply && state.mapReply.player !== localId && state.tick - state.mapReply.tick <= 120) {
-    const other = state.mapReply.player === 'mario' ? 'Mario' : 'Luigi';
+    const other = state.players[state.mapReply.player].nickname;
     return `${other} ha rifiutato · ${touchDevice.matches ? 'tocca Chiedi' : 'Z/Invio per riprovare'}`;
   }
   if (arrows.length) commands.push(arrows.join(' ') + ' Percorri');
@@ -138,6 +139,12 @@ export class OverworldView {
         ...actor,
         x: Math.round(actor.x - cameraX),
         y: Math.round(actor.y + yOffset),
+      })));
+      drawPlayerNameplates(ctx, visibleActors.map((actor) => ({
+        id: actor.id,
+        nickname: state.players[actor.id].nickname,
+        x: actor.x - cameraX,
+        top: actor.y + yOffset - 24,
       })));
       drawMapDecorations(this.scene, ctx, decorations, xOffset, yOffset, true);
       ctx.restore();

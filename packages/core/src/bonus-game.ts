@@ -1,5 +1,5 @@
 import type { World, PlayerState, PlayerId } from './types.ts'
-import { activePlayerIds, playerIds } from './types.ts'
+import { activePlayerIds } from './types.ts'
 import { emit, enterRoom, spawnEntity } from './state.ts'
 
 export interface BonusSlot {
@@ -62,13 +62,8 @@ function movePlayers(world: World, bonus: BonusGame) {
   world.state.tileChanges = {}
   world.state.turning = []
   delete world.state.shatteredBlocks
-  const activePlayers = activePlayerIds(world.state)
-  for (const id of playerIds) {
+  for (const id of activePlayerIds(world.state)) {
     const p = world.state.players[id]
-    if (!activePlayers.includes(id)) {
-      p.status = 'spectator'
-      continue
-    }
     p.status = p.lives > 0 || (world.state.mode === 'coop' && p.status !== 'spectator') ? 'alive' : 'spectator'
     p.height = p.form === 'small' ? 16 : 28
     p.carrying = null
@@ -200,7 +195,7 @@ export function validBonus(data: unknown, levels: World['campaign']['levels']): 
   if (
     !['000', '100'].includes(b.roomId) ||
     !levels[b.roomId] ||
-    !playerIds.includes(b.owner) ||
+    typeof b.owner !== 'string' || b.owner.length === 0 || b.owner.length > 128 ||
     !numberIn(b.age, 0, 1e9) ||
     !Array.isArray(b.slots) ||
     b.slots.length !== 9

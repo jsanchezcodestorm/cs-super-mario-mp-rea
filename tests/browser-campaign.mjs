@@ -22,7 +22,8 @@ try {
     guest = await browser.newPage();
   const errors = [];
   let snapshot;
-  for (const p of [host, guest]) {
+  for (const [index, p] of [host, guest].entries()) {
+    await p.addInitScript((id) => localStorage.setItem('smw.player-profile.v1', id), index === 0 ? 'mario' : 'luigi');
     p.on('pageerror', (err) => errors.push(err.message));
     p.on('response', (r) => {
       if (r.status() >= 400) errors.push(r.status() + ' ' + r.url());
@@ -64,12 +65,16 @@ try {
     );
     await host.reload();
     await host.locator('#campaign').selectOption('saved');
+    await host.locator('#nickname').fill('Mario');
     await host.locator('#submit').click();
     await host.locator('#invite').waitFor();
     await guest.locator('#join-tab').click();
+    await guest.locator('#nickname').fill('Luigi');
+    await guest.locator('#character').selectOption('luigi');
     await guest.locator('#room-code').fill(await host.locator('#invite').innerText());
     await guest.locator('#submit').click();
     await Promise.all([host, guest].map((p) => p.locator('#ready').click()));
+    await host.locator('#start-room:not([disabled])').click();
   }
   await openSavedCampaign(makeSave(state));
   await until((s) => s.phase === 'map', 'saved map');

@@ -128,11 +128,11 @@ export class CastView {
       draw(e.id, pose.frame, anchor.x, anchor.y, boss ? boss.flipX : mirrorEntity(e), 1, pose.texture,
         flipY, order, emerging ? 1 : undefined);
     }
-    for (const p of [state.players.luigi, state.players.mario]) {
+    for (const p of Object.values(state.players)) {
       if (p.roomId !== stage.id) continue;
       if (departing(p, state.tick)) {
         const point = deathPosition(p, state.tick, this.scene.cache.json.get('death-arc'));
-        draw(p.id, p.id + '/small/62', point.x + p.width / 2, point.y + 16, point.flip);
+        draw(p.id, p.character + '/small/62', point.x + p.width / 2, point.y + 16, point.flip);
         continue;
       }
       if (p.status === 'spectator') continue;

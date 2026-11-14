@@ -1,4 +1,4 @@
-import { departing } from './death-animation';
+import { departing, deathPosition } from './death-animation';
 import Phaser from 'phaser';
 import { goalCoinHud, goalWalkFrame, keyholeFrame, scrollingCamera } from '@smw/core';
 import { drawKeyhole } from './keyhole-view';
@@ -21,6 +21,7 @@ import { drawOrbFinish } from './orb-finish-view';
 import { GoalFade } from './goal-fade';
 import { drawGoalIris } from './goal-iris';
 import { SceneTransition } from './scene-transition';
+import { drawPlayerNameplates } from './player-nameplates';
 import type { Content } from './content';
 import type { GameSession } from './playback';
 
@@ -119,8 +120,7 @@ export class WorldScene extends Phaser.Scene {
     this.map.hide();
     const localId = this.live.playerId;
     const local = state.players[localId];
-    const peerId = localId === 'mario' ? 'luigi' : 'mario';
-    const peer = state.players[peerId];
+    const peer = Object.values(state.players).find((player) => player.id !== localId && player.status === 'alive') ?? local;
     const finisher = state.goalWalk?.finisher ?? hole?.finisher ?? orb?.finisher;
     const focus = finisher ? state.players[finisher] :
       local.status === 'spectator' && !departing(local, state.tick) ? peer : local;
@@ -169,6 +169,19 @@ export class WorldScene extends Phaser.Scene {
       this.statusBar.paint(this.terrain.context, local, state);
       drawKeyhole(this.terrain.context, hole, state.tick, camera, this.cache.json.get('goal-fade').keyhole, this.objects);
     }
+    drawPlayerNameplates(this.terrain.context, Object.values(state.players)
+      .filter((player) => player.roomId === stage.id && player.status !== 'spectator')
+      .map((player) => {
+        const position = departing(player, state.tick)
+          ? deathPosition(player, state.tick, this.cache.json.get('death-arc'))
+          : player;
+        return {
+          id: player.id,
+          nickname: player.nickname,
+          x: position.x + player.width / 2 - camera.x,
+          top: position.y - camera.y,
+        };
+      }));
     this.terrain.refresh();
     const bowser = stage.specialMode7 && stage.sprites.some((s) => s.spriteId === 0xa0);
     if (state.goalWalk || hole || orb) return;

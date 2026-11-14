@@ -269,6 +269,13 @@ label {
 #campaign-name {
   text-transform: none;
 }
+#nickname {
+  text-transform: none;
+  margin-bottom: 12px;
+}
+#character-field {
+  margin-bottom: 14px;
+}
 .primary {
   width: 100%;
   margin-top: 14px;
@@ -335,6 +342,8 @@ label {
   list-style: none;
   padding: 0;
   margin: 18px 0;
+  max-height: min(42vh, 360px);
+  overflow-y: auto;
 }
 .seats li {
   display: flex;
@@ -357,6 +366,11 @@ label {
   margin-left: auto;
   font-size: 11px;
   color: #49594b;
+}
+.room-count {
+  color: #49594b;
+  font-size: 12px;
+  margin: 16px 0 -8px;
 }
 .controls {
   display: flex;

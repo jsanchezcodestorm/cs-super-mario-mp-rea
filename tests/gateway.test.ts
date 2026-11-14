@@ -26,14 +26,14 @@ function peer(url: string) {
     }
     throw Error('Timeout ' + type + ': ' + messages.map((m) => m.type).slice(-5));
   }
-  return { ws, take, send: (m: object) => ws.send(JSON.stringify({ v: 1, ...m })) };
+  return { ws, take, send: (m: object) => ws.send(JSON.stringify({ v: 2, ...m })) };
 }
 
 test('reject invalid or unversioned input frames', () => {
   for (const m of [
-    { v: 2, type: 'ready' },
-    { v: 1, type: 'input', seq: 1, buttons: -1 },
-    { v: 1, type: 'resume', code: 'AAAAAA', token: 'x' },
+    { v: 1, type: 'ready' },
+    { v: 2, type: 'input', seq: 1, buttons: -1 },
+    { v: 2, type: 'resume', code: 'AAAAAA', token: 'x' },
   ])
     assert.throws(() => parseMessage(JSON.stringify(m)));
 });
@@ -49,7 +49,7 @@ test('two network seats share authoritative state across disconnect and reconnec
   t.after(() => gateway.stop());
   const host = peer(url);
   await once(host.ws, 'open');
-  host.send({ type: 'createRoom' });
+  host.send({ type: 'createRoom', profileId: 'mario', nickname: 'Mario', character: 'mario' });
   const first = await host.take('joined');
   host.ws.close();
   await once(host.ws, 'close');
@@ -58,15 +58,23 @@ test('two network seats share authoritative state across disconnect and reconnec
   await Promise.all([once(a.ws, 'open'), once(b.ws, 'open')]);
   a.send({ type: 'resume', code: first.code, token: first.token });
   await a.take('roomState', (m) => m.status === 'waiting' && m.expiresAt === null);
-  b.send({ type: 'joinRoom', code: first.code });
+  b.send({ type: 'joinRoom', code: first.code, profileId: 'luigi', nickname: 'Luigi', character: 'luigi' });
   const second = await b.take('joined');
   assert.equal(second.playerId, 'luigi');
   a.send({ type: 'ready' });
   b.send({ type: 'ready' });
+  await a.take('roomState', (m) => m.players.length === 2 && m.players.every((player) => player.ready));
+  a.send({ type: 'startRoom' });
   await a.take('roomState', (m) => m.status === 'playing');
   const c = peer(url);
   await once(c.ws, 'open');
-  c.send({ type: 'joinRoom', code: first.code });
+  c.send({
+    type: 'joinRoom',
+    code: first.code,
+    profileId: 'profile-3',
+    nickname: 'Giocatore 3',
+    character: 'mario',
+  });
   assert.match((await c.take('error')).message, /piena/);
   c.ws.close();
   a.send({ type: 'input', seq: 7, buttons: Buttons.right });

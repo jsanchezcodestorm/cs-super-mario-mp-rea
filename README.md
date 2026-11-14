@@ -1,6 +1,6 @@
 # Super Mario World da solo o in cooperativa
 
-Una o due persone giocano sulla stessa cartuccia europea 1.1 ricostruita per il browser. In singolo Mario controlla la campagna locale senza una connessione al server; in cooperativa ciascuno controlla un personaggio con la propria telecamera e un server Node gestisce tramite WebSocket i due giocatori, i nemici, le collisioni e la progressione della stanza.
+Da uno a otto giocatori possono esplorare la stessa cartuccia europea 1.1 ricostruita per il browser. In singolo Mario controlla la campagna locale senza una connessione al server; in cooperativa ciascuno sceglie Mario o Luigi, imposta il proprio nickname e gioca con la propria telecamera. Un server Node gestisce tramite WebSocket i giocatori, i nemici, le collisioni e la progressione della stanza.
 
 ## Giocare
 
@@ -12,7 +12,7 @@ npm run build
 npm start
 ```
 
-Apri [il gioco in locale](http://127.0.0.1:8787). Mario crea una stanza, Luigi sceglie **Entra con codice** e inserisce i sei caratteri mostrati a Mario. Entrambi selezionano **Sono pronto**. Per provare da un solo computer puoi usare due finestre indipendenti.
+Apri [il gioco in locale](http://127.0.0.1:8787). Ogni partecipante inserisce un nickname e sceglie Mario o Luigi. Chi ospita crea una stanza; gli altri scelgono **Entra con codice** e inseriscono i sei caratteri d’invito. Quando tutti hanno selezionato **Sono pronto**, chi ospita avvia la partita. Per provare da un solo computer puoi usare finestre indipendenti.
 
 Per giocare da soli seleziona **Gioca da solo**. La simulazione gira nel browser e controlli Mario sulla mappa e nei livelli; non serve creare una stanza. Puoi iniziare una nuova campagna o riprendere il salvataggio locale.
 
@@ -29,9 +29,9 @@ Su un gamepad standard, i pulsanti frontali **sinistro e superiore** corrispondo
 
 Premi **Su** per aggrapparti a una grata, a una liana o a una corda mobile. Puoi lasciare le frecce e restare appeso. Sulle grate usa **Sinistra** e **Destra** per spostarti alla stessa altezza e **X** per colpire una porta girevole. Per saltare via usa **Z** o **Spazio**.
 
-Il client accetta anche un gamepad con mappatura standard del browser. In cooperativa la campagna si apre sulla mappa quando entrambi sono pronti. Mario e Luigi si muovono con i rispettivi controller. Un giocatore propone il corso e il compagno conferma l’ingresso. Il checkpoint e l’uscita raggiunta da uno valgono per entrambi. La squadra parte con 10 vite condivise; i bonus aggiungono vite allo stesso totale, mostrato su entrambe le barre SNES. Potenziamenti e riserva restano personali. Colpire il nastro al traguardo assegna stelle secondo l’altezza e a 100 stelle si entra nel minigioco bonus. Chi esaurisce le vite segue il compagno e rientra al corso successivo con una vita condivisa.
+Il client accetta anche un gamepad con mappatura standard del browser. In cooperativa la campagna si apre sulla mappa dopo l’avvio dell’ospite. Ogni personaggio mostra il nickname scelto dal giocatore. Un giocatore propone il corso e tutti gli altri confermano l’ingresso. Il checkpoint e l’uscita raggiunta da uno valgono per il gruppo. La squadra parte con 10 vite condivise; i bonus aggiungono vite allo stesso totale, mostrato sulle barre SNES. Potenziamenti e riserva restano personali. Colpire il nastro al traguardo assegna stelle secondo l’altezza e a 100 stelle si entra nel minigioco bonus. Chi esaurisce le vite segue il gruppo e rientra al corso successivo con una vita condivisa.
 
-Il server congela la simulazione quando uno dei due si disconnette. La stessa scheda può rientrare entro 60 secondi. Ogni browser conserva la campagna in IndexedDB ai checkpoint e ai cambi di fase. Per continuare dopo la chiusura della stanza, crea una stanza scegliendo **Riprendi campagna salvata**. Le stanze attive vivono nella memoria del processo.
+Il server congela la simulazione quando un giocatore si disconnette. Lo stesso browser può rientrare entro 60 secondi. Ogni browser conserva la campagna in IndexedDB ai checkpoint e ai cambi di fase. Per continuare dopo la chiusura della stanza, crea una stanza scegliendo **Riprendi campagna salvata**. Le stanze attive vivono nella memoria del processo.
 
 ## Rigenerare i dati da una nuova copia Git
 
@@ -55,7 +55,7 @@ Con una sola ROM nella radice basta `npm run extract`. Il primo avvio dell’est
 
 ## Runtime e verifica
 
-`packages/core` contiene la simulazione TypeScript deterministica. `packages/protocol` definisce i messaggi versionati. `apps/server` avanza a 60 tick/s, accetta i comandi numerati e invia snapshot a 30 Hz. `apps/web` usa Phaser, riconcilia gli input con gli snapshot del server e disegna entrambi i personaggi, le piattaforme e il terreno allo stesso tick della simulazione locale.
+`packages/core` contiene la simulazione TypeScript deterministica. `packages/protocol` definisce i messaggi versionati. `apps/server` avanza a 60 tick/s, accetta i comandi numerati e invia snapshot a 30 Hz. `apps/web` usa Phaser, riconcilia gli input con gli snapshot del server e disegna tutti i giocatori, i nickname, le piattaforme e il terreno allo stesso tick della simulazione locale.
 
 ```sh
 npm test
@@ -66,7 +66,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Il test browser apre due sessioni Chromium separate, crea una stanza, verifica il movimento dell’altro personaggio e ricarica una pagina per controllare la riconnessione. Una seconda prova ripristina un salvataggio sulla mappa e verifica che entrambi i browser registrino l’uscita del Palazzo Giallo quando Luigi preme l’interruttore in un’altra stanza. Le schermate sono in `test-results/`. I test del simulatore esercitano anche checkpoint, vite, porte, tubi, chiavi, interruttori e salvataggi. I replay in `tests/course-inputs.json` percorrono 13 corsi ciascuno dal proprio ingresso, inclusi tutti i livelli di Yoshi’s Island, Iggy e la Back Door fino alla sconfitta di Bowser. Il replay del finale verifica anche la durata dei titoli di coda.
+Il test browser apre due sessioni Chromium separate, crea una stanza, verifica il movimento dell’altro personaggio e ricarica una pagina per controllare la riconnessione. Una seconda prova ripristina un salvataggio sulla mappa e verifica che entrambi i browser registrino l’uscita del Palazzo Giallo quando un giocatore preme l’interruttore in un’altra stanza. `tests/multiplayer-eight.test.ts` verifica il roster da otto giocatori, il rifiuto del nono ingresso e la migrazione dei salvataggi precedenti. Le schermate browser sono in `test-results/`. I test del simulatore esercitano anche checkpoint, vite, porte, tubi, chiavi, interruttori e salvataggi. I replay in `tests/course-inputs.json` percorrono 13 corsi ciascuno dal proprio ingresso, inclusi tutti i livelli di Yoshi’s Island, Iggy e la Back Door fino alla sconfitta di Bowser. Il replay del finale verifica anche la durata dei titoli di coda.
 
 I replay in `tests/coop-routes` percorrono le **72 uscite normali e le 24 segrete** con i controller di Mario e Luigi. La prova cumulativa parte da una mappa nuova, raccoglie potenziamenti nel gioco, attiva i quattro palazzi e conserva in ordine uscite, vite e risorse. Include il minigioco bonus e il rientro dopo un Game Over. I due percorsi aggiuntivi dalla Front Door e dalla Back Door arrivano a Bowser e mantengono il contatore a 96.
 
@@ -82,4 +82,4 @@ Avvia il server sul computer che ospita la partita, indicando l’interfaccia di
 HOST=0.0.0.0 PORT=8787 npm start
 ```
 
-Entrambi i giocatori aprono lo stesso indirizzo LAN, per esempio `http://192.168.1.20:8787`. Con un reverse proxy HTTPS, inoltra anche l’upgrade WebSocket su `/ws`, conserva l’header `Host` e configura l’accesso privato sul proxy o sulla VPN. Il codice stanza assegna il secondo posto. Il processo serve il client compilato e la directory `generated`.
+Fino a otto giocatori aprono lo stesso indirizzo LAN, per esempio `http://192.168.1.20:8787`, e scelgono nickname e personaggio. Con un reverse proxy HTTPS, inoltra anche l’upgrade WebSocket su `/ws`, conserva l’header `Host` e configura l’accesso privato sul proxy o sulla VPN. Il codice stanza consente agli altri sette giocatori di unirsi all’ospite. Il processo serve il client compilato e la directory `generated`.

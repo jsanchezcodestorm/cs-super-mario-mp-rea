@@ -6,7 +6,7 @@ export type Poses = {
   idle: Record<string, number>;
   paths: Record<string, Record<OverworldCommand, [frame: number, pose: number][]>>;
 };
-export type MapActorView = { id: PlayerId; region: number; x: number; y: number; pose: number; phase: number };
+export type MapActorView = { id: PlayerId; character: 'mario' | 'luigi'; region: number; x: number; y: number; pose: number; phase: number };
 
 export function preloadMapPlayers(scene: Phaser.Scene) {
   scene.load.json('map-poses', '/assets/world/poses.json');
@@ -16,11 +16,11 @@ export function preloadMapPlayers(scene: Phaser.Scene) {
 
 export function mapPlayerFrame(
   poses: Poses,
-  id: PlayerId,
+  character: 'mario' | 'luigi',
   travel: GameState['mapPlayers'][PlayerId]['travel'],
   frame: number,
 ) {
-  let pose = poses.idle[id];
+  let pose = poses.idle[character];
   if (travel) {
     const changes = poses.paths[travel.from][travel.command];
     const elapsed = palFrame(travel.elapsed);
@@ -50,8 +50,8 @@ export function mapActors(
       if (!edge) throw Error('Tratto assente nella mappa della ROM: ' + view.travel.from + '/' + view.travel.command);
       position = pathPosition(edge, view.travel.elapsed, view.travel.command);
     }
-    const actor = mapPlayerFrame(poses, id, view.travel, frame);
-    return { id, ...position, pose: actor.pose, phase: actor.phase };
+    const actor = mapPlayerFrame(poses, state.players[id].character, view.travel, frame);
+    return { id, character: state.players[id].character, ...position, pose: actor.pose, phase: actor.phase };
   });
 }
 
@@ -64,14 +64,18 @@ export function drawMapPlayers(
   const ids = activePlayerIds(state);
   const frames = scene.cache.json.get('map-players') as Record<string, number[][]>;
   const image = scene.textures.get('map-player-tiles').getSourceImage() as HTMLImageElement;
-  for (const actor of actors) {
+  const groups = actors.map((actor) => ({
+    actor,
+    peers: actors.filter((peer) => Math.abs(peer.x - actor.x) < 16 && Math.abs(peer.y - actor.y) < 16)
+      .sort((a, b) => a.id.localeCompare(b.id)),
+  }));
+  for (const { actor, peers } of groups) {
     const { id, pose, phase } = actor;
     if (!ids.includes(id) || pose < 0) continue; // A pipe hides only its traveling player.
-    const overlaps = actors.some(peer => peer.id !== id && Math.abs(peer.x - actor.x) < 16 && Math.abs(peer.y - actor.y) < 16);
-    const separation = overlaps ? (id === 'mario' ? -8 : 8) : 0;
+    const separation = peers.length > 1 ? (peers.findIndex((peer) => peer.id === id) - (peers.length - 1) / 2) * 8 : 0;
     const player = state.players[id];
     const mount = player.mounted ? player.yoshiColor : 'foot';
-    const tile = frames[id+'/'+mount][pose >> 1][phase];
+    const tile = frames[actor.character+'/'+mount][pose >> 1][phase];
     ctx.drawImage(image, (tile % 16)*32, (tile >> 4)*32, 32, 32, actor.x+separation-16, actor.y-24, 32, 32);
   }
 }

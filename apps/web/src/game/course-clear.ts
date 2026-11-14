@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { goalWalkFrame, type GameState, type PlayerId } from '@smw/core';
+import { goalWalkFrame, type GameState, type PlayerCharacter } from '@smw/core';
 import { hudNumber } from './hud-number';
 
 type Walk = NonNullable<GameState['goalWalk']>;
@@ -28,15 +28,15 @@ export function drawCourseClear(
   const view = goalCounters(walk, age, state.timeLeft);
   if (age >= 161) {
     const bonus = walk.stars !== 0 && age >= 202;
-    drawClearPanel(scene, ctx, walk.finisher, state.timeLeft, view.remaining, bonus ? view.stars : undefined);
+    drawClearPanel(scene, ctx, walk.character, state.timeLeft, view.remaining, bonus ? view.stars : undefined);
   }
   return view;
 }
 
-export function drawClearPanel(scene: Phaser.Scene, ctx: CanvasRenderingContext2D, player: PlayerId,
+export function drawClearPanel(scene: Phaser.Scene, ctx: CanvasRenderingContext2D, character: PlayerCharacter,
   time: number, remaining: number, stars?: number) {
   const h = stars === undefined ? 48 : 72;
-  const art = scene.textures.get('hud/course-' + player).getSourceImage() as HTMLImageElement;
+  const art = scene.textures.get('hud/course-' + character).getSourceImage() as HTMLImageElement;
   const digits = scene.textures.get('hud/digits').getSourceImage() as HTMLImageElement;
   ctx.drawImage(art, 0, 0, 112, h, 72, 56, 112, h);
   hudNumber(ctx, digits, time, 80, 96, 3, 0);

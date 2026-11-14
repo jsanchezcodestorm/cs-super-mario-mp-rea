@@ -65,7 +65,7 @@ class Client {
   async input(buttons: number) {
     if (buttons === this.buttons) return;
     this.buttons = buttons;
-    await this.send({ v: 1, type: 'input', buttons, seq: ++this.seq });
+    await this.send({ v: 2, type: 'input', buttons, seq: ++this.seq });
   }
 }
 
@@ -80,11 +80,12 @@ export async function openTestRoom(campaign: CampaignDefinition, save?: Campaign
   const url = 'ws://127.0.0.1:' + address.port;
   const mario = new Client(url), luigi = new Client(url);
   await Promise.all([mario, luigi].map((c) => once(c.socket, 'open')));
-  await mario.send({ v: 1, type: 'createRoom', save });
-  await luigi.send({ v: 1, type: 'joinRoom', code: mario.joined!.code });
+  await mario.send({ v: 2, type: 'createRoom', profileId: 'mario', nickname: 'Mario', character: 'mario', save });
+  await luigi.send({ v: 2, type: 'joinRoom', code: mario.joined!.code, profileId: 'luigi', nickname: 'Luigi', character: 'luigi' });
   assert.equal(mario.joined!.playerId, 'mario');
   assert.equal(luigi.joined!.playerId, 'luigi');
-  await Promise.all([mario, luigi].map((c) => c.send({ v: 1, type: 'ready' })));
+  await Promise.all([mario, luigi].map((c) => c.send({ v: 2, type: 'ready' })));
+  await mario.send({ v: 2, type: 'startRoom' });
   const room = lobby.rooms.get(mario.joined!.code)!;
   assert.ok(room.state);
   async function drive(a: number, b: number, frames = 1) {

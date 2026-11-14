@@ -1,6 +1,6 @@
 import { beginBonus, resumeBonus, validBonus } from './bonus-game.ts'
 import { beginGoalWalk, type GoalAward } from './goal-walk.ts'
-import { activePlayerIds, Buttons, playerIds } from './types.ts'
+import { activePlayerIds, Buttons, MAX_MULTIPLAYER_PLAYERS, playerIds, playerCharacters } from './types.ts'
 import { beginOverworldTravel, navigateOverworld, resetMapPlayers } from './overworld.ts'
 import type {
   World,
@@ -12,6 +12,9 @@ import type {
   ExitKind,
   InputFrame,
   PlayerId,
+  PlayerProfile,
+  PlayerResources,
+  PlayerCharacter,
 } from './types.ts'
 import { enterRoom, emit, initialCourses, initialPlayer } from './state.ts'
 import { awardLives, setSharedLives } from './lives.ts'
@@ -36,7 +39,7 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   const checkpoint = state.progress.checkpoint
   const intro = !checkpoint && world.campaign.entranceInputs ? world.campaign.levels[course].intro : undefined
   state.entrance = intro
-    ? { frame: 0, mounted: { mario: state.players.mario.mounted, luigi: state.players.luigi.mounted } }
+    ? { frame: 0, mounted: Object.fromEntries(activePlayerIds(state).map((id) => [id, state.players[id].mounted])) }
     : null
   state.courseCoins = 0
   state.layerOffsets = {}
@@ -57,13 +60,9 @@ export function startCourse(world: World, course: string, resumeCheckpoint = fal
   state.timeLeft = world.campaign.levels[course].timeLimit ?? 400
   const activePlayers = activePlayerIds(state)
   if (state.mode === 'coop' && !resumeCheckpoint && (state.sharedLives ?? 0) === 0)
-    awardLives(state, state.players.mario, 1)
-  for (const id of playerIds) {
+    awardLives(state, state.players[activePlayers[0]], 1)
+  for (const id of activePlayers) {
     const p = state.players[id]
-    if (!activePlayers.includes(id)) {
-      p.status = 'spectator'
-      continue
-    }
     if (state.mode !== 'coop' && p.lives === 0 && !resumeCheckpoint) {
       p.lives = 1
       p.form = 'small'
@@ -94,9 +93,16 @@ export function createGame(
   campaign: CampaignDefinition,
   save?: CampaignSave | null,
   mode: GameMode = 'coop',
+  roster: PlayerProfile[] = mode === 'solo'
+    ? [{ id: 'mario', nickname: 'Mario', character: 'mario' }]
+    : [
+        { id: 'mario', nickname: 'Mario', character: 'mario' },
+        { id: 'luigi', nickname: 'Luigi', character: 'luigi' },
+      ],
 ): GameState {
   if (!Object.hasOwn(campaign.levels, campaign.start)) throw new Error('Campaign start room missing')
   if (save && !validateSave(campaign, save)) throw new Error('Invalid campaign save')
+  validateRoster(roster)
   const unlocked = initialCourses(campaign)
   const progress = save
     ? structuredClone(save.progress)
@@ -107,34 +113,40 @@ export function createGame(
         selection: unlocked.indexOf(campaign.start),
         checkpoint: null,
       }
-  const players = {
-    mario: initialPlayer('mario', progress.course),
-    luigi: initialPlayer('luigi', progress.course),
-  }
-  if (save)
-    for (const id of playerIds) {
-      const { lives, coins, form, mounted, yoshiColor, reserve, score, bonusStars } = save.resources[id]
-      const player = players[id]
-      Object.assign(player, { lives, coins, form, mounted })
-      if (yoshiColor !== undefined) player.yoshiColor = yoshiColor
-      if (reserve !== undefined) player.reserve = reserve
-      if (score !== undefined) player.score = score
-      if (bonusStars !== undefined) player.bonusStars = bonusStars
+  const migrated = save ? migrateCampaignSave(save, roster) : undefined
+  const savedResources = { ...(migrated?.resources ?? {}) }
+  const legacyResources = { ...(migrated?.legacyResources ?? {}) }
+  const savedMapPlayers = { ...(migrated?.mapPlayers ?? {}) }
+  for (const profile of roster) {
+    if (savedResources[profile.id] || !legacyResources[profile.character]) continue
+    savedResources[profile.id] = legacyResources[profile.character]!
+    delete legacyResources[profile.character]
+    const legacyPosition = savedMapPlayers['legacy:' + profile.character]
+    if (legacyPosition) {
+      savedMapPlayers[profile.id] = legacyPosition
+      delete savedMapPlayers['legacy:' + profile.character]
     }
-  const sharedLives = mode === 'coop'
-    ? Math.min(99, save?.sharedLives ?? (save
-      ? save.resources.mario.lives + save.resources.luigi.lives
-      : players.mario.lives + players.luigi.lives))
-    : undefined
+  }
+  const players = Object.fromEntries(roster.map((profile) => {
+    const player = initialPlayer(profile, progress.course)
+    const resource = savedResources[profile.id]
+    if (resource) Object.assign(player, resource)
+    return [profile.id, player]
+  })) as GameState['players']
+  const sharedLives = mode === 'coop' ? Math.min(99, migrated?.sharedLives ?? 10) : undefined
+  const defaultStop = migrated?.mapStop ?? progress.unlocked[progress.selection]
   const state: GameState = {
     mode,
     ...(sharedLives === undefined ? {} : { sharedLives }),
     tick: 0,
     phase: save?.phase ?? 'map',
-    mapPlayers: {
-      mario: { stop: save?.mapPlayers?.mario ?? save?.mapStop ?? progress.unlocked[progress.selection] },
-      luigi: { stop: save?.mapPlayers?.luigi ?? save?.mapStop ?? progress.unlocked[progress.selection] },
-    },
+    mapPlayers: Object.fromEntries(roster.map((profile) => [
+      profile.id,
+      { stop: savedMapPlayers[profile.id] ?? defaultStop },
+    ])),
+    savedMapPlayers,
+    savedResources,
+    ...(Object.keys(legacyResources).length ? { legacyResources } : {}),
     players,
     entities: [],
     nextEntity: 0,
@@ -152,23 +164,16 @@ export function createGame(
     timeLeft: 400,
   }
   if (sharedLives !== undefined) setSharedLives(state, sharedLives)
-  const soloOutOfLives = mode === 'solo' && state.players.mario.lives === 0;
-  if (mode === 'solo') state.players.luigi.status = 'spectator'
-  if (mode === 'coop' && sharedLives === 0 && save?.spectators)
-    for (const id of playerIds) state.players[id].status = save.spectators.includes(id) ? 'spectator' : 'alive'
-  if (mode === 'coop' && sharedLives === 0 && !save?.spectators)
-    for (const id of playerIds) state.players[id].status = 'spectator'
-  if (mode === 'coop' && sharedLives === 0 && save?.phase === 'gameOver')
-    for (const id of playerIds) state.players[id].status = 'spectator'
+  const soloOutOfLives = mode === 'solo' && state.players[roster[0].id].lives === 0;
+  if (mode === 'coop' && sharedLives === 0)
+    for (const id of activePlayerIds(state)) state.players[id].status = 'spectator'
   if (soloOutOfLives && save?.phase === 'playing') state.phase = 'gameOver'
   if (save?.bonus && !soloOutOfLives) resumeBonus({ campaign, state }, save.bonus)
   else if (save?.phase === 'playing' && !soloOutOfLives) {
     startCourse({ campaign, state }, progress.course, true)
     if (mode === 'coop' && sharedLives === 0) {
-      const spectators = save.spectators ?? playerIds
-      for (const id of playerIds)
-        state.players[id].status = spectators.includes(id) ? 'spectator' : 'alive'
-      if (playerIds.every((id) => state.players[id].status === 'spectator')) state.phase = 'gameOver'
+      for (const id of activePlayerIds(state)) state.players[id].status = 'spectator'
+      state.phase = 'gameOver'
     }
   }
   return state
@@ -239,28 +244,75 @@ export function returnToMap(state: GameState, inputs: InputFrame) {
 }
 export function makeSave(state: GameState): CampaignSave {
   const bonus = state.bonus ?? state.goalWalk?.bonus ?? state.orbFinish?.bonus
-  const sharedLives = state.sharedLives ?? Math.min(99, state.players.mario.lives + state.players.luigi.lives)
+  const ids = activePlayerIds(state)
+  const sharedLives = state.sharedLives ?? Math.min(99, state.players[ids[0]]?.lives ?? 0)
   const resources = (id: PlayerId) => {
     const { form, lives, coins, mounted, yoshiColor, reserve, score, bonusStars } = state.players[id]
     return { form, lives, coins, mounted, yoshiColor, reserve, score, bonusStars }
   }
+  const savedResources = { ...(state.savedResources ?? {}) }
+  for (const id of ids) savedResources[id] = resources(id)
+  const savedMapPlayers = { ...(state.savedMapPlayers ?? {}) }
+  if (state.phase === 'map' && !bonus)
+    for (const id of ids)
+      savedMapPlayers[id] = state.mapPlayers[id].travel?.to ?? state.mapPlayers[id].stop
   return {
-    version: 1,
+    version: 2,
     ...(state.mode === 'coop' ? {
       sharedLives,
       ...(sharedLives === 0
-        ? { spectators: playerIds.filter((id) => state.players[id].status === 'spectator') }
+        ? { spectators: ids.filter((id) => state.players[id].status === 'spectator') }
         : {}),
     } : {}),
     ...(state.phase === 'map' && !bonus ? {
-      mapPlayers: Object.fromEntries(
-        playerIds.map((id) => [id, state.mapPlayers[id].travel?.to ?? state.mapPlayers[id].stop]),
-      ) as Record<PlayerId, string>,
+      mapPlayers: savedMapPlayers,
     } : {}),
+    ...(state.legacyResources && Object.keys(state.legacyResources).length
+      ? { legacyResources: structuredClone(state.legacyResources) }
+      : {}),
     ...(bonus ? { bonus: structuredClone(bonus) } : {}),
     phase: bonus ? 'playing' : state.phase,
     progress: structuredClone(state.progress),
-    resources: { mario: resources('mario'), luigi: resources('luigi') },
+    resources: savedResources,
+  }
+}
+
+export function migrateCampaignSave(save: CampaignSave, roster: PlayerProfile[]): CampaignSave {
+  if (save.version === 2) return structuredClone(save)
+  const resources: Record<PlayerId, PlayerResources> = {}
+  const mapPlayers: Record<PlayerId, string> = {}
+  const legacyResources: Partial<Record<PlayerCharacter, PlayerResources>> = {}
+  for (const character of playerCharacters) {
+    const profile = roster.find((candidate) => candidate.character === character)
+    const resource = save.resources[character]
+    if (profile) resources[profile.id] = structuredClone(resource)
+    else legacyResources[character] = structuredClone(resource)
+    const position = save.mapPlayers?.[character]
+    if (position) mapPlayers[profile?.id ?? 'legacy:' + character] = position
+  }
+  const previousLives = playerCharacters.reduce((total, character) => total + (save.resources[character]?.lives ?? 0), 0)
+  return {
+    ...structuredClone(save),
+    version: 2,
+    sharedLives: save.sharedLives ?? Math.min(99, previousLives),
+    resources,
+    ...(Object.keys(legacyResources).length ? { legacyResources } : {}),
+    ...(Object.keys(mapPlayers).length ? { mapPlayers } : {}),
+  }
+}
+
+function validateRoster(roster: PlayerProfile[]) {
+  if (!Array.isArray(roster) || roster.length < 1 || roster.length > MAX_MULTIPLAYER_PLAYERS)
+    throw new Error(`Il roster deve contenere da uno a ${MAX_MULTIPLAYER_PLAYERS} giocatori.`)
+  const ids = new Set<string>()
+  for (const profile of roster) {
+    if (!profile || typeof profile.id !== 'string' || !/^[\w:-]{1,128}$/.test(profile.id))
+      throw new Error('Identità del giocatore non valida.')
+    if (ids.has(profile.id)) throw new Error('Profilo giocatore duplicato.')
+    ids.add(profile.id)
+    if (typeof profile.nickname !== 'string' || !profile.nickname.trim() || profile.nickname.trim().length > 24)
+      throw new Error('Nickname non valido.')
+    if (!playerCharacters.includes(profile.character)) throw new Error('Personaggio non valido.')
   }
 }
 const record = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x)
@@ -269,7 +321,7 @@ const integer = (x: unknown, min: number, max: number): x is number =>
 export function validateSave(campaign: CampaignDefinition, value: unknown): value is CampaignSave {
   if (
     !record(value) ||
-    value.version !== 1 ||
+    (value.version !== 1 && value.version !== 2) ||
     typeof value.phase !== 'string' ||
     !['playing', 'map', 'ending', 'gameOver'].includes(value.phase)
   )
@@ -305,7 +357,8 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
   if (value.mapPlayers !== undefined) {
     if (value.phase !== 'map' || !record(value.mapPlayers)) return false
     const mapPlayers = value.mapPlayers
-    if (!playerIds.every((id) => {
+    const ids = value.version === 1 ? playerIds : Object.keys(mapPlayers)
+    if (ids.length > 128 || (value.version === 1 && !playerIds.every((id) => Object.hasOwn(mapPlayers, id))) || !ids.every((id) => {
       const stop = mapPlayers[id]
       if (typeof stop !== 'string') return false
       if (!campaign.overworldPaths) return allowed.includes(stop)
@@ -317,8 +370,9 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
   if (value.spectators !== undefined && (
     value.sharedLives !== 0 ||
     !Array.isArray(value.spectators) ||
-    value.spectators.length > playerIds.length ||
-    value.spectators.some((id) => id !== 'mario' && id !== 'luigi') ||
+    value.spectators.length > (value.version === 1 ? playerIds.length : 128) ||
+    value.spectators.some((id) => typeof id !== 'string' || !id || id.length > 128 ||
+      (value.version === 1 && id !== 'mario' && id !== 'luigi')) ||
     new Set(value.spectators).size !== value.spectators.length
   )) return false
   if (p.checkpoint !== null) {
@@ -338,14 +392,23 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
     )
       return false
   }
-  if (value.sharedLives !== undefined)
+  if (Object.keys(members).length > 128 || (value.version === 1 && !playerIds.every((id) => Object.hasOwn(members, id)))) return false
+  if (value.version === 2 && value.legacyResources !== undefined) {
+    if (!record(value.legacyResources) || Object.keys(value.legacyResources).some((key) => !playerCharacters.includes(key as PlayerCharacter)))
+      return false
+    if (!Object.values(value.legacyResources).every(validResources)) return false
+  }
+  if (value.version === 1 && value.sharedLives !== undefined)
     for (const id of playerIds) {
       const resource = members[id]
       if (!record(resource) || resource.lives !== value.sharedLives) return false
     }
-  return playerIds.every((id) => {
-    const r = members[id]
-    return (
+  return Object.values(members).every(validResources)
+}
+
+function validResources(value: unknown): value is PlayerResources {
+  const r = value
+  return (
       record(r) &&
       integer(r.lives, 0, 99) &&
       (r.reserve == null ||
@@ -358,6 +421,5 @@ export function validateSave(campaign: CampaignDefinition, value: unknown): valu
       typeof r.mounted === 'boolean' &&
       (r.yoshiColor === undefined ||
         (typeof r.yoshiColor === 'string' && ['green', 'red', 'blue', 'yellow'].includes(r.yoshiColor)))
-    )
-  })
+  )
 }

@@ -1,7 +1,7 @@
 import { AIR, TILE, changeTile, overlaps } from './terrain.ts'
 import { startBlockBounce } from './block-bounce.ts'
 import { palFrame, tickAtPalFrame } from './pal-time.ts'
-import { activePlayerIds, playerIds, type LevelDefinition, type PlayerState, type World } from './types.ts'
+import { activePlayerIds, type LevelDefinition, type PlayerState, type World } from './types.ts'
 
 /** Reload the room's original turn blocks once no other player occupies it. */
 export function reloadTurnBlocks(world: World, room: LevelDefinition, entering: PlayerState) {
@@ -30,7 +30,7 @@ export function settleTurnBlocks(world: World) {
   state.turning = state.turning.filter((block) => {
     if (state.tick < block.until) return true
     const tile = { x: block.col * TILE, y: block.row * TILE, width: TILE, height: TILE }
-    const occupied = playerIds.some((id) => {
+    const occupied = activePlayerIds(state).some((id) => {
       const p = state.players[id]
       return p.status === 'alive' && p.roomId === block.roomId && overlaps(p, tile)
     })
