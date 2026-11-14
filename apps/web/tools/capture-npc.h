@@ -88,7 +88,7 @@ static int npc_state_pose(const char *track, int i, int right) {
     return 0;
 }
 
-static int npc_walk_pose(int id, int frame, int right, int stomped) {
+static int npc_walk_pose(int id, int frame, int right, int stomped, const char *track) {
     const int stride = (frame >> 3) & 1;
     if (id <= 0x0f || id == 0x11 || id == 0x13) return run_actor(0x018bc3, 0);
     switch (id) {
@@ -129,6 +129,7 @@ static int npc_walk_pose(int id, int frame, int right, int stomped) {
             ram[0x151c + actor_slot] = 0;
             return run_actor(0x039e49, 0);
         case 0x71: case 0x72: case 0x73:
+            if (id == 0x73) ram[0x1534 + actor_slot] = !strcmp(track, "feather");
             ram[0x1602 + actor_slot] = 2 + ((frame >> 2) & 1);
             return run_actor(0x02ecde, 0);
         case 0x86:
@@ -174,10 +175,10 @@ static int capture_npc(int id, const char *track, int count, int right, int stom
     ram[0x9d] = 1;
     int base = actor_oam();
     for (int i = 0; i < count; i++) {
-        int walk = !strcmp(track, "walk");
+        int walk = !strcmp(track, "walk") || !strcmp(track, "feather");
         int face = walk ? right : i & 1;
         npc_origin(i, face, base);
-        if (!(walk ? npc_walk_pose(id, i, face, stomped) : npc_state_pose(track, i, face))) return 5;
+        if (!(walk ? npc_walk_pose(id, i, face, stomped, track) : npc_state_pose(track, i, face))) return 5;
         upload_dynamic_tiles();
         if (npc_record()) return 4;
     }

@@ -1,4 +1,5 @@
 import type { KoopaMotion } from './koopa-motion.ts'
+import type { SuperKoopaMotion } from './super-koopa-motion.ts'
 import type { BooStream } from './boo-stream.ts'
 import type { LevelNpc } from './level-npcs.ts'
 import type { BooGroup } from './boo-clusters.ts'
@@ -310,6 +311,7 @@ export interface EntityState extends Body {
   booStream?: BooStream
   resident?: LevelNpc
   koopa?: KoopaMotion
+  superKoopa?: SuperKoopaMotion
   netKoopa?: NetKoopa
   pipePlant?: PipePlant
   coinGame?: { attempts: number; collected: number }

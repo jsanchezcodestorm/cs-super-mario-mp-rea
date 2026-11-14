@@ -7,6 +7,7 @@ import { moveMovingHazard } from './hazard-motion.ts'
 import { moveBoo } from './boo.ts'
 import { stepLevelNpc } from './level-npcs.ts'
 import { moveKoopa } from './koopa-motion.ts'
+import { isSuperKoopa, moveSuperKoopa } from './super-koopa-motion.ts'
 import { moveFlyingQuestion } from './flying-question.ts'
 import { moveCoinGameCloud, moveCloudCoin } from './coin-game-cloud.ts'
 import { blockItemPosition } from './emergence.ts'
@@ -253,6 +254,10 @@ export function moveEntity(world: World, e: EntityState, target: PlayerState) {
       moveBody(world, room, e)
       break
     case 'flyer':
+      if (isSuperKoopa(e.spriteId)) {
+        moveSuperKoopa(world, room, e, target)
+        break
+      }
       if (e.eerieAcceleration !== undefined) {
         e.x += e.vx
         e.vy += e.eerieAcceleration / 16

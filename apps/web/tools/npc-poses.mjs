@@ -45,6 +45,10 @@ export function captureNpcPoses(runner, rom, memory, room, id, stomped, key, fra
   if (standard) {
     track('walk', 32, key);
     track('walk', 32, key + ':right', true);
+    if (id === 0x73) {
+      track('feather', 32, key + ':feather');
+      track('feather', 32, key + ':feather:right', true);
+    }
     for (let i = 0; i < 32; i++) {
       const left = frames.get(key + '/' + i), right = frames.get(key + ':right/' + i);
       if (left.w === right.w && left.h === right.h && left.pixels.equals(right.pixels))

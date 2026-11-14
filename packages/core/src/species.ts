@@ -126,6 +126,13 @@ export function entityFromSpawn(
   }
   if (spriteId === 0x9b) entity.y -= 16
   if (kind === 'platform') initializeLift(entity)
+  if (spriteId >= 0x71 && spriteId <= 0x73) {
+    entity.superKoopa = spriteId === 0x73
+      ? { type: 'feather', phase: 'accelerating', phaseFrames: 0 }
+      : { type: 'cape' }
+    entity.vx = 0
+    entity.vy = spriteId === 0x73 ? 0 : 40 / 16
+  }
   if (spriteId >= 0x62 && spriteId <= 0x64) {
     const rope = spriteId === 0x64
     entity.width = rope ? 16 : spriteId === 0x63 && !(spawn.x & 16) ? 80 : 48

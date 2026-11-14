@@ -45,7 +45,8 @@ export function frameForEntity(
   if (special) return { texture: 'creatures', frame: tileset + ':' + special };
   const color = e.yoshiColor && ['yoshi', 'yoshiEgg', 'babyYoshi'].includes(e.kind) ? ':' + e.yoshiColor : '';
   const stomped = e.kind === 'mechaShell' || (e.kind === 'rex' && e.hp === 1);
-  const key = tileset + '-' + e.spriteId + color + (stomped ? ':stomped' : '');
+  const featherCape = e.spriteId === 0x73 && !(e.origin.x & 16) ? ':feather' : '';
+  const key = tileset + '-' + e.spriteId + featherCape + color + (stomped ? ':stomped' : '');
   const direction = lookingRight(e) && atlas.has(key + ':right/0') ? ':right/' : '/';
   let frame = (e.koopa?.phase ?? frameClock) % 32;
   if (e.spriteId === 0x35) frame = looseYoshiPose(e, tick);
