@@ -1,0 +1,6 @@
+interface:
+  display_name: "Decisione sulle versioni"
+  short_description: "Valuta quando un flusso richiede una nuova versione"
+
+policy:
+  allow_implicit_invocation: true
