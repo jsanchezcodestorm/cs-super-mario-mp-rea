@@ -41,8 +41,11 @@ function shoot(world: World, p: PlayerState) {
   playerAnimation(p).shotUntil = palFrame(world.state.tick) + 10
   emit(world, 'shot', p)
 }
-export function stepPlayer(world: World, p: PlayerState, input: number) {
+export function stepPlayer(world: World, p: PlayerState, inputSample: number) {
   if (p.pipeExit && !playerPipePosition(p, world.state.tick)) delete p.pipeExit
+  // The cartridge's DoorPipeAni and VertPipeAni routines call NoButtons until
+  // the pipe timer expires. Keep the same input lock while the sprite emerges.
+  const input = p.pipeExit ? 0 : inputSample
   if (p.status !== 'alive') {
     tickDead(world, p)
     return

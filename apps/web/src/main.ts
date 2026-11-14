@@ -42,6 +42,14 @@ let audioNotice = '';
 const audioError = (error: unknown) => {
   audioNotice = error instanceof Error ? error.message : 'Audio indisponibile';
 };
+function backgroundMusic(s: GameState, p: GameState['players'][PlayerId], stage: Content['levels'][string]) {
+  if (s.phase === 'map') return 'overworld';
+  if (s.phase === 'ending') return 'credits';
+  if (s.phase === 'gameOver') return 'game-over';
+  if (p.star > 0) return 'star';
+  if (s.pSwitch > 0 || s.silverSwitch > 0) return 'switch';
+  return music[stage.music];
+}
 
 function loadResources() {
   return (resources ??= Promise.all([
@@ -135,16 +143,7 @@ function showHud(s: GameState) {
   ].filter(Boolean);
   el('hud').textContent = hudMessages.join(' · ');
   const phase = s.phase;
-  const bgm =
-    phase === 'map'
-      ? 'overworld'
-      : phase === 'ending'
-        ? 'credits'
-        : phase === 'gameOver'
-          ? 'game-over'
-          : p.star > 0
-            ? 'star'
-            : music[stage.music];
+  const bgm = backgroundMusic(s, p, stage);
   if (cutscenes.update(s, paused) || s.keyholeFinish || paused) audio.stop();
   else if (s.orbFinish) void audio.music('boss-clear', (s.tick - s.orbFinish.tick) / 60).catch(audioError);
   else if (s.goalWalk) {

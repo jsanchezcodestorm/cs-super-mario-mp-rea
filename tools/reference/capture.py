@@ -3,6 +3,7 @@ import argparse
 import ctypes as C
 import os
 import hashlib
+import shutil
 import subprocess
 import tempfile
 import wave
@@ -20,7 +21,7 @@ LEVEL = ['athletic','level','water','bowser-start','boss','underground','ghost',
          'death','game-over','boss-clear','exit','star','switch','keyhole','keyhole-end',
          'spotlight','bonus','intro','bonus-over','cutscene','bowser-interlude','zoom-out',
          'zoom-in','bowser-phase-2','bowser-phase-3','bowser-defeated','peach','bowser-interlude-2']
-SOUNDS = {'jump':(1,1),'coin':(3,1),'powerup':(0,10),'stomp':(0,19),'pipe':(0,4),
+SOUNDS = {'jump':(1,1),'coin':(3,1),'powerup':(0,10),'splat':(0,2),'spin-kill':(0,8),'stomp':(0,19),'pipe':(0,4),
           'kick':(0,3),'checkpoint':(0,5),'spin':(3,4),'one-up':(3,5),'fireball':(3,6),'shatter':(3,7),
           'tongue':(3,33),'swallow':(0,6),'spit':(0,32),'yoshi-stomp':(3,37),'yoshi-grow':(3,31)}
 
@@ -64,7 +65,7 @@ def boot(library, image, bank):
     return core
 
 
-def record(core, state, port, command, seconds, target):
+def record(core, state, port, command, seconds, target, wave_target=None):
     core.restore(state)
     info = AV()
     core.lib.retro_get_system_av_info(C.byref(info))
@@ -79,6 +80,8 @@ def record(core, state, port, command, seconds, target):
         with wave.open(tmp.name, 'wb') as stream:
             stream.setparams((2,2,round(info.rate),0,'NONE',''))
             stream.writeframes(core.audio)
+        if wave_target:
+            shutil.copyfile(tmp.name, wave_target)
         subprocess.run([os.environ.get('FFMPEG','ffmpeg'),'-hide_banner','-loglevel','error','-y','-i',tmp.name,'-c:a','aac','-b:a','96k',str(target)],check=True)
 
 
@@ -104,7 +107,8 @@ def main():
             record(core,state,2,cmd,length,audio/(name+'.m4a'))
         if bank == 'level':
             for name,(port,cmd) in SOUNDS.items():
-                record(core,state,port,cmd,1.5,audio/(name+'.m4a'))
+                wave_target = audio/(name+'.wav') if name in ('splat', 'spin-kill') else None
+                record(core,state,port,cmd,1.5,audio/(name+'.m4a'),wave_target)
         info = AV()
         core.lib.retro_get_system_av_info(C.byref(info))
         core.lib.retro_unload_game()

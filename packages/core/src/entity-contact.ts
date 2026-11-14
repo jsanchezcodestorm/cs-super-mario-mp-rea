@@ -50,6 +50,9 @@ export const weaponTargets = new Set([
   'endingBoss',
 ])
 const edible = new Set(['walker', 'koopa', 'rex', 'spiny', 'jumper', 'fish', 'flyer', 'plant'])
+function emitStompSound(world: World, e: EntityState, p: PlayerState) {
+  emit(world, p.spin && e.defeat ? 'spinKill' : 'stomp', p)
+}
 export function strike(world: World, e: EntityState, p: PlayerState) {
   if (e.kind === 'magikoopa') {
     if (e.height) {
@@ -192,7 +195,7 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
   if (e.spriteId === 0xa9 && p.vy < 0 && p.y > e.y + e.height - 9) {
     p.vy = 1
     strike(world, e, p)
-    emit(world, 'stomp', p)
+    emitStompSound(world, e, p)
     return
   }
   if (e.kind === 'chuckShot' || e.kind === 'magic') {
@@ -305,7 +308,7 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
       world.campaign.slideTargets?.includes(e.spriteId)) {
     beginEntityDefeat(world, e, p.facing)
     addScore(p, 100)
-    emit(world, 'stomp', p)
+    emitStompSound(world, e, p)
     return
   }
   if (p.star > 0 && e.kind !== 'boss' && e.kind !== 'endingBoss') {
@@ -345,7 +348,7 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
       e.spriteId !== 0xa9
     )
       strike(world, e, p)
-    emit(world, 'stomp', p)
+    emitStompSound(world, e, p)
     return
   }
   hurt(world, p)

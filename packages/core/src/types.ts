@@ -77,6 +77,10 @@ export interface CampaignDefinition {
   names?: Record<string, string>
   levels: Record<string, LevelDefinition>
   routes: Record<string, Partial<Record<ExitKind, string[]>>>
+  spriteDefeatTraits?: {
+    puff: number[]
+    fallsStraight: number[]
+  }
   yoshiTraits?: number[]
   capeTargets?: number[]
   slideTargets?: number[]
@@ -415,6 +419,7 @@ export interface GameEvent {
     | 'shellHit'
     | 'netPunchHit'
     | 'stomp'
+    | 'spinKill'
     | 'hurt'
     | 'death'
     | 'checkpoint'

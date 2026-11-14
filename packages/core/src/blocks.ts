@@ -4,7 +4,7 @@ import { startTurnBlock } from './turn-block.ts'
 import { blockReward } from './block-rewards.ts'
 import { chocolateRoom } from './chocolate-island.ts'
 import { Buttons } from './types.ts'
-import type { World, PlayerState, LevelDefinition } from './types.ts'
+import type { World, PlayerState, LevelDefinition, EntryPoint } from './types.ts'
 import { emit, enterRoom, spawnBlockReward, spawnEntity } from './state.ts'
 import { collectCoin, die, hurt } from './resources.ts'
 import { bodyCells, tileAt, changeTile, isDanger, AIR, USED } from './terrain.ts'
@@ -23,7 +23,12 @@ export function setCheckpoint(world: World, p: PlayerState, x: number, y: number
   }
   emit(world, 'checkpoint', p)
 }
-function exitThrough(world: World, p: PlayerState, room: LevelDefinition) {
+function exitThrough(
+  world: World,
+  p: PlayerState,
+  room: LevelDefinition,
+  pipeDirection?: EntryPoint['pipe'],
+) {
   if (p.cooldown > 0) return
   const screen = Math.floor((room.vertical ? p.y + p.height / 2 : p.x + p.width / 2) / 256)
   const exit = room.exits.find((e) => e.screen === screen)
@@ -34,7 +39,12 @@ function exitThrough(world: World, p: PlayerState, room: LevelDefinition) {
       : exit.target
   if (!Object.hasOwn(world.campaign.levels, target)) return
   const held = world.state.entities.find((e) => e.id === p.carrying)
-  enterRoom(world, p, target, exit.spawn)
+  const destination = world.campaign.levels[target]
+  const targetEntry = exit.spawn ?? destination.spawn
+  const entry = pipeDirection
+    ? { ...targetEntry, pipe: targetEntry.pipe ?? pipeDirection }
+    : exit.spawn
+  enterRoom(world, p, target, entry)
   if (held) {
     held.roomId = target
     held.x = p.x
@@ -125,7 +135,11 @@ export function interactTiles(
     ]
     const vertical = (c.side === 'bottom' || c.side === 'top') && (c.tile === 0x137 || c.tile === 0x138)
     const horizontal = (c.side === 'left' || c.side === 'right') && c.tile === 0x13f && p.grounded
-    if ((horizontal || vertical) && input & direction) exitThrough(world, p, room)
+    if ((horizontal || vertical) && input & direction) {
+      const pipeDirection =
+        ({ bottom: 'down', top: 'up', left: 'left', right: 'right' } as const)[c.side]
+      exitThrough(world, p, room, pipeDirection)
+    }
     if (p.roomId !== room.id || p.status !== 'alive') return
   }
   for (const { col, row } of bodyCells(p)) {

@@ -3,7 +3,8 @@ import type { GameEvent } from '@smw/core';
 const effects = {
   jump: 'jump',
   coin: 'coin',
-  stomp: 'stomp',
+  stomp: 'splat',
+  spinKill: 'spin-kill',
   netPunchHit: 'kick',
   item: 'powerup',
   exit: 'exit',
@@ -17,7 +18,6 @@ const effects = {
   shatter: 'shatter',
   pipe: 'pipe',
   checkpoint: 'checkpoint',
-  switch: 'switch',
 } as const;
 export class GameAudio {
   private context?: AudioContext;
@@ -44,6 +44,7 @@ export class GameAudio {
   }
   async play(event: GameEvent) {
     if (event.courseClear) return;
+    const format = event.type === 'stomp' || event.type === 'spinKill' ? 'wav' : 'm4a';
     let name: string;
     if (event.type === 'exit' && event.keyhole) name = 'keyhole-end';
     else if (event.type === 'shellHit') {
@@ -54,7 +55,7 @@ export class GameAudio {
       if (!(event.type in effects)) return;
       name = effects[event.type as keyof typeof effects];
     }
-    const source = await this.source(name, 0.7);
+    const source = await this.source(name, 0.7, format);
     source?.start();
   }
   stop() {
@@ -63,12 +64,12 @@ export class GameAudio {
     this.track?.stop();
     this.track = undefined;
   }
-  private async source(name: string, volume: number) {
+  private async source(name: string, volume: number, format: 'm4a' | 'wav' = 'm4a') {
     const ctx = this.context;
     if (!ctx) return;
     let buffer = this.buffers.get(name);
     if (!buffer) {
-      buffer = fetch('/assets/audio/' + name + '.m4a')
+      buffer = fetch('/assets/audio/' + name + '.' + format)
         .then((r) => {
           if (!r.ok) throw Error('Audio ' + name + ' indisponibile.');
           return r.arrayBuffer();

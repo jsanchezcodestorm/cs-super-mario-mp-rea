@@ -1,5 +1,7 @@
 import type { Body, LevelDefinition, Point } from './types.ts'
 
+const SMALL_PLAYER_HEIGHT = 16
+
 function horizontalMouth(room: LevelDefinition, col: number, top: number, body: Pick<Body, 'width' | 'height'>) {
   const lip = top * room.width + col
   const bottom = room.tiles[lip + room.width]
@@ -36,5 +38,10 @@ export function pipeEndpoint(room: LevelDefinition, point: Point, body: Pick<Bod
 
 /** Place the collision box at the endpoint of the cartridge's scripted pipe exit. */
 export function pipeEntry(room: LevelDefinition, point: Point, body: Pick<Body, 'width' | 'height'>): Point {
-  return pipeEndpoint(room, point, body) ?? point
+  const endpoint = pipeEndpoint(room, point, body)
+  if (endpoint) return endpoint
+
+  // ROM entrance coordinates use the small-player box as their vertical anchor.
+  // Preserve that foot position when a pipe exit has no matching Map16 rim.
+  return { x: point.x, y: point.y + SMALL_PLAYER_HEIGHT - body.height }
 }

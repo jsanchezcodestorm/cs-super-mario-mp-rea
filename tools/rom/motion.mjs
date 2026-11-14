@@ -22,6 +22,10 @@ export function motionTables(rom) {
       y: bytes(0x01dd1f, 64).map(n => n << 24 >> 24),
     },
     slideTargets: bytes(0x07f659, 201).flatMap((traits, id) => traits & 4 ? [] : [id]),
+    spriteDefeatTraits: {
+      puff: bytes(0x07f26c, 201).flatMap((traits, id) => traits & 0x80 ? [id] : []),
+      fallsStraight: bytes(0x07f335, 201).flatMap((traits, id) => traits & 0x80 ? [id] : []),
+    },
     yoshiTraits: bytes(0x07f590, 201),
     capeTargets: bytes(0x07f3fe, 201).flatMap((traits, id) =>
       !(traits & 0x20) && !(rom.byte(0x07f4c7 + id) & 2) ? [id] : []),

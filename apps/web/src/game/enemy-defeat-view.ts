@@ -9,5 +9,5 @@ export function enemyDefeatPose(e: EntityState, tick: number) {
     const frame = puffFrames[age >> 2];
     return frame === undefined ? undefined : { kind: 'puff' as const, frame };
   }
-  return { kind: 'tumble' as const, flipY: ((age >> 2) & 1) === 1 };
+  return { kind: 'tumble' as const, flipY: true };
 }

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { createGame, playerPipePosition, stepGame, type CampaignDefinition, type GameState } from '@smw/core';
+import { Buttons, createGame, playerPipePosition, stepGame, type CampaignDefinition, type GameState } from '@smw/core';
 import { CastView } from '../apps/web/src/game/cast-view.ts';
 import { bump } from '../packages/core/src/blocks.ts';
 import { enterRoom, spawnEntity } from '../packages/core/src/state.ts';
+import { isBodyFree } from '../packages/core/src/terrain.ts';
 
 const json = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
 const campaign: CampaignDefinition = json('generated/content.json');
@@ -67,6 +68,23 @@ test('leaving the rim cancels the script permanently, and a regular spawn or che
   enterRoom(world, p, '105');
   assert.ok(p.cooldown > 0);
   assert.equal(playerPipePosition(p, state.tick), null);
+});
+
+test('a secondary pipe exit clears the terrain when the large player enters without a Map16 rim', () => {
+  const state = createGame(campaign), world = { campaign, state }, p = state.players.mario;
+  state.phase = 'playing';
+  state.progress.course = '105';
+  Object.assign(p, {
+    roomId: '1cb', x: 435.9, y: 356, vx: 0.2, vy: 0, grounded: true,
+    cooldown: 0, form: 'super', width: 12, height: 28,
+  });
+
+  stepGame(campaign, state, { mario: Buttons.right | Buttons.run, luigi: 0 });
+  stepGame(campaign, state, { mario: Buttons.right | Buttons.run, luigi: 0 });
+
+  assert.equal(p.roomId, '105');
+  assert.deepEqual([p.x, p.y, p.pipeExit?.direction], [2064, 292, 'right']);
+  assert.ok(isBodyFree(world, campaign.levels['105'], p));
 });
 
 test('a flower from a real Map16 block is hidden then draws on OBJ1 and returns to OBJ2', () => {

@@ -35,6 +35,11 @@ export function frameForEntity(
   if (e.kind === 'yoshiFire') return { texture: 'creatures', frame: tileset + ':spit' + ((frameClock >> 3) & 1) };
   if (e.kind === 'fireball')
     return { texture: 'creatures', frame: tileset + ':fireball' + ((frameClock >> 2) & 3) };
+  if (e.kind === 'switch') {
+    // The captured P-switch poses reuse one image but alternate their OAM X anchor.
+    const frame = tileset + '-' + e.spriteId + '/0';
+    return atlas.has(frame) ? { texture: 'creatures', frame } : null;
+  }
   if (e.kind === 'levelNpc' && (!e.resident || (e.spriteId === 0xa8 && !e.resident.phase))) return null;
   const special = npcPose(e, frameClock);
   if (special) return { texture: 'creatures', frame: tileset + ':' + special };

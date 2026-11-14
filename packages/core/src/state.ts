@@ -1,6 +1,6 @@
 import { leaveQuestionBonus } from './question-bonus.ts'
 import { reloadTurnBlocks } from './turn-block.ts'
-import { pipeEndpoint } from './pipe-entry.ts'
+import { pipeEntry } from './pipe-entry.ts'
 import { chainPhases, positionChainDeck } from './flying-platforms.ts'
 import { pairScalePans } from './scale-platforms.ts'
 import { startScrollAt } from './autoscroll.ts'
@@ -107,14 +107,20 @@ export function enterRoom(world: World, p: PlayerState, id: string, position?: E
   p.roomId = id
   delete p.cloud
   const entry = position ?? room.spawn
-  const mouth = room.specialMode7 ? null : pipeEndpoint(room, entry, p)
-  const point = room.specialMode7 ? arenaEntry(room) : mouth ?? entry
+  const point = room.specialMode7 ? arenaEntry(room) : entry.pipe ? pipeEntry(room, entry, p) : entry
   delete p.pipeExit
-  if (entry.pipe && mouth) {
+  // Secondary exits can have a pipe direction without matching Map16 mouth tiles.
+  if (entry.pipe && !room.specialMode7) {
     const horizontal = entry.pipe === 'left' || entry.pipe === 'right'
     const frames = horizontal ? 28 : entry.pipe === 'up' ? 30 : p.form === 'small' ? 15 : 28
     const mountedFrames = p.mounted ? (horizontal ? 26 : 10) : 0
-    p.pipeExit = { ...mouth, direction: entry.pipe, tick: world.state.tick, frames: frames + mountedFrames }
+    p.pipeExit = {
+      x: point.x,
+      y: point.y,
+      direction: entry.pipe,
+      tick: world.state.tick,
+      frames: frames + mountedFrames,
+    }
   }
   p.scrollClock = startScrollAt(room, point.x)
   Object.assign(p, {
