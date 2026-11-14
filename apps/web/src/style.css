@@ -460,6 +460,20 @@ kbd {
 .play-head button {
   color: #e4eacb;
 }
+.trace-button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 8px;
+  font: bold 10px ui-monospace, Menlo, monospace;
+  text-decoration: none;
+}
+.trace-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.trace-link {
+  color: #e4eacb;
+}
 .fullscreen-button {
   flex: 0 0 44px;
   width: 44px;

@@ -24,6 +24,7 @@ import { SceneTransition } from './scene-transition';
 import { drawPlayerNameplates } from './player-nameplates';
 import type { Content } from './content';
 import type { GameSession } from './playback';
+import type { GameTraceRecorder } from './game-trace';
 
 export class WorldScene extends Phaser.Scene {
   private terrain!: Phaser.Textures.CanvasTexture;
@@ -43,6 +44,7 @@ export class WorldScene extends Phaser.Scene {
     private live: GameSession,
     private nodes: WorldNodes,
     private controls: Controls,
+    private trace?: GameTraceRecorder,
   ) {
     super('world');
   }
@@ -98,7 +100,11 @@ export class WorldScene extends Phaser.Scene {
   update(_: number, dt: number) {
     this.inputClock += Math.min(dt, 100);
     while (this.inputClock >= 1000 / 60) {
-      this.live.update(this.controls.sample());
+      const previousTick = this.live.displayState?.tick ?? this.live.state?.tick;
+      const buttons = this.controls.sample();
+      this.live.update(buttons);
+      const state = this.live.displayState ?? this.live.state;
+      if (state && state.tick !== previousTick) this.trace?.record(state, buttons);
       this.inputClock -= 1000 / 60;
     }
     const state = this.live.displayState;

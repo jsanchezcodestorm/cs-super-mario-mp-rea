@@ -141,6 +141,10 @@
         <div class="play-head">
           <span id="stage-name"></span>
           <strong id="hud"></strong>
+          <a id="open-trace-viewer" class="subtle trace-button trace-link" href="/trace" hidden
+            aria-label="Apri il visualizzatore di tracce">Replay</a>
+          <button id="copy-game-trace" class="subtle trace-button" type="button" hidden
+            aria-label="Copia la traccia JSONL per segnalare un bug" title="Copia la traccia JSONL">JSONL</button>
           <button
             id="fullscreen"
             class="fullscreen-button"
@@ -200,6 +204,7 @@
       <ol id="install-steps" class="install-steps"></ol>
       <button id="install-guide-done" class="primary install-guide-done" type="button">Ho capito</button>
     </dialog>
-    <script type="module" src="/src/main.ts"></script>
+    <div id="react-root"></div>
+    <script type="module" src="/src/entry.tsx"></script>
   </body>
 </html>

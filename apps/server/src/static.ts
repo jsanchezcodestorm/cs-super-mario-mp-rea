@@ -42,7 +42,7 @@ export function staticHandler(dist: string, assets: string) {
       }
       const generated = path.startsWith('/assets/');
       const root = await realpath(generated ? assets : dist);
-      const relative = generated ? path.slice(8) : path === '/' ? 'index.html' : path.slice(1);
+      const relative = generated ? path.slice(8) : path === '/' || path === '/trace' ? 'index.html' : path.slice(1);
       const file = await realpath(resolve(root, relative));
       const extension = extname(file);
       if (!file.startsWith(root + sep) || !Object.hasOwn(types, extension)) {

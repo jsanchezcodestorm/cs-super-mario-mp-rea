@@ -16,6 +16,8 @@ import { touchDevice, TouchHud } from './ui/touch-hud';
 import { bindPlaySurface } from './ui/play-surface';
 import { LocalGameSession } from './session/local-game';
 import { InstallPrompt } from './ui/install-prompt';
+import { GameTraceControl } from './ui/game-trace-control';
+import type { GameTraceRecorder } from './game/game-trace';
 
 let me: PlayerId | undefined, playback: GameSession | undefined;
 let stopped: (() => void) | undefined,
@@ -25,6 +27,10 @@ let stopped: (() => void) | undefined,
 let latest: Extract<ServerMessage, { type: 'snapshot' }> | undefined;
 let content: Content | undefined,
   resources: Promise<[Content, Record<string, { region: number; x: number; y: number }>]> | undefined;
+const gameTraceEnabled = import.meta.env.VITE_GAME_TRACE === 'true';
+const gameTraceControl = new GameTraceControl(el<HTMLButtonElement>('copy-game-trace'), gameTraceEnabled);
+el<HTMLAnchorElement>('open-trace-viewer').hidden = !gameTraceEnabled;
+let gameTrace: GameTraceRecorder | undefined;
 const audio = new GameAudio();
 new InstallPrompt();
 const fullscreen = new FullscreenToggle(
@@ -122,6 +128,8 @@ function end(message = '') {
   stopped?.();
   stopped = undefined;
   playback = undefined;
+  gameTrace = undefined;
+  gameTraceControl.bind(undefined);
   loading = false;
   audio.stop();
   lobby.idle(message);
@@ -195,12 +203,21 @@ async function mountGame(
   lobby.play();
   lobby.overlay('Caricamento della campagna…');
   try {
-    const [[gameContent, regions], renderer] = await Promise.all([loadResources(), import('./game/start')]);
+    const traceModule = gameTraceEnabled ? import('./game/game-trace') : Promise.resolve(undefined);
+    const [[gameContent, regions], renderer, trace] = await Promise.all([
+      loadResources(),
+      import('./game/start'),
+      traceModule,
+    ]);
     if (generation !== session) return;
     content = gameContent;
     content.overworldNodes = regions;
     playback = makeSession(content);
-    stopped = renderer.startRenderer(content, playback, regions);
+    gameTrace = trace
+      ? new trace.GameTraceRecorder(content, playback.playerId, playback.displayState ?? playback.state)
+      : undefined;
+    gameTraceControl.bind(gameTrace);
+    stopped = renderer.startRenderer(content, playback, regions, gameTrace);
     if (playback.state) showHud(playback.state);
   } catch (error) {
     if (generation !== session) return;
@@ -211,6 +228,8 @@ async function mountGame(
       stopped?.();
       stopped = undefined;
       playback = undefined;
+      gameTrace = undefined;
+      gameTraceControl.bind(undefined);
       me = undefined;
       latest = undefined;
       paused = false;

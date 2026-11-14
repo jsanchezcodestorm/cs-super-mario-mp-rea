@@ -1,0 +1,4 @@
+interface:
+  display_name: "SMW Trace Debugging"
+  short_description: "Replay SMW JSONL traces with frame notes"
+  default_prompt: "Use $smw-trace-debugging to reproduce and analyze this SMW trace bundle."
