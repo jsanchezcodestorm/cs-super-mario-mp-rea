@@ -1,6 +1,7 @@
 import { moveBooStream } from './boo-stream.ts'
 import { nextSpriteRandom } from './sprite-random.ts'
-import { palFrame } from './pal-time.ts'
+import { advancesPalFrame, palFrame } from './pal-time.ts'
+import { initializeLayerThreeSmash, moveLayerThreeSmash } from './layer-three-smash.ts'
 import { moveBody, tileAt } from './terrain.ts'
 import type { EntityState, LevelDefinition, PlayerState, World } from './types.ts'
 
@@ -8,10 +9,6 @@ const podobooLaunchSpeed = [
   0xf0, 0xdc, 0xd0, 0xc8, 0xc0, 0xb8, 0xb2, 0xac, 0xa6, 0xa0, 0x9a,
   0x96, 0x92, 0x8c, 0x88, 0x84, 0x80, 0x04, 0x08, 0x0c, 0x10, 0x14,
 ]
-
-function advancesPalFrame(tick: number) {
-  return palFrame(tick) !== palFrame(tick - 1)
-}
 
 function firstLiquidSurface(world: World, room: LevelDefinition, entity: EntityState) {
   const col = Math.floor(entity.origin.x / 16)
@@ -68,6 +65,9 @@ export function initializeHazard(world: World, room: LevelDefinition, entity: En
       // This sprite ID is also used for player fireballs and Yoshi fire.
       if (entity.kind !== 'hazard') return false
       initializePodoboo(world, room, entity)
+      return true
+    case 0x89:
+      initializeLayerThreeSmash(entity)
       return true
     case 0x9e: {
       entity.width = 16
@@ -311,6 +311,7 @@ export function moveMovingHazard(world: World, room: LevelDefinition, entity: En
   if (!entity.hazardMotion) initializeHazard(world, room, entity)
   const motion = entity.hazardMotion
   if (!motion) return false
+  if (motion.type === 'layer3-smash') return moveLayerThreeSmash(world, room, entity, target)
   if (!advancesPalFrame(world.state.tick)) return true
   switch (motion.type) {
     case 'thwomp': moveThwomp(world, room, entity, target, motion); return true

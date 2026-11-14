@@ -13,6 +13,7 @@ import { playerFacingRight } from './player-animation';
 import { drawnBehindNet } from './net-player';
 import { enemyDefeatPose } from './enemy-defeat-view';
 import { drawBallAndChain } from './hazard-view';
+import { drawLayerThreeSmash } from './layer-three-smash-view';
 import type { Stage } from './content';
 import { WIDTH, HEIGHT, type Camera } from './terrain-view';
 
@@ -77,6 +78,8 @@ export class CastView {
       const defeat = enemyDefeatPose(e, state.tick);
       if ((!e.active && !e.shellKnockedOut && !defeat) || !e.height || (e.stunnedUntil && e.kind === 'boss' && e.stunnedUntil > e.age) || e.roomId !== stage.id) continue;
       const { x, y } = e;
+      if (drawLayerThreeSmash(e, stage, (atlas, tile, tx, ty, priority, oam) =>
+        this.drawTile(atlas, tile, tx, ty, priority, oam))) continue;
       for (const part of e.booStream?.trail ?? []) {
         if (part.until <= palFrame(state.tick)) continue;
         const phase = 2 * (8 + part.slot) + Number(part.right);

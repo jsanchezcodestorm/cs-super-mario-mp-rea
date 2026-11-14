@@ -20,6 +20,7 @@ import { deckBounds, type DeckBounds } from './deck-bounds.ts'
 import { hitSolidDeck } from './solid-deck.ts'
 import { playerContactBody } from './player-size.ts'
 import { hazardContactBody, isHazardContactEntity, touchesHazard } from './hazard-contact.ts'
+import { contactLayerThreeSmash } from './layer-three-smash.ts'
 import type { HazardSweep } from './hazard-contact.ts'
 import { takeItem } from './item-pickup.ts'
 import { goalReward, addScore, showHitAward } from './rewards.ts'
@@ -133,6 +134,11 @@ export function contact(world: World, e: EntityState, p: PlayerState, input: num
     return
   }
   if (isPipeBoss(e) && (!e.height || (e.stunnedUntil ?? 0) > e.age)) return
+  const smashContact = contactLayerThreeSmash(e, p, world.campaign.levels[e.roomId])
+  if (smashContact) {
+    if (smashContact === 'hurt') hurt(world, p)
+    return
+  }
   if (e.kind === 'exitSide') {
     const end = world.campaign.levels[e.roomId].width * 16 - p.width - 1
     if (p.x >= end || (p.x <= 0 && input & Buttons.left)) finishCourse(world, p, 'normal', { countsAsExit: false })

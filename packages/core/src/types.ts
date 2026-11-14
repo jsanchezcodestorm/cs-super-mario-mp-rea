@@ -283,6 +283,14 @@ export type HazardMotion =
   | { type: 'falling-spike'; phase: 'idle' | 'triggered' | 'armed'; timer: number; homeX: number }
   | { type: 'reflecting-fireball'; direction: -1 | 1; horizontalSpeed: number; verticalSpeed: number }
   | { type: 'statue-fireball'; direction: -1 | 0 | 1 }
+  | {
+      type: 'layer3-smash'
+      phase: 'waiting' | 'warning' | 'falling' | 'resting' | 'rising'
+      timer: number
+      screenX: number | null
+      screenY: number
+      speedY: number
+    }
 export interface EntityState extends Body {
   booStream?: BooStream
   resident?: LevelNpc

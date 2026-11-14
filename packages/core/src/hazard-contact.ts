@@ -23,6 +23,7 @@ export function isHazardContactEntity(entity: EntityState) {
 export function hazardContactBody(entity: EntityState): ContactRect | null {
   if (!isHazardContactEntity(entity)) return null
   const motion = entity.hazardMotion
+  if (motion?.type === 'layer3-smash') return null
   if (motion?.type === 'podoboo' && motion.phase === 'waiting') return null
   if (motion?.type === 'falling-spike' && motion.phase !== 'armed') return null
   if (motion?.type === 'ball-and-chain')
