@@ -44,7 +44,7 @@ npm run build
 npm start
 ```
 
-Con una sola ROM nella radice basta `npm run extract`. Il primo avvio dell’estrattore scarica e compila la revisione di Snes9x fissata in `tools/extract.mjs`. Per usare la stessa revisione già compilata, imposta `SNES9X_CORE` al percorso assoluto della libreria libretro. `FFMPEG` può indicare il percorso dell’eseguibile. Per sviluppare il frontend usa `npm run dev` e apri [Vite](http://localhost:5173).
+Con una sola ROM nella radice basta `npm run extract`. Il primo avvio dell’estrattore scarica e compila la revisione di Snes9x fissata in `tools/extract.mjs`. Per usare la stessa revisione già compilata, imposta `SNES9X_CORE` al percorso assoluto della libreria libretro. `FFMPEG` può indicare il percorso dell’eseguibile. Per sviluppare lo stack locale esegui `npm run dev`: avvia server e frontend con riavvio automatico del server e aggiornamento live di Vite. Apri [Vite](http://localhost:5173).
 
 ## Lettura della cartuccia
 

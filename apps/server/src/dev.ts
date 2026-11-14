@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-const api = spawn(process.execPath, ['--import', 'tsx', 'apps/server/src/main.ts'], {
+const api = spawn(process.execPath, ['--import', 'tsx', '--watch', 'apps/server/src/main.ts'], {
   stdio: 'inherit',
   env: { ...process.env, WEB_ORIGIN: 'http://localhost:5173', PORT: '8787' },
 });
