@@ -26,6 +26,7 @@ if (!core) {
   core = join(dir, 'libretro', 'snes9x_libretro.' + (process.platform === 'darwin' ? 'dylib' : 'so'));
 }
 run('python3', ['tools/reference/capture.py', resolve(core), rom, join(root, 'generated')]);
+run('python3', ['tools/rom/layer3_smash_capture.py', resolve(core), rom, join(root, 'generated', 'tiles', 'layer3-smash.png')]);
 
 const catalogPath = join(root, 'generated/content.json');
 const catalog = JSON.parse(readFileSync(catalogPath, 'utf8'));

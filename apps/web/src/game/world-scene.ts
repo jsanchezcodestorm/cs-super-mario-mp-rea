@@ -55,6 +55,7 @@ export class WorldScene extends Phaser.Scene {
     this.load.json('actors-registration', '/assets/actors-registration.json');
     this.load.json('creatures-registration', '/assets/creatures-registration.json');
     this.load.image('tide', '/assets/tiles/tide.png');
+    this.load.image('layer3-smash', '/assets/tiles/layer3-smash.png');
     this.load.json('map16-priorities', '/assets/tiles/priorities.json');
     preloadMapEvents(this);
     preloadMapDecorations(this);

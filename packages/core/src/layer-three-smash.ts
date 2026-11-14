@@ -1,6 +1,7 @@
 import { playerViewport } from './autoscroll.ts'
 import { nextSpriteRandom } from './sprite-random.ts'
 import { advancesPalFrame } from './pal-time.ts'
+import { emit } from './state.ts'
 import type { EntityState, LevelDefinition, PlayerState, World } from './types.ts'
 
 type Layer3SmashMotion = Extract<NonNullable<EntityState['hazardMotion']>, { type: 'layer3-smash' }>
@@ -20,27 +21,27 @@ export function initializeLayerThreeSmash(entity: EntityState) {
   }
 }
 
-function startSmash(world: World, motion: Layer3SmashMotion) {
+function startSmash(world: World, motion: Layer3SmashMotion, cameraX: number) {
   motion.phase = 'warning'
   motion.timer = 128
-  motion.screenX = -128 + (nextSpriteRandom(world.state) & 0x3f)
+  motion.screenX = cameraX - 128 + (nextSpriteRandom(world.state) & 0x3f)
   motion.screenY = 0
   motion.speedY = 4
 }
 
-/** Run on PAL frames; the controller remains at a fixed screen position as the camera scrolls. */
+/** Run on PAL frames; keep the native Layer 3 scroll tied to the room position. */
 export function moveLayerThreeSmash(world: World, room: LevelDefinition, entity: EntityState, target: PlayerState) {
   const motion = entity.hazardMotion
   if (!motion || motion.type !== 'layer3-smash') return false
 
   const camera = playerViewport(room, target)
-  if (motion.screenX === null) motion.screenX = entity.x - camera.x
+  motion.screenX = camera.x + 0x78 - entity.x
 
   if (advancesPalFrame(world.state.tick)) {
     switch (motion.phase) {
       case 'waiting':
         if (motion.timer > 0) motion.timer--
-        else startSmash(world, motion)
+        else startSmash(world, motion, camera.x)
         break
       case 'warning':
         motion.speedY = 4
@@ -54,6 +55,7 @@ export function moveLayerThreeSmash(world: World, room: LevelDefinition, entity:
           motion.screenY = Math.floor(motion.screenY / 16) * 16
           motion.phase = 'resting'
           motion.timer = 0x30
+          emit(world, 'crush', target)
         }
         break
       case 'resting':

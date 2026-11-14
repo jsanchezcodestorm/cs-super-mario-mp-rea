@@ -23,6 +23,7 @@ LEVEL = ['athletic','level','water','bowser-start','boss','underground','ghost',
          'zoom-in','bowser-phase-2','bowser-phase-3','bowser-defeated','peach','bowser-interlude-2']
 SOUNDS = {'jump':(1,1),'coin':(3,1),'powerup':(0,10),'splat':(0,2),'spin-kill':(0,8),'stomp':(0,19),'pipe':(0,4),
           'kick':(0,3),'checkpoint':(0,5),'spin':(3,4),'one-up':(3,5),'fireball':(3,6),'shatter':(3,7),
+          'crush':(3,9),
           'tongue':(3,33),'swallow':(0,6),'spit':(0,32),'yoshi-stomp':(3,37),'yoshi-grow':(3,31)}
 
 SOUNDS.update({f'stomp-{i}': (0, 18+i) for i in range(2, 8)})

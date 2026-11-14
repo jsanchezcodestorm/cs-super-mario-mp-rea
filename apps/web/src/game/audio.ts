@@ -16,6 +16,7 @@ const effects = {
   yoshiGrow: 'yoshi-grow',
   shot: 'fireball',
   shatter: 'shatter',
+  crush: 'crush',
   pipe: 'pipe',
   checkpoint: 'checkpoint',
 } as const;

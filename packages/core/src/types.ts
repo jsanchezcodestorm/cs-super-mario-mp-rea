@@ -453,6 +453,7 @@ export interface GameEvent {
     | 'start'
     | 'block'
     | 'shatter'
+    | 'crush'
     | 'switch'
     | 'shot'
     | 'ending'
