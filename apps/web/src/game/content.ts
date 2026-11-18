@@ -21,7 +21,16 @@ export interface Content extends CampaignDefinition {
 }
 
 export async function loadContent(): Promise<Content> {
-  const response = await fetch('/assets/content.json');
-  if (!response.ok) throw Error('Campagna non disponibile sul server.');
-  return response.json();
+  const [contentResponse, movieTicksResponse] = await Promise.all([
+    fetch('/assets/content.json'),
+    fetch('/assets/movies/durations.json'),
+  ]);
+  if (!contentResponse.ok) throw Error('Campagna non disponibile sul server.');
+  if (!movieTicksResponse.ok) throw Error('Durata delle animazioni non disponibile sul server.');
+  const [content, movieTicks] = await Promise.all([
+    contentResponse.json() as Promise<Content>,
+    movieTicksResponse.json() as Promise<Record<string, number>>,
+  ]);
+  content.movieTicks = movieTicks;
+  return content;
 }
