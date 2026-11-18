@@ -36,9 +36,15 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 3px solid #ee861e;
   outline-offset: 4px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: -3px;
 }
 [hidden] {
   display: none !important;
