@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Inject, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Put, Req, Res, UseGuards } from '@nestjs/common';
+import type { ServerResponse } from 'node:http';
 import type { AuthenticatedRequest } from '../security/request-context.ts';
 import { requireIdentity } from '../security/request-context.ts';
 import { SameOriginGuard } from '../security/same-origin.guard.ts';
@@ -11,9 +12,11 @@ export class AccountsController {
   constructor(@Inject(AccountsService) private readonly accounts: AccountsService) {}
 
   @Get('me')
-  me(@Req() request: AuthenticatedRequest) {
+  async me(@Req() request: AuthenticatedRequest, @Res() response: ServerResponse) {
     const identity = requireIdentity(request);
-    return this.accounts.profileForIdentity(identity.id, identity.email);
+    const profile = await this.accounts.profileForIdentity(identity.id, identity.email);
+    response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    response.end(JSON.stringify(profile));
   }
 
   @Put('me')
