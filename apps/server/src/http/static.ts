@@ -22,10 +22,6 @@ const applicationPaths = new Set([
   '/',
   '/trace',
   '/login',
-  '/register',
-  '/forgot-password',
-  '/verify-email',
-  '/reset-password',
 ]);
 
 function byteRange(value: string, size: number) {

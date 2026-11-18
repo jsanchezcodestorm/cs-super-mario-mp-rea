@@ -5,7 +5,7 @@ import './style.css';
 
 const traceEnabled = import.meta.env.VITE_GAME_TRACE === 'true';
 const TraceRoute = lazy(() => import('./trace/trace-route'));
-const accountRoutes = ['login', 'register', 'forgot-password', 'verify-email', 'reset-password'];
+const accountRoutes = ['login'];
 
 function GameRoute() {
   useEffect(() => {

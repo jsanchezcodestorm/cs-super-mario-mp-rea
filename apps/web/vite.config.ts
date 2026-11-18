@@ -1,6 +1,9 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
+const apiOrigin = process.env.SMW_API_ORIGIN ?? 'http://127.0.0.1:8787';
+const websocketOrigin = apiOrigin.replace(/^http/, 'ws');
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -8,9 +11,9 @@ export default defineConfig({
       deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/*.[sS][mM][cC]', '**/*.[sS][fF][cC]'],
     },
     proxy: {
-      '/api': { target: 'http://127.0.0.1:8787' },
-      '/ws': { target: 'ws://127.0.0.1:8787', ws: true },
-      '/assets': { target: 'http://127.0.0.1:8787' },
+      '/api': { target: apiOrigin },
+      '/ws': { target: websocketOrigin, ws: true },
+      '/assets': { target: apiOrigin },
     },
   },
   build: {

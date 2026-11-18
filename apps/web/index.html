@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#142b33" />
     <meta
       name="description"
-      content="Gioca a Super Mario World nel browser: campagna singola o co-op privata fino a otto giocatori, con account email e password. Comandi touch, tastiera e gamepad."
+      content="Gioca a Super Mario World nel browser: campagna singola o co-op privata fino a otto giocatori, con accesso Microsoft. Comandi touch, tastiera e gamepad."
     />
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="it_IT" />
@@ -42,72 +42,12 @@
       <section id="auth-pages" class="auth-pages" hidden aria-live="polite">
         <div class="auth-card">
           <a class="auth-home" href="/">← Torna al gioco</a>
-          <section id="register-page" data-auth-page hidden aria-labelledby="register-title">
-            <p class="eyebrow"><span class="pixel square"></span>NUOVO ACCOUNT</p>
-            <h1 id="register-title">Crea il tuo<br />account<span>.</span></h1>
-            <p class="lead">Usa la tua email @codestorm.it. Ti invieremo un link per verificarla.</p>
-            <form id="register-form">
-              <label for="register-email">Email</label>
-              <input id="register-email" type="email" maxlength="320" autocomplete="email" required placeholder="nome@codestorm.it" />
-              <label for="register-nickname">Nickname</label>
-              <input id="register-nickname" maxlength="24" autocomplete="nickname" required placeholder="Come ti chiamano?" />
-              <label for="register-password">Password</label>
-              <input id="register-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required />
-              <label for="register-password-confirm">Conferma password</label>
-              <input id="register-password-confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required />
-              <button class="primary" type="submit"><span>Registrati</span><b aria-hidden="true">→</b></button>
-            </form>
-            <p class="auth-switch">Hai già un account? <a href="/login">Accedi</a></p>
-          </section>
-
-          <section id="login-page" data-auth-page hidden aria-labelledby="login-title">
-            <p class="eyebrow"><span class="pixel square"></span>BENTORNATO</p>
+          <section id="login-page" data-auth-page aria-labelledby="login-title">
+            <p class="eyebrow"><span class="pixel square"></span>MICROSOFT</p>
             <h1 id="login-title">Accedi al<br />gioco<span>.</span></h1>
-            <form id="login-form">
-              <label for="login-email">Email</label>
-              <input id="login-email" type="email" maxlength="320" autocomplete="email" required placeholder="nome@codestorm.it" />
-              <label for="login-password">Password</label>
-              <input id="login-password" type="password" maxlength="128" autocomplete="current-password" required />
-              <button class="primary" type="submit"><span>Accedi</span><b aria-hidden="true">→</b></button>
-            </form>
-            <p class="auth-switch"><a href="/forgot-password">Hai dimenticato la password?</a></p>
-            <p class="auth-switch">Non hai un account? <a href="/register">Registrati</a></p>
+            <p class="lead">Usa il tuo account Microsoft abilitato per Super Mario MP.</p>
+            <button class="primary" id="microsoft-login" type="button"><span>Accedi con Microsoft</span><b aria-hidden="true">→</b></button>
           </section>
-
-          <section id="forgot-password-page" data-auth-page hidden aria-labelledby="forgot-password-title">
-            <p class="eyebrow"><span class="pixel square"></span>RECUPERO ACCOUNT</p>
-            <h1 id="forgot-password-title">Reimposta la<br />password<span>.</span></h1>
-            <p class="lead">Inserisci l’email dell’account. Se è registrato, riceverai un link monouso.</p>
-            <form id="forgot-password-form">
-              <label for="forgot-email">Email</label>
-              <input id="forgot-email" type="email" maxlength="320" autocomplete="email" required placeholder="nome@codestorm.it" />
-              <button class="primary" type="submit"><span>Invia il link</span><b aria-hidden="true">→</b></button>
-            </form>
-            <p class="auth-switch"><a href="/login">Torna all’accesso</a></p>
-          </section>
-
-          <section id="verify-email-page" data-auth-page hidden aria-labelledby="verify-email-title">
-            <p class="eyebrow"><span class="pixel square"></span>VERIFICA EMAIL</p>
-            <h1 id="verify-email-title">Conferma il tuo<br />indirizzo<span>.</span></h1>
-            <p class="lead">Il link è monouso e scade dopo 15 minuti. Confermalo per attivare l’account.</p>
-            <form id="verify-email-form">
-              <button class="primary" id="verify-email-submit" type="submit"><span>Verifica email e accedi</span><b aria-hidden="true">→</b></button>
-            </form>
-            <p class="auth-switch"><a href="/register">Richiedi un nuovo link</a></p>
-          </section>
-
-          <section id="reset-password-page" data-auth-page hidden aria-labelledby="reset-password-title">
-            <p class="eyebrow"><span class="pixel square"></span>RECUPERO ACCOUNT</p>
-            <h1 id="reset-password-title">Scegli una nuova<br />password<span>.</span></h1>
-            <form id="reset-password-form">
-              <label for="reset-password">Nuova password</label>
-              <input id="reset-password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required />
-              <label for="reset-password-confirm">Conferma password</label>
-              <input id="reset-password-confirm" type="password" minlength="12" maxlength="128" autocomplete="new-password" required />
-              <button class="primary" id="reset-password-submit" type="submit"><span>Salva password</span><b aria-hidden="true">→</b></button>
-            </form>
-          </section>
-
           <p id="auth-notice" class="notice" role="status" aria-live="polite"></p>
         </div>
       </section>
@@ -124,18 +64,18 @@
             <div id="account-signed-out">
               <p class="eyebrow"><span class="pixel square"></span>ACCOUNT</p>
               <h1 id="account-title">Accedi per<br />giocare<span>.</span></h1>
-              <p class="lead">Accedi con email e password per gestire campagne, progressi e partite.</p>
-              <a class="primary auth-cta" href="/register"><span>Crea un account</span><b aria-hidden="true">→</b></a>
-              <a class="subtle auth-login-link" href="/login">Hai già un account? Accedi</a>
+              <p class="lead">Accedi con Microsoft per gestire campagne, progressi e partite.</p>
+              <a class="primary auth-cta" href="/login"><span>Accedi con Microsoft</span><b aria-hidden="true">→</b></a>
             </div>
             <div id="account-signed-in" hidden>
-              <p class="eyebrow"><span class="pixel square"></span>ACCOUNT VERIFICATO</p>
+              <p class="eyebrow"><span class="pixel square"></span>PROFILO DI GIOCO</p>
               <button id="return-to-game" class="subtle" type="button">Torna al gioco</button>
+              <h2 id="profile-section-title">Il tuo profilo</h2>
               <form id="profile-form" class="profile-form">
                 <label for="profile-nickname">Nickname</label>
                 <div class="inline-form">
                   <input id="profile-nickname" maxlength="24" autocomplete="nickname" required />
-                  <button class="subtle" type="submit">Salva</button>
+                  <button id="profile-submit" class="subtle" type="submit">Salva</button>
                 </div>
                 <small id="profile-email"></small>
               </form>
@@ -272,7 +212,7 @@
         <h2 id="game-info-title">Una campagna, da soli o in compagnia</h2>
         <p>
           Esplora Dinosaur Land nel browser. Le campagne e i progressi sono salvati sul server; in co-op, fino a
-          otto account possono condividere una campagna privata, scegliere Mario o Luigi e invitare i propri amici.
+          otto giocatori possono condividere una campagna privata, scegliere Mario o Luigi e invitare i propri amici.
         </p>
         <p>
           Gioca con tastiera, gamepad o comandi touch. Le partite singole e cooperative usano sessioni autenticate

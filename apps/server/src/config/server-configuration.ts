@@ -10,37 +10,43 @@ const projectRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 export interface ServerConfiguration {
   host: string;
   port: number;
-  webOrigin?: string;
+  webOrigin: string;
   databaseUrl?: string;
-  smtpUrl?: string;
-  emailFrom?: string;
   publicAppUrl?: string;
-  authSessionTtlSeconds: number;
-  authCookieName: string;
+  platformAuthServiceUrl: string;
+  platformAuthProductCode: string;
+  authSessionCookieName: string;
+  authOidcFlowCookieName: string;
   generatedDirectory: string;
   webDistributionDirectory: string;
 }
 
 export function loadServerConfiguration(environment: NodeJS.ProcessEnv = process.env): ServerConfiguration {
+  const platformAuthServiceUrl = required(environment.PLATFORM_AUTH_SERVICE_URL, 'PLATFORM_AUTH_SERVICE_URL');
+  const authUrl = new URL(platformAuthServiceUrl);
+  if (!['http:', 'https:'].includes(authUrl.protocol) || authUrl.username || authUrl.password || authUrl.search || authUrl.hash)
+    throw new Error('PLATFORM_AUTH_SERVICE_URL deve essere un URL HTTP(S) senza credenziali, query o fragment.');
+  const webOrigin = required(environment.WEB_ORIGIN, 'WEB_ORIGIN');
+  const webUrl = new URL(webOrigin);
+  if (!['http:', 'https:'].includes(webUrl.protocol) || webUrl.origin !== webOrigin || webUrl.username || webUrl.password)
+    throw new Error('WEB_ORIGIN deve contenere solo l’origine HTTP(S) dell’applicazione.');
   return {
     host: environment.HOST ?? '127.0.0.1',
     port: Number(environment.PORT ?? 8787),
-    webOrigin: environment.WEB_ORIGIN,
+    webOrigin,
     databaseUrl: environment.DATABASE_URL,
-    smtpUrl: environment.SMTP_URL,
-    emailFrom: environment.EMAIL_FROM,
     publicAppUrl: environment.PUBLIC_APP_URL,
-    authSessionTtlSeconds: positiveInteger(environment.AUTH_SESSION_TTL_SECONDS, 2_592_000),
-    authCookieName: 'smw_session',
+    platformAuthServiceUrl,
+    platformAuthProductCode: required(environment.PLATFORM_AUTH_PRODUCT_CODE, 'PLATFORM_AUTH_PRODUCT_CODE'),
+    authSessionCookieName: environment.SESSION_COOKIE_NAME?.trim() || 'session',
+    authOidcFlowCookieName: environment.OIDC_FLOW_COOKIE_NAME?.trim() || 'oidc_flow',
     generatedDirectory: resolve(projectRoot, 'generated'),
     webDistributionDirectory: resolve(projectRoot, 'apps/web/dist'),
   };
 }
 
-function positiveInteger(value: string | undefined, defaultValue: number) {
-  if (value === undefined) return defaultValue;
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 60 || parsed > 15_552_000)
-    throw new Error('AUTH_SESSION_TTL_SECONDS deve essere compreso tra 60 e 15552000.');
-  return parsed;
+function required(value: string | undefined, name: string) {
+  const normalized = value?.trim();
+  if (!normalized) throw new Error(`${name} è obbligatoria.`);
+  return normalized;
 }

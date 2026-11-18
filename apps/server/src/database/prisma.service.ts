@@ -15,7 +15,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     await this.$connect();
     const now = new Date();
     await this.$transaction([
-      this.emailChallenge.deleteMany({ where: { expiresAt: { lt: now } } }),
       this.gameSession.updateMany({
         where: { status: 'ACTIVE' },
         data: { status: 'INTERRUPTED', closeReason: 'SERVER_RESTART', closedAt: now },

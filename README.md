@@ -1,23 +1,29 @@
 # Super Mario World da solo o in cooperativa
 
-Da uno a otto giocatori possono esplorare la stessa cartuccia europea 1.1 ricostruita per il browser. Le campagne, i progressi e i risultati sono salvati in PostgreSQL; le partite singole e cooperative usano la simulazione server-side. Ogni persona accede con un account verificato via email e sceglie Mario o Luigi per ogni sessione. In co-op, il proprietario condivide una campagna privata tramite invito.
+Da uno a otto giocatori possono esplorare la cartuccia europea 1.1 ricostruita per il browser. Le campagne, i progressi e i risultati sono salvati in PostgreSQL; le partite singole e cooperative usano la simulazione server-side. L’accesso usa Microsoft OIDC tramite Platform Auth. Al primo accesso ogni persona sceglie un nickname univoco e poi Mario o Luigi per ogni sessione. In co-op, il proprietario condivide una campagna privata tramite invito.
 
 ## Giocare
 
-In questa copia di lavoro le risorse sono già estratte. Servono Node 24 o successivo e Docker Compose. Dalla radice del progetto prepara l’ambiente locale ed esegui il comando di sviluppo:
+Il modo consigliato per avviare l’Experience è il profilo dedicato del local stack. Dalla radice di `cs-repository`:
+
+```sh
+npm --prefix platform-local-stack run check-paths -- --profile super-mario-mp
+npm --prefix platform-local-stack run start:dev -- --profile super-mario-mp
+```
+
+Apri [Super Mario MP](http://super-mario-mp.cs.lvh.me:8080). Il profilo avvia Platform Auth, l’app e un PostgreSQL dedicato sulla porta 5442. Il login usa il provider `entra-id` e il product code `super-mario-mp`; l’auto-provisioning OIDC di Platform Auth deve essere attivo. Il primo accesso richiede la scelta del nickname prima di poter aprire campagne o WebSocket.
+
+Per avviare l’Experience da sola servono Node 24+, Docker Compose e un Platform Auth raggiungibile, con il provider Microsoft configurato e la membership del prodotto disponibile:
 
 ```sh
 npm ci
-npm run build
 cp .env.example .env
 npm run dev
 ```
 
-`npm run dev` avvia PostgreSQL e Mailpit con Docker Compose, genera il client Prisma, applica le migrazioni e avvia API e Vite. Apri [il gioco in locale](http://localhost:5173) e [la casella Mailpit](http://localhost:8025) per vedere i link di verifica email e recupero password. Il database usa un volume Docker, quindi i dati restano dopo l’arresto dei processi. `npm run db:down` ferma PostgreSQL e Mailpit senza rimuovere il volume.
+`npm run dev` avvia PostgreSQL sulla porta 5442, genera Prisma Client, applica le migrazioni e avvia API e Vite. Il nuovo volume `smw-postgres-platform-auth` parte vuoto; il volume locale precedente resta inattivo e non viene rimosso. `npm run db:down` ferma il database senza eliminare il volume. Configura `PLATFORM_AUTH_SERVICE_URL`, `PLATFORM_AUTH_PRODUCT_CODE`, `WEB_ORIGIN` e `PUBLIC_APP_URL` per l’ambiente usato.
 
-`SMTP_URL` in `.env` punta già al servizio SMTP locale di Mailpit. I messaggi restano nella casella di sviluppo e non vengono inoltrati ai destinatari reali. Per un ambiente ospitato, configura invece `SMTP_URL` con il provider email scelto e imposta `PUBLIC_APP_URL` sull’indirizzo pubblico dell’app.
-
-Registrati con un indirizzo `@codestorm.it`, scegli nickname e password, poi verifica l’indirizzo dal link email. Per accedere usa email e password; dalla pagina di login puoi chiedere il ripristino della password. Dopo l’accesso crea una campagna singola o co-op. Per una stanza co-op, condividi il codice con un account già invitato alla campagna. Per avviare una partita singola non serve una stanza: anche quella sessione viene salvata dal server e compare nella cronologia account.
+Non esistono più registrazione, password, verifica email o reset locali: login, sessione, membership e logout sono gestiti da Platform Auth. Il profilo di gioco salva soltanto l’identità Auth e il nickname. Per una stanza co-op, condividi il codice con un account membro della campagna. Una sessione singola viene salvata dal server e compare nella cronologia account.
 
 | Comando | Tastiera |
 | --- | --- |
@@ -85,4 +91,4 @@ Avvia il server sul computer che ospita la partita, indicando l’interfaccia di
 HOST=0.0.0.0 PORT=8787 npm start
 ```
 
-Fino a otto account membri della stessa campagna possono giocare via LAN. Per uno stack già preparato, avvia `npm start`; prima applica le migrazioni con `npm run db:migrate:deploy` e configura database, SMTP e `PUBLIC_APP_URL` tramite l’ambiente. Con un reverse proxy HTTPS, inoltra anche l’upgrade WebSocket su `/ws`, conserva l’header `Host` e configura l’accesso privato sul proxy o sulla VPN. Il codice stanza collega i membri autorizzati alla sessione attiva.
+Fino a otto profili membri della stessa campagna possono giocare via LAN. Per uno stack già preparato, avvia `npm start`; prima applica le migrazioni con `npm run db:migrate:deploy` e configura database, `PLATFORM_AUTH_SERVICE_URL`, `PLATFORM_AUTH_PRODUCT_CODE`, `WEB_ORIGIN` e `PUBLIC_APP_URL` tramite l’ambiente. Con un reverse proxy HTTPS, inoltra anche l’upgrade WebSocket su `/ws`, conserva l’header `Host` e configura l’accesso privato sul proxy o sulla VPN. Il codice stanza collega i membri autorizzati alla sessione attiva.

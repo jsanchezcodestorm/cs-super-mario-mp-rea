@@ -13,12 +13,13 @@
   "scripts": {
     "predev": "npm run db:up && npm run prisma:generate && npm run db:migrate:deploy",
     "dev": "tsx --tsconfig apps/server/tsconfig.json apps/server/src/dev.ts",
+    "dev:local-stack": "npm run prisma:generate && npm run db:migrate:deploy && tsx --tsconfig apps/server/tsconfig.json apps/server/src/dev.ts",
     "prestart": "npm run prisma:generate",
     "start": "tsx --tsconfig apps/server/tsconfig.json apps/server/src/main.ts",
     "build": "npm run prisma:generate && npm run check:server && npm run build -w @smw/web",
     "check:server": "tsc --noEmit -p apps/server/tsconfig.json",
     "prisma:generate": "prisma generate --config apps/server/prisma.config.ts",
-    "db:up": "docker compose up --wait -d postgres mailpit",
+    "db:up": "docker compose up --wait -d postgres",
     "db:down": "docker compose down",
     "db:migrate:dev": "prisma migrate dev --config apps/server/prisma.config.ts",
     "db:migrate:deploy": "prisma migrate deploy --config apps/server/prisma.config.ts",
@@ -34,7 +35,6 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "@types/nodemailer": "^8.0.2",
     "@types/ws": "^8.18.1",
     "esbuild": "0.28.2",
     "playwright": "1.65.0",

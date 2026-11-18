@@ -1,6 +1,6 @@
-import { Body, Controller, Get, Inject, Patch, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Put, Req, UseGuards } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../security/request-context.ts';
-import { requireAccount } from '../security/request-context.ts';
+import { requireIdentity } from '../security/request-context.ts';
 import { SameOriginGuard } from '../security/same-origin.guard.ts';
 import { SessionAuthGuard } from '../security/session-auth.guard.ts';
 import { AccountsService } from './accounts.service.ts';
@@ -12,11 +12,13 @@ export class AccountsController {
 
   @Get('me')
   me(@Req() request: AuthenticatedRequest) {
-    return requireAccount(request);
+    const identity = requireIdentity(request);
+    return this.accounts.profileForIdentity(identity.id, identity.email);
   }
 
-  @Patch('me')
+  @Put('me')
   updateProfile(@Req() request: AuthenticatedRequest, @Body() body: Record<string, unknown>) {
-    return this.accounts.updateNickname(requireAccount(request).id, body.nickname);
+    const identity = requireIdentity(request);
+    return this.accounts.saveNickname(identity.id, identity.email, body.nickname);
   }
 }

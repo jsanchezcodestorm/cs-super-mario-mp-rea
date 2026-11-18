@@ -1,7 +1,11 @@
 import type { IncomingMessage } from 'node:http';
 
 export type AuthenticatedAccount = { id: string; email: string; nickname: string };
-export type AuthenticatedRequest = IncomingMessage & { account?: AuthenticatedAccount };
+export type AuthenticatedIdentity = { id: string; email: string };
+export type AuthenticatedRequest = IncomingMessage & {
+  identity?: AuthenticatedIdentity;
+  account?: AuthenticatedAccount;
+};
 
 export function clientAddress(request: IncomingMessage) {
   return request.socket.remoteAddress ?? 'unknown';
@@ -19,4 +23,9 @@ export function readCookie(request: IncomingMessage, name: string) {
 export function requireAccount(request: AuthenticatedRequest) {
   if (!request.account) throw new Error('Sessione autenticata assente.');
   return request.account;
+}
+
+export function requireIdentity(request: AuthenticatedRequest) {
+  if (!request.identity) throw new Error('Identità autenticata assente.');
+  return request.identity;
 }

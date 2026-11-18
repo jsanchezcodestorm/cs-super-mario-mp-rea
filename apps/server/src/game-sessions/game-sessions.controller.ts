@@ -2,11 +2,12 @@ import { BadRequestException, Controller, Get, Inject, Query, Req, UseGuards } f
 import type { AuthenticatedRequest } from '../security/request-context.ts';
 import { requireAccount } from '../security/request-context.ts';
 import { SameOriginGuard } from '../security/same-origin.guard.ts';
+import { GameProfileGuard } from '../security/game-profile.guard.ts';
 import { SessionAuthGuard } from '../security/session-auth.guard.ts';
 import { GameSessionsService } from './game-sessions.service.ts';
 
 @Controller('/api/v1/me/sessions')
-@UseGuards(SessionAuthGuard, SameOriginGuard)
+@UseGuards(SessionAuthGuard, GameProfileGuard, SameOriginGuard)
 export class GameSessionsController {
   constructor(@Inject(GameSessionsService) private readonly sessions: GameSessionsService) {}
 

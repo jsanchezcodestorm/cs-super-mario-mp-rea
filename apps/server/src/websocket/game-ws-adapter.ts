@@ -1,10 +1,10 @@
 import type { INestApplicationContext } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
 import { WsAdapter } from '@nestjs/platform-ws';
 import type { IncomingMessage } from 'node:http';
 import type { ServerConfiguration } from '../config/server-configuration.ts';
 import type { WebSocket } from 'ws';
-import { AuthService } from '../auth/auth.service.ts';
-import { readCookie } from '../security/request-context.ts';
+import { GameSocketIdentityService, requireGameSocketIdentity } from './game-socket-identity.service.ts';
 import { SocketIdentityRegistry } from './socket-identity.registry.ts';
 
 type VerifyClientInfo = { origin: string; req: IncomingMessage };
@@ -14,7 +14,7 @@ export class GameWebSocketAdapter extends WsAdapter {
   constructor(
     app: INestApplicationContext,
     private readonly configuration: ServerConfiguration,
-    private readonly auth: AuthService,
+    private readonly identitiesResolver: GameSocketIdentityService,
     private readonly identities: SocketIdentityRegistry,
   ) {
     super(app, {
@@ -32,23 +32,17 @@ export class GameWebSocketAdapter extends WsAdapter {
       verifyClient: (info: VerifyClientInfo, done: VerifyClientDone) => {
         const originHeader = info.origin || info.req.headers.origin;
         const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
-        if (info.req.url !== '/ws' || !this.allowsOrigin(origin, info.req.headers.host)) {
+        if (info.req.url !== '/ws' || !this.allowsOrigin(origin)) {
           done(false, 403, 'Forbidden');
           return;
         }
-        const token = readCookie(info.req, this.configuration.authCookieName);
-        if (!token) {
-          done(false, 401, 'Authentication required');
-          return;
-        }
-        void this.auth.accountForSession(token).then((account) => {
-          if (!account) {
-            done(false, 401, 'Authentication required');
-            return;
-          }
+        void requireGameSocketIdentity(this.identitiesResolver, info.req).then((account) => {
           this.identities.approveRequest(info.req, account);
           done(true);
-        }).catch(() => done(false, 503, 'Authentication unavailable'));
+        }).catch((error: unknown) => {
+          const status = error instanceof HttpException ? error.getStatus() : 503;
+          done(false, status, status === 403 ? 'Membership required' : 'Authentication unavailable');
+        });
       },
     });
     server.on('connection', (socket: WebSocket, request: IncomingMessage) => {
@@ -57,13 +51,7 @@ export class GameWebSocketAdapter extends WsAdapter {
     return server;
   }
 
-  private allowsOrigin(origin: string | undefined, host: string | undefined) {
-    if (!origin) return false;
-    try {
-      if (new URL(origin).host === host) return true;
-    } catch {
-      return false;
-    }
+  private allowsOrigin(origin: string | undefined) {
     return origin === this.configuration.webOrigin;
   }
 }

@@ -7,7 +7,7 @@ import type { ServerConfiguration } from './config/server-configuration.ts';
 import { HttpModule } from './http/http.module.ts';
 import { MultiplayerModule } from './multiplayer/multiplayer.module.ts';
 import { AccountsModule } from './accounts/accounts.module.ts';
-import { AuthModule } from './auth/auth.module.ts';
+import { PlatformAuthModule } from './platform-auth/platform-auth.module.ts';
 import { GameSessionsModule } from './game-sessions/game-sessions.module.ts';
 import { LeaderboardModule } from './leaderboard/leaderboard.module.ts';
 import { PrismaModule } from './database/prisma.module.ts';
@@ -23,7 +23,7 @@ export class AppModule {
       imports: [
         ConfigurationModule.register(configuration),
         PrismaModule,
-        AuthModule,
+        PlatformAuthModule,
         SecurityModule,
         AccountsModule,
         CampaignModule,

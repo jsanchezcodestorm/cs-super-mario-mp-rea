@@ -6,7 +6,7 @@ import { AppModule } from './app.module.ts';
 import { loadServerConfiguration, type ServerConfiguration } from './config/server-configuration.ts';
 import { StaticContentHandler } from './http/static-content.ts';
 import { GameWebSocketAdapter } from './websocket/game-ws-adapter.ts';
-import { AuthService } from './auth/auth.service.ts';
+import { GameSocketIdentityService } from './websocket/game-socket-identity.service.ts';
 import { SocketIdentityRegistry } from './websocket/socket-identity.registry.ts';
 
 export async function createServerApplication(
@@ -17,7 +17,7 @@ export async function createServerApplication(
   app.useWebSocketAdapter(new GameWebSocketAdapter(
     app,
     configuration,
-    app.get(AuthService),
+    app.get(GameSocketIdentityService),
     app.get(SocketIdentityRegistry),
   ));
   const staticContent = app.get(StaticContentHandler);

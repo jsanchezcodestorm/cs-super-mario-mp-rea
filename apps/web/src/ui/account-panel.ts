@@ -1,4 +1,4 @@
-import { accountApi, isUnauthorized, type AccountProfile } from '../session/api';
+import { accountApi, isUnauthorized, type AccountProfile, type PlatformUser } from '../session/api';
 import { el } from './lobby';
 
 const pendingInviteKey = 'smw.pending-campaign-invite.v1';
@@ -22,8 +22,14 @@ export class AccountPanel {
 
   async initialize() {
     try {
+      const session = await accountApi.session();
+      if (!session.user) {
+        this.setSignedOut();
+        return;
+      }
       const account = await accountApi.me();
-      await this.setAuthenticated(account);
+      if (account) await this.setAuthenticated(account);
+      else this.setOnboarding(session.user);
     } catch (error) {
       if (isUnauthorized(error)) {
         this.setSignedOut();
@@ -36,7 +42,7 @@ export class AccountPanel {
 
   private async updateNickname() {
     await this.perform(async () => {
-      const account = await accountApi.updateNickname(el<HTMLInputElement>('profile-nickname').value);
+      const account = await accountApi.saveNickname(el<HTMLInputElement>('profile-nickname').value);
       await this.setAuthenticated(account);
       this.notice('Nickname aggiornato.');
     });
@@ -56,9 +62,26 @@ export class AccountPanel {
     el('account-signed-in').hidden = false;
     el('account-view').hidden = true;
     el('start-view').hidden = false;
+    el<HTMLButtonElement>('return-to-game').hidden = false;
+    el('profile-section-title').textContent = 'Il tuo profilo';
+    el<HTMLButtonElement>('profile-submit').textContent = 'Salva';
+    for (const section of document.querySelectorAll<HTMLElement>('#account-signed-in .account-section')) section.hidden = false;
     el<HTMLInputElement>('profile-nickname').value = account.nickname;
     el('profile-email').textContent = account.email;
     await this.callbacks.authenticated(account);
+  }
+
+  private setOnboarding(user: PlatformUser) {
+    el('account-signed-out').hidden = true;
+    el('account-signed-in').hidden = false;
+    el('account-view').hidden = false;
+    el('start-view').hidden = true;
+    el<HTMLButtonElement>('return-to-game').hidden = true;
+    el('profile-section-title').textContent = 'Scegli il tuo nickname';
+    el<HTMLButtonElement>('profile-submit').textContent = 'Completa il profilo';
+    el<HTMLInputElement>('profile-nickname').value = '';
+    el('profile-email').textContent = user.email;
+    for (const section of document.querySelectorAll<HTMLElement>('#account-signed-in .account-section')) section.hidden = true;
   }
 
   private setSignedOut() {
@@ -66,6 +89,9 @@ export class AccountPanel {
     el('account-signed-out').hidden = false;
     el('account-signed-in').hidden = true;
     el('start-view').hidden = true;
+    el<HTMLButtonElement>('return-to-game').hidden = false;
+    el<HTMLButtonElement>('profile-submit').textContent = 'Salva';
+    for (const section of document.querySelectorAll<HTMLElement>('#account-signed-in .account-section')) section.hidden = false;
   }
 
   private readLinks() {
@@ -75,14 +101,6 @@ export class AccountPanel {
       sessionStorage.setItem(pendingInviteKey, invite);
       url.searchParams.delete('invite');
       history.replaceState(null, '', url);
-    }
-    const token = url.searchParams.get('token');
-    if (url.searchParams.get('auth') === 'verify' && token && /^[A-Za-z0-9_-]{40,64}$/.test(token)) {
-      url.pathname = '/verify-email';
-      url.searchParams.delete('auth');
-      history.replaceState(null, '', url);
-    } else if (url.searchParams.has('auth')) {
-      this.notice('Il link non è valido o è incompleto.');
     }
   }
 

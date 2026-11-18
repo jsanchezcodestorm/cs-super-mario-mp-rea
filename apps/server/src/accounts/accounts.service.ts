@@ -1,19 +1,29 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service.ts';
-import { nicknameKeyOf, normalizeNickname } from '../auth/auth.service.ts';
+import { nicknameKeyOf, normalizeNickname } from './nickname.ts';
 
 @Injectable()
 export class AccountsService {
   constructor(@Inject(PrismaService) private readonly database: PrismaService) {}
 
-  async updateNickname(accountId: string, value: unknown) {
+  async profileForIdentity(identityId: string, email: string) {
+    const profile = await this.database.account.findUnique({
+      where: { id: identityId },
+      select: { id: true, nickname: true },
+    });
+    return profile ? { ...profile, email } : null;
+  }
+
+  async saveNickname(identityId: string, email: string, value: unknown) {
     const nickname = normalizeNickname(value);
     try {
-      return await this.database.account.update({
-        where: { id: accountId },
-        data: { nickname, nicknameKey: nicknameKeyOf(nickname) },
-        select: { id: true, email: true, nickname: true, emailVerifiedAt: true, createdAt: true },
+      const profile = await this.database.account.upsert({
+        where: { id: identityId },
+        update: { nickname, nicknameKey: nicknameKeyOf(nickname) },
+        create: { id: identityId, nickname, nicknameKey: nicknameKeyOf(nickname) },
+        select: { id: true, nickname: true },
       });
+      return { ...profile, email };
     } catch (error) {
       if (isUniqueViolation(error)) throw new ConflictException('Il nickname è già in uso.');
       throw error;

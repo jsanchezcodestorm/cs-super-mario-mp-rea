@@ -2,11 +2,12 @@ import { Body, Controller, Delete, Get, Inject, Param, Post, Req, UseGuards } fr
 import type { AuthenticatedRequest } from '../security/request-context.ts';
 import { requireAccount } from '../security/request-context.ts';
 import { SameOriginGuard } from '../security/same-origin.guard.ts';
+import { GameProfileGuard } from '../security/game-profile.guard.ts';
 import { SessionAuthGuard } from '../security/session-auth.guard.ts';
 import { CampaignsService } from './campaigns.service.ts';
 
 @Controller('/api/v1')
-@UseGuards(SessionAuthGuard, SameOriginGuard)
+@UseGuards(SessionAuthGuard, GameProfileGuard, SameOriginGuard)
 export class CampaignsController {
   constructor(@Inject(CampaignsService) private readonly campaigns: CampaignsService) {}
 
