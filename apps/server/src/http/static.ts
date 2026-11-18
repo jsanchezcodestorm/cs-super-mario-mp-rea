@@ -11,6 +11,7 @@ const types: Record<string, string> = {
   '.json': 'application/json',
   '.png': 'image/png',
   '.m4a': 'audio/mp4',
+  '.wav': 'audio/wav',
   '.mp4': 'video/mp4',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
